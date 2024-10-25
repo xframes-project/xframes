@@ -2,7 +2,14 @@
   "name": "reactdearimgui",
   "version-string": "1.0.0",
   "dependencies": [
-    "nlohmann-json",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "opengl3-binding",
+        "dx12-binding"
+      ]
+    },
     "opengl-registry",
     "stb",
     "ada-url",

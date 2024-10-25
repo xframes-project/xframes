@@ -24,25 +24,25 @@ const assetsBasePath = "C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\
 
 nodeImgui.init(assetsBasePath, JSON.stringify(fontDefs), JSON.stringify(theme2));
 
-const widgetRegistrationService = new WidgetRegistrationService(nodeImgui);
+// const widgetRegistrationService = new WidgetRegistrationService(nodeImgui);
 
-ReactNativePrivateInterface.nativeFabricUIManager.init(nodeImgui, widgetRegistrationService);
+// ReactNativePrivateInterface.nativeFabricUIManager.init(nodeImgui, widgetRegistrationService);
 
-// todo start rendering when init() is completed, i.e. wait for onInit() to be invoked (add support for events)
-setTimeout(() => {
-    ReactFabricProd.render(
-        <WidgetRegistrationServiceContext.Provider value={widgetRegistrationService}>
-            <App />
-        </WidgetRegistrationServiceContext.Provider>,
-        0, // containerTag,
-        () => {
-            // console.log("initialised");
-        },
-        1,
-    );
+// // todo start rendering when init() is completed, i.e. wait for onInit() to be invoked (add support for events)
+// setTimeout(() => {
+//     ReactFabricProd.render(
+//         <WidgetRegistrationServiceContext.Provider value={widgetRegistrationService}>
+//             <App />
+//         </WidgetRegistrationServiceContext.Provider>,
+//         0, // containerTag,
+//         () => {
+//             // console.log("initialised");
+//         },
+//         1,
+//     );
 
-    nodeImgui.showDebugWindow();
-}, 500);
+//     nodeImgui.showDebugWindow();
+// }, 500);
 
 let flag = true;
 (function keepProcessRunning() {

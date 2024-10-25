@@ -4,6 +4,7 @@ set(CMAKE_GENERATOR "Ninja")
 set(CMAKE_TOOLCHAIN_FILE ../deps/vcpkg/scripts/buildsystems/vcpkg.cmake)
 
 set(VCPKG_TARGET_TRIPLET "x64-windows")
+#set(VCPKG_TARGET_TRIPLET "x86-windows")
 
 project(reactDearImgui LANGUAGES C CXX)
 

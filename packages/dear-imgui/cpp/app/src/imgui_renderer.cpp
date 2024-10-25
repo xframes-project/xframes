@@ -2,8 +2,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define GL_SILENCE_DEPRECATION
+
+#include "imgui.h"
 #include "imgui_impl_glfw.h"
-#include <GLFW/glfw3.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -13,7 +15,11 @@
 #include "imgui_impl_opengl3.h"
 #endif
 
+#include <GLFW/glfw3.h>
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
+#pragma comment(lib, "legacy_stdio_definitions")
+#endif
 
 #ifdef __EMSCRIPTEN__
 #include <functional>
@@ -28,6 +34,8 @@ static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
 
 #include "./reactimgui.h"
 #include "imgui_renderer.h"
+
+
 
 #include <utility>
 
@@ -200,7 +208,8 @@ ImGuiStyle& ImGuiRenderer::GetStyle() {
 
 void ImGuiRenderer::InitGlfw() {
     glfwSetErrorCallback(glfw_error_callback);
-    glfwInit();
+    if (!glfwInit())
+        printf("Unable to initialize GLFW\n");
 
 #ifdef __EMSCRIPTEN__
     // Make sure GLFW does not initialize any graphics context.
@@ -210,7 +219,10 @@ void ImGuiRenderer::InitGlfw() {
     const char* glsl_version = "#version 130";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
+
+
 
     m_glfwWindow = glfwCreateWindow(m_window_width, m_window_height, m_glWindowTitle, nullptr, nullptr);
 
@@ -396,53 +408,105 @@ void ImGuiRenderer::SetCurrentContext() {
 }
 
 void ImGuiRenderer::BeginRenderLoop() {
-    // SetCurrentContext();
+    glfwSetErrorCallback(glfw_error_callback);
+    if (!glfwInit())
+        return;
 
-#ifdef __EMSCRIPTEN__
-    LoadFontsFromDefs();
+    // Decide GL+GLSL versions
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+    // GL ES 2.0 + GLSL 100
+    const char* glsl_version = "#version 100";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(__APPLE__)
+    // GL 3.2 + GLSL 150
+    const char* glsl_version = "#version 150";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
 #else
-    LoadFontsFromDefs();
-    // printf("Adding default font\n");
-    // m_imGuiCtx->IO.Fonts->AddFontDefault();
-
-    // m_imGuiCtx->IO.FontDefault = m_imGuiCtx->IO.Fonts->Fonts[0];
-
-    // printf("Default font added\n");
+    // GL 3.0 + GLSL 130
+    const char* glsl_version = "#version 130";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
-    m_reactImgui->Init(this);
+    // Create window with graphics context
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", nullptr, nullptr);
+    if (window == nullptr)
+        return;
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // Enable vsync
 
-    SetUp();
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+#ifdef __EMSCRIPTEN__
+    ImGui_ImplGlfw_InstallEmscriptenCanvasResizeCallback("#canvas");
+#endif
+    ImGui_ImplOpenGL3_Init(glsl_version);
+
+    GLuint texture = 0;
+
+    LoadTexture(&texture);
+
+
 
     // Main loop
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_BEGIN
 #else
-    while (!glfwWindowShouldClose(m_glfwWindow))
+    while (!glfwWindowShouldClose(window))
 #endif
     {
         glfwPollEvents();
 
-        HandleScreenSizeChanged();
-
-        // SetCurrentContext();
-
-    #ifdef __EMSCRIPTEN__
-        ImGui_ImplWGPU_NewFrame();
-    #else
+        // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
-    #endif
-
         ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
-        m_reactImgui->Render(m_window_width, m_window_height);
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        // if (show_demo_window)
+            // ImGui::ShowDemoWindow(&show_demo_window);
 
-        PerformRendering();
+        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+
+            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+            ImGui::Image((ImTextureID)(intptr_t)texture, ImVec2(200, 200));
+
+            ImGui::End();
+        }
 
 
-    #ifndef __EMSCRIPTEN__
-        glfwSwapBuffers(m_glfwWindow);
-    #endif
+        // Rendering
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glViewport(0, 0, display_w, display_h);
+        glClearColor(m_clearColor.x * m_clearColor.w, m_clearColor.y * m_clearColor.w, m_clearColor.z * m_clearColor.w, m_clearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glfwSwapBuffers(window);
     }
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_END;
@@ -570,27 +634,28 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
     return true;
 }
 #else
-bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, GLuint* texture) {
+bool ImGuiRenderer::LoadTexture(GLuint* out_texture) {
+    printf("LoadTexture()\n");
+
     // Load from file
     int image_width = 0;
     int image_height = 0;
-    unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)numBytes, &image_width, &image_height, NULL, 4);
-    if (image_data == NULL)
-        return false;
+    // unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)numBytes, &image_width, &image_height, NULL, 4);
+    // if (image_data == NULL)
+        // return false;
 
     // int comp;
 
-    // unsigned char* image_data = stbi_load("C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\sample-raster-map.png", &image_width, &image_height, &comp, STBI_rgb_alpha);
+    unsigned char* image_data = stbi_load("C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\sample-raster-map.png", &image_width, &image_height, NULL, STBI_rgb_alpha);
 
     printf("comp %d %d\n", image_width, image_height);
 
-    GLuint textureId;
+    // GLuint textureId;
 
     // Create a OpenGL texture identifier
-    // GLuint image_texture;
-    glGenTextures(1, &textureId);
-    // glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*) &texture->textureView);
-    glBindTexture(GL_TEXTURE_2D, textureId);
+    GLuint image_texture;
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
 
     // Setup filtering parameters for display
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -602,9 +667,9 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, GLuint* te
 
     stbi_image_free(image_data);
 
-    // printf("%d\n", (void*)(intptr_t)suga);
+    *out_texture = image_texture;
 
-    *texture = textureId;
+    printf(" aa %x\n", (void*)(intptr_t)*out_texture);
 
     return true;
 }

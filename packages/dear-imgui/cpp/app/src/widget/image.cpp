@@ -1,11 +1,10 @@
+#include <cstdio>
 #include <imgui.h>
-
-#define CPPHTTPLIB_OPENSSL_SUPPORT
-#include "httplib.h"
 
 #include "widget/image.h"
 #include "reactimgui.h"
 #include "imgui_renderer.h"
+
 
 #ifndef __EMSCRIPTEN__
 size_t curlCallback(void *data, size_t size, size_t nmemb, void *userp) {
@@ -65,7 +64,7 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             ImGui::PushID(m_id);
             ImGui::BeginGroup();
 
-            // ImGui::Text("%x", m_texture.textureView);
+            // ImGui::Text("%x", m_view->m_renderer->m_textureId);
 
             // ImGui::InvisibleButton("##image", imageSize);
             // ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -85,7 +84,7 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
         #else
             // drawList->AddImage((ImTextureID)(intptr_t)view->m_renderer->m_imGuiCtx->IO.Fonts->TexID, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
 
-            ImGui::Image((ImTextureID)(intptr_t)m_textureId, ImVec2(24, 24));
+            ImGui::Image((ImTextureID)(intptr_t)m_view->m_renderer->m_textureId, ImVec2(24, 24));
         #endif
 
             // ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
@@ -129,13 +128,13 @@ void Image::HandleFetchImageFailure(emscripten_fetch_t *fetch) {
 };
 #else
 void Image::HandleFetchImageSuccess(void *buffer, size_t realSize) {
-    if (m_view->m_renderer->LoadTexture(buffer, (int)realSize, &m_textureId)) {
-        printf("Fetched image using url %s and loaded as texture\n", m_url.c_str());
-
-        YGNodeMarkDirty(m_layoutNode->m_node);
-    } else {
-        printf("Fetched image using url %s but unable to load as texture\n", m_url.c_str());
-    }
+    // if (m_view->m_renderer->LoadTexture(buffer, (int)realSize, &m_textureId)) {
+    //     printf("Fetched image using url %s and loaded as texture\n", m_url.c_str());
+    //
+    //     YGNodeMarkDirty(m_layoutNode->m_node);
+    // } else {
+    //     printf("Fetched image using url %s but unable to load as texture\n", m_url.c_str());
+    // }
 };
 
 void Image::HandleFetchImageFailure() {
@@ -177,14 +176,25 @@ void Image::FetchImage() {
     emscripten_fetch(&attr, m_url.c_str());
 };
 #else
+
 void Image::FetchImage() {
-    httplib::Client cli(m_parsedUrl.get_host());
 
-    auto res = cli.Get(std::string(m_parsedUrl.get_pathname()));
 
-    printf("%d\n", res->status);
+    // httplib::Client cli(m_parsedUrl.get_host());
 
-    HandleFetchImageSuccess((void*)res->body.c_str(), res->body.size());
+    // auto res = cli.Get(std::string(m_parsedUrl.get_pathname()));
+
+    // printf("%d\n", res->status);
+
+    // HandleFetchImageSuccess((void*)res->body.c_str(), res->body.size());
+
+    // int my_image_width = 0;
+    // int my_image_height = 0;
+    // GLuint my_image_texture = 0;
+
+    printf("FetchImage()\n");
+
+    // bool ret = m_view->m_renderer->LoadTexture();
 }
 #endif
 

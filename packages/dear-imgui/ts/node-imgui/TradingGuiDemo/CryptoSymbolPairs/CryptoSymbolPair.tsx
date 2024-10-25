@@ -14,7 +14,7 @@ export const CryptoSymbolPair = ({ symbol }: Props) => {
                     flexDirection: "row",
                 },
                 symbolLogoLeft: {
-                    width: 24,
+                    width: 160,
                     height: 24,
                 },
                 symbolLogoRight: {
@@ -33,10 +33,10 @@ export const CryptoSymbolPair = ({ symbol }: Props) => {
                 style={styleSheet.symbolLogoLeft}
             />
 
-            <ReactImgui.Image
+            {/* <ReactImgui.Image
                 url="https://res.cloudinary.com/dep2io067/image/upload/c_thumb,w_24,g_face/v1728468387/77-771550_dollar-currency-money-finance-usd-us-dollar-dollar_apzzg2.png"
                 style={styleSheet.symbolLogoRight}
-            />
+            /> */}
         </ReactImgui.Node>
     );
 };

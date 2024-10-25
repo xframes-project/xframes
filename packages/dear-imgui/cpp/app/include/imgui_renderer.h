@@ -1,10 +1,11 @@
-#ifndef IMGUI_VIEW
-#define IMGUI_VIEW
+#ifndef IMGUI_RENDERER
+#define IMGUI_RENDERER
 
 #include <format>
 
 #include "IconsFontAwesome6.h"
 #include "imgui.h"
+
 
 
 #ifdef __EMSCRIPTEN__
@@ -78,7 +79,9 @@ class ImGuiRenderer {
 
         const char* m_windowId;
 
-        bool LoadTexture(const void* data, int numBytes, GLuint* texture);
+        bool LoadTexture(GLuint* texture);
+
+        GLuint m_textureId = 0;
 
         // virtual void PrepareForRender() = 0;
         // virtual void Render(int window_width, int window_height) = 0;

@@ -22,6 +22,7 @@
 #include "element/layout_node.h"
 
 #include "shared.h"
+#include "widget/styled_widget.h"
 #include "implot_renderer.h"
 #include "reactimgui.h"
 
@@ -49,7 +50,6 @@
 #include "widget/separator_text.h"
 #include "widget/slider.h"
 #include "widget/widget.h"
-#include "widget/styled_widget.h"
 #include "widget/table.h"
 #include "widget/tabs.h"
 #include "widget/text.h"
@@ -301,21 +301,34 @@ void ReactImgui::SetUpFloatFormatChars() {
 };
 
 void ReactImgui::Init(ImGuiRenderer* renderer) {
+    printf("Init a\n");
     m_renderer = renderer;
 
+    printf("Init b\n");
     if (m_rawStyleOverridesDefs.has_value()) {
+        printf("Init c\n");
         m_renderer->m_shouldLoadDefaultStyle = false;
+        printf("Init d\n");
         PatchStyle(json::parse(m_rawStyleOverridesDefs.value()));
+        printf("Init e\n");
     }
 
     TakeStyleSnapshot();
 
+    printf("Init f\n");
+
     PrepareForRender();
+
+    printf("Init g\n");
     SetUpSubjects();
+
+    printf("Init h\n");
 
     m_renderer->SetCurrentContext();
 
-    m_onInit();
+    printf("Init i\n");
+
+    // m_onInit();
 }
 
 void ReactImgui::PrepareForRender() {

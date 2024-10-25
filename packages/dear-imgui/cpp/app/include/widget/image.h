@@ -1,13 +1,18 @@
+#ifndef WIDGET_IMAGE
+#define WIDGET_IMAGE
+
 #include <optional>
 #include "ada.h"
 // #include "mapgenerator.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
 
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten/fetch.h>
 #else
-#include <curl/curl.h>
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include "httplib.h"
 #endif
 
 #ifndef __EMSCRIPTEN__
@@ -27,7 +32,7 @@ private:
     Texture m_texture;
 
 #ifndef __EMSCRIPTEN__
-    GLuint m_textureId;
+    GLuint m_textureId = 0;
 #endif
 
 public:
@@ -100,3 +105,5 @@ public:
         FetchImage();
     }
 };
+
+#endif

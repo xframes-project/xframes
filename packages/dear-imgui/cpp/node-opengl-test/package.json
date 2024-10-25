@@ -1,0 +1,23 @@
+{
+  "name": "node-imgui",
+  "version": "0.0.1",
+  "description": "A Node.js ImGui implementation",
+  "main": "hello.js",
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "cmake-js": "^7.3.0",
+    "node-addon-api": "^8.1.0",
+    "react": "18.2.0"
+  },
+  "scripts": {
+    "build": "cmake-js compile",
+    "_prebuild": "prebuild --backend cmake-js --strip",
+    "_prebuild-all": "prebuild --all --backend cmake-js --strip",
+    "test": "node hello.js"
+  },
+  "binary": {
+    "napi_versions": [
+      9
+    ]
+  }
+}

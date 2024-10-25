@@ -27,7 +27,7 @@ export const CryptoSymbolBlock = ({ symbol }: Props) => {
                     // borderThickness: 1,
                 },
                 symbolLogos: {
-                    width: 60,
+                    width: 160,
                     height: 40,
                     alignItems: "center",
                     justifyContent: "center",
