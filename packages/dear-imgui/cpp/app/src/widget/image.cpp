@@ -10,6 +10,8 @@
 #include "reactimgui.h"
 #include "imgui_renderer.h"
 
+using json = nlohmann::json;
+
 bool Image::HasCustomWidth() {
     return false;
 }
@@ -33,17 +35,17 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             ImGui::PushID(m_id);
             ImGui::BeginGroup();
 
-            ImGui::Text("%x", view->m_imageToTextureMap[m_id]);
+            // ImGui::Text("%x", view->m_imageToTextureMap[m_id]);
 
             // ImGui::InvisibleButton("##image", imageSize);
             ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-            // if (!ImGui::IsItemVisible()) {
-            //     // Skip rendering as ImDrawList elements are not clipped.
-            //     ImGui::EndGroup();
-            //     ImGui::PopID();
-            //     return;
-            // }
+            if (!ImGui::IsItemVisible()) {
+                // Skip rendering as ImDrawList elements are not clipped.
+                ImGui::EndGroup();
+                ImGui::PopID();
+                return;
+            }
 
             const ImVec2 p0 = ImGui::GetItemRectMin();
             const ImVec2 p1 = ImGui::GetItemRectMax();
@@ -52,6 +54,7 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             drawList->AddImage((void*)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
         #else
             // drawList->AddImage((void*)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+            drawList->AddImage((ImTextureID)(intptr_t)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
         #endif
             // ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
             // ImVec2 uv_max = ImVec2(1.0f, 1.0f);                 // Lower-right
@@ -75,6 +78,8 @@ void Image::HandleInternalOp(const json& opDef) {
         auto op = opDef["op"].template get<std::string>();
 
         if (op == "reloadImage") {
+            FetchImage();
+        } else if (op == "loadImage") {
             FetchImage();
         }
     }
@@ -128,10 +133,44 @@ void Image::FetchImage() {
     emscripten_fetch(&attr, m_url.c_str());
 };
 #else
-void Image::FetchImage() {
-printf("FetchImage\n");
+void Image::QueueFetchImage() {
+    printf("QueueFetchImage\n");
 
-    m_view->m_requestTextureFn(m_id, m_url);
+    json op;
+    op["id"] = m_id;
+    op["op"] = "loadImage";
+
+    auto opString = op.dump();
+
+    m_view->QueueElementInternalOp(m_id, opString);
+}
+
+void Image::FetchImage() {
+    printf("FetchImage\n");
+
+    FILE* f = fopen(R"(C:\u-blox\gallery\ubx\ulogr\react-imgui\packages\dear-imgui\assets\bitcoin-btc-logo_gqud0f.png)", "rb");
+    if (f == NULL) {
+        printf("Unable to open file\n");
+    }
+
+    fseek(f, 0, SEEK_END);
+
+    size_t file_size = (size_t)ftell(f);
+
+    if (file_size == -1) {
+        printf("Unable to determine file size of image\n");
+    }
+
+    fseek(f, 0, SEEK_SET);
+
+    void* file_data = IM_ALLOC(file_size);
+
+    fread(file_data, 1, file_size, f);
+
+
+    m_view->m_renderer->LoadTexture(file_data, file_size);
+
+    IM_FREE(file_data);
 }
 #endif
 

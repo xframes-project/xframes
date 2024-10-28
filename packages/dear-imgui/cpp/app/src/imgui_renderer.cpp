@@ -1,7 +1,8 @@
-#ifdef __EMSCRIPTEN__
+#define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>
 #include <webgpu/webgpu.h>
@@ -226,6 +227,12 @@ void ImGuiRenderer::InitGlfw() {
 
     ImGui_ImplGlfw_InitForOpenGL(m_glfwWindow, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+    glEnable(GL_TEXTURE_2D);
+
+    if (!glIsEnabled(GL_TEXTURE_2D)) {
+        printf("GL_TEXTURE_2D is disabled\n");
+    }
 #endif
 }
 
@@ -412,28 +419,83 @@ void ImGuiRenderer::BeginRenderLoop() {
     while (!glfwWindowShouldClose(m_glfwWindow))
 #endif
     {
+        // printf("aaaa\n");
+        std::unique_lock<std::mutex> lck(m_glfwContext_mutex);
+        // printf("1111111111111111\n");
+
+        // glfwMakeContextCurrent(m_glfwWindow);
+
+        // printf("1111111111111111 a\n");
+
         glfwPollEvents();
+
+        // printf("1111111111111111 b\n");
 
         HandleScreenSizeChanged();
 
+        // printf("1111111111111111 c\n");
+
         // SetCurrentContext();
 
-    #ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
         ImGui_ImplWGPU_NewFrame();
-    #else
+#else
         ImGui_ImplOpenGL3_NewFrame();
-    #endif
+#endif
 
         ImGui_ImplGlfw_NewFrame();
 
+        // printf("1111111111111111 d\n");
+
+        if (!m_reactImgui->m_imageToTextureMap.contains(24)) {
+            FILE* f = fopen("C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\bitcoin-btc-logo_gqud0f.png", "rb");
+            if (f == NULL) {
+                printf("Unable to open file\n");
+            }
+
+            fseek(f, 0, SEEK_END);
+
+            size_t file_size = (size_t)ftell(f);
+
+            if (file_size == -1) {
+                printf("Unable to determine file size of image\n");
+            }
+
+            fseek(f, 0, SEEK_SET);
+
+            void* file_data = IM_ALLOC(file_size);
+
+            fread(file_data, 1, file_size, f);
+
+
+
+            m_reactImgui->m_imageToTextureMap[24] = LoadTexture(file_data, file_size);
+        }
+
         m_reactImgui->Render(m_window_width, m_window_height);
+
+
+
+        // printf("1111111111111111 e\n");
 
         PerformRendering();
 
+        // printf("1111111111111111 f\n");
 
-    #ifndef __EMSCRIPTEN__
+
+#ifndef __EMSCRIPTEN__
         glfwSwapBuffers(m_glfwWindow);
-    #endif
+
+        // printf("1111111111111111 g\n");
+#endif
+
+        // glfwMakeContextCurrent(NULL);
+
+        // printf("1111111111111111 h\n");
+
+        lck.release()->unlock();
+
+        // printf("1111111111111111 i\n");
     }
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_END;
@@ -561,8 +623,51 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
     return true;
 }
 #else
-bool LoadTexture(const void* data, const int numBytes, Texture* texture) {
-    return true;
+GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
+    printf("bbbb\n");
+    // std::unique_lock<std::mutex> lck(m_glfwContext_mutex);
+    printf("00000000000000000\n");
+
+    // glfwMakeContextCurrent(m_glfwWindow);
+
+    glEnable(GL_TEXTURE_2D);
+
+    if (!glIsEnabled(GL_TEXTURE_2D)) {
+        printf("GL_TEXTURE_2D is disabledddd\n");
+    }
+
+    int image_width = 0;
+    int image_height = 0;
+    unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)numBytes, &image_width, &image_height, NULL, 4);
+    if (image_data == NULL) {
+        printf("Unable to load image from memory\n");
+    }
+
+    printf("%d %d\n", image_width, image_height);
+
+    // Create a OpenGL texture identifier
+    GLuint image_texture = 0;
+
+
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
+
+    printf("%x\n", image_texture);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Upload pixels into texture
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+    stbi_image_free(image_data);
+
+    // glfwMakeContextCurrent(NULL);
+
+    // lck.release()->unlock();
+
+    return image_texture;
 }
 #endif
 

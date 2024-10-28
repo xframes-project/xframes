@@ -56,6 +56,10 @@ public:
 
     void HandleInternalOp(const json& opDef) override;
 
+#ifndef __EMSCRIPTEN__
+    void QueueFetchImage();
+#endif
+
     void FetchImage();
 
 #ifdef __EMSCRIPTEN__
@@ -70,6 +74,17 @@ public:
         YGNodeSetContext(m_layoutNode->m_node, this);
         YGNodeSetMeasureFunc(m_layoutNode->m_node, Measure);
 
+#ifdef __EMSCRIPTEN__
         FetchImage();
+#else
+        printf("about to QueueFetchImage %d\n", m_id);
+
+        // std::thread a ([&]() {
+        //     QueueFetchImage();
+        // });
+        //
+        // a.detach();
+
+#endif
     }
 };

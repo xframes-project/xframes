@@ -447,6 +447,15 @@ void ReactImgui::Render(const int window_width, const int window_height) {
     }
     // *** END DEBUG ***
 
+    if (m_imageToTextureMap.contains(24)) {
+
+        if (!glIsEnabled(GL_TEXTURE_2D)) {
+            printf("GL_TEXTURE_2D is disabledddd\n");
+        }
+
+        ImGui::Image((ImTextureID)(intptr_t)m_imageToTextureMap[24], ImVec2(24, 24));
+    }
+
     ImGui::End();
     ImGui::Render();
 };

@@ -3,9 +3,6 @@
 #include <GLFW/glfw3.h>
 #include <GLES3/gl3.h>
 
-#define _CRT_SECURE_NO_WARNINGS
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 #include <thread>
 #include <cstdio>
@@ -162,9 +159,7 @@ class Runner {
             printf("%d %s\n", widgetId, resourceLocation.c_str());
 
             auto ins = getInstance();
-            // "C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\sample-raster-map.png"
-            // ins->loadTexture(widgetId, resourceLocation.c_str());
-            ins->loadTexture(widgetId, "C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\sample-raster-map.png");
+            // ins->loadTexture(widgetId, "C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\sample-raster-map.png");
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -179,7 +174,7 @@ class Runner {
             m_rawStyleOverridesDefs.emplace(rawStyleOverridesDefs);
         }
 
-        void run() {
+        void init() {
             m_reactImgui = new ReactImgui("ReactImgui", m_rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
                 m_reactImgui,
@@ -201,6 +196,9 @@ class Runner {
                 OnClick,
                 RequestTexture
             );
+        }
+
+        void run() {
             m_renderer->Init();
         }
 
@@ -355,37 +353,7 @@ class Runner {
         }
 
         void loadTextureFromMemory(const int widgetId, const void* data, size_t data_size) {
-            // Load from file
-            int image_width = 0;
-            int image_height = 0;
-            unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)data_size, &image_width, &image_height, NULL, 4);
-            if (image_data == NULL) {
-                printf("Unable to load image from memory\n");
-            }
-
-            printf("%d %d\n", image_width, image_height);
-
-            // Create a OpenGL texture identifier
-            GLuint image_texture = 0;
-            glGenTextures(1, &image_texture);
-            glBindTexture(GL_TEXTURE_2D, image_texture);
-
-            printf("%x\n", image_texture);
-
-            // Setup filtering parameters for display
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-            // Upload pixels into texture
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-            stbi_image_free(image_data);
-
-            // *out_texture = image_texture;
-            // *out_width = image_width;
-            // *out_height = image_height;
-
-            m_reactImgui->m_imageToTextureMap[widgetId] = image_texture;
+            m_reactImgui->m_imageToTextureMap[widgetId] = m_renderer->LoadTexture(data, data_size);
         }
 };
 
@@ -531,6 +499,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
     pRunner->SetRawFontDefs(info[1].As<Napi::String>().Utf8Value());
     pRunner->SetRawStyleOverridesDefs(info[2].As<Napi::String>().Utf8Value());
+
+    pRunner->init();
 
     printf("Starting UI thread\n");
 

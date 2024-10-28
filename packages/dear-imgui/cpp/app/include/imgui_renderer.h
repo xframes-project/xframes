@@ -2,6 +2,7 @@
 #define IMGUI_VIEW
 
 #include <format>
+#include <mutex>
 
 #include "IconsFontAwesome6.h"
 #include "imgui.h"
@@ -29,8 +30,6 @@ class ImGuiRenderer {
         std::string m_rawFontDefs;
 
         ReactImgui* m_reactImgui;
-
-        GLFWwindow* m_glfwWindow;
 
         const char* m_glWindowTitle;
 
@@ -71,6 +70,10 @@ class ImGuiRenderer {
             const std::optional<std::string>& basePath
         );
 
+        std::mutex m_glfwContext_mutex;
+
+        GLFWwindow* m_glfwWindow;
+
         ImGuiContext* m_imGuiCtx;
 
         bool m_shouldLoadDefaultStyle;
@@ -79,8 +82,11 @@ class ImGuiRenderer {
 
         const char* m_windowId;
 
+#ifdef __EMSCRIPTEN__
         bool LoadTexture(const void* data, int numBytes, Texture* texture);
-
+#else
+        GLuint LoadTexture(const void* data, int numBytes);
+#endif
         // virtual void PrepareForRender() = 0;
         // virtual void Render(int window_width, int window_height) = 0;
 
