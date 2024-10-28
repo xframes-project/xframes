@@ -28,10 +28,10 @@ export const CryptoSymbolPair = ({ symbol }: Props) => {
 
     return (
         <ReactImgui.Node style={styleSheet.symbolLogoPair}>
-            {/* <ReactImgui.Image
+            <ReactImgui.Image
                 url="https://res.cloudinary.com/dep2io067/image/upload/c_thumb,w_24,g_face/v1728466838/bitcoin-btc-logo_gqud0f.png"
                 style={styleSheet.symbolLogoLeft}
-            /> */}
+            />
 
             {/* <ReactImgui.Image
                 url="https://res.cloudinary.com/dep2io067/image/upload/c_thumb,w_200,g_face/v1728468387/77-771550_dollar-currency-money-finance-usd-us-dollar-dollar_apzzg2.png"

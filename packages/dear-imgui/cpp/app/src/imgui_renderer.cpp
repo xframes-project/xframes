@@ -1,6 +1,3 @@
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>

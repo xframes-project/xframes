@@ -2,6 +2,10 @@
 
 #include <GLES3/gl3.h>
 
+#define _CRT_SECURE_NO_WARNINGS
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <thread>
 #include <cstdio>
 #include <string>
@@ -296,6 +300,67 @@ class Runner {
 
         void showDebugWindow() const {
             m_reactImgui->ShowDebugWindow();
+        }
+
+        void loadTexture(const int widgetId, std::string resourceLocation) {
+            loadTextureFromFile(widgetId, resourceLocation.c_str());
+        }
+
+        void loadTextureFromFile(const int widgetId, const char* file_name) {
+            FILE* f = fopen(file_name, "rb");
+            if (f == NULL) {
+                printf("Unable to open file\n");
+            }
+
+            fseek(f, 0, SEEK_END);
+
+            size_t file_size = (size_t)ftell(f);
+
+            if (file_size == -1) {
+                printf("Unable to determine file size of image\n");
+            }
+
+            fseek(f, 0, SEEK_SET);
+
+            void* file_data = IM_ALLOC(file_size);
+
+            fread(file_data, 1, file_size, f);
+
+            loadTextureFromMemory(widgetId, file_data, file_size);
+
+            IM_FREE(file_data);
+        }
+
+        void loadTextureFromMemory(const int widgetId, const void* data, size_t data_size) {
+            // Load from file
+            int image_width = 0;
+            int image_height = 0;
+            unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)data_size, &image_width, &image_height, NULL, 4);
+            if (image_data == NULL) {
+                printf("Unable to load image from memory\n");
+            }
+
+            // Create a OpenGL texture identifier
+            GLuint image_texture = 0;
+            glGenTextures(1, &image_texture);
+            glBindTexture(GL_TEXTURE_2D, image_texture);
+
+            printf("%d\n", image_texture);
+
+            // Setup filtering parameters for display
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            // Upload pixels into texture
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+            stbi_image_free(image_data);
+
+            // *out_texture = image_texture;
+            // *out_width = image_width;
+            // *out_height = image_height;
+
+            m_reactImgui->m_imageToTextureMap[widgetId] = image_texture;
         }
 };
 
