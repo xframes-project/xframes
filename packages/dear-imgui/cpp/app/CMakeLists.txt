@@ -38,6 +38,9 @@ file(GLOB YOGA_SRC CONFIGURE_DEPENDS
 set(REACT_IMGUI_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../app)
 
 set(REACT_IMGUI_SRC
+        ${REACT_IMGUI_BASE_PATH}/src/reactimgui.cpp
+        ${REACT_IMGUI_BASE_PATH}/src/imgui_renderer.cpp
+        ${REACT_IMGUI_BASE_PATH}/src/implot_renderer.cpp
         ${REACT_IMGUI_BASE_PATH}/src/shared.cpp
         ${REACT_IMGUI_BASE_PATH}/src/color_helpers.cpp
         ${REACT_IMGUI_BASE_PATH}/src/imgui_helpers.cpp
@@ -69,9 +72,7 @@ set(REACT_IMGUI_SRC
         ${REACT_IMGUI_BASE_PATH}/src/widget/text_wrap.cpp
         ${REACT_IMGUI_BASE_PATH}/src/widget/tree_node.cpp
         ${REACT_IMGUI_BASE_PATH}/src/widget/window.cpp
-        ${REACT_IMGUI_BASE_PATH}/src/reactimgui.cpp
-        ${REACT_IMGUI_BASE_PATH}/src/imgui_renderer.cpp
-        ${REACT_IMGUI_BASE_PATH}/src/implot_renderer.cpp
+
 )
 
 add_library(reactDearImgui

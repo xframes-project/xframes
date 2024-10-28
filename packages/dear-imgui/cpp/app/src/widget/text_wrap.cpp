@@ -1,3 +1,5 @@
+#include <GLES3/gl3.h>
+
 #include "widget/text_wrap.h"
 
 TextWrap::TextWrap(ReactImgui* view, const int id, const float& width, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {

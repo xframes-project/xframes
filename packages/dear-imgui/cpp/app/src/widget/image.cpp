@@ -1,3 +1,5 @@
+#include <GLES3/gl3.h>
+
 #include <imgui.h>
 
 #ifdef __EMSCRIPTEN__
@@ -17,7 +19,14 @@ bool Image::HasCustomHeight() {
 }
 
 void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
-    if (m_texture.textureView) {
+#ifdef __EMSCRIPTEN__
+    bool shouldRender = m_texture.textureView;
+#else
+    bool shouldRender = view->m_imageToTextureMap.contains(m_id);
+#endif
+
+    if (shouldRender) {
+
         auto imageSize = m_size.has_value() ? m_size.value() : ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
         if (imageSize.x != 0 && imageSize.y != 0) {
@@ -37,8 +46,11 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             const ImVec2 p0 = ImGui::GetItemRectMin();
             const ImVec2 p1 = ImGui::GetItemRectMax();
 
+        #ifdef __EMSCRIPTEN__
             drawList->AddImage((void*)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
-
+        #else
+            // drawList->AddImage((void*)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+        #endif
             // ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
             // ImVec2 uv_max = ImVec2(1.0f, 1.0f);                 // Lower-right
             // ImVec4 tint_col = use_text_color_for_tint ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImVec4(1.0f, 1.0f, 1.0f, 1.0f); // No tint

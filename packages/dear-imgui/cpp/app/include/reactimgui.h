@@ -1,5 +1,6 @@
 #include <string>
 #include <mutex>
+#include <GLES3/gl3.h>
 #include <rpp/rpp.hpp>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -70,6 +71,8 @@ class ReactImgui {
         ImGuiRenderer* m_renderer;
         std::unordered_map<int, std::vector<int>> m_hierarchy;
         std::mutex m_hierarchy_mutex;
+
+        std::unordered_map<int, GLuint> m_imageToTextureMap;
 
         std::unordered_map<int, std::unique_ptr<char[]>> m_floatFormatChars;
 

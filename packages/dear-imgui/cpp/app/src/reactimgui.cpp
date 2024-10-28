@@ -4,6 +4,8 @@
 #include <sstream>
 #include <utility>
 
+#include <GLES3/gl3.h>
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "implot.h"

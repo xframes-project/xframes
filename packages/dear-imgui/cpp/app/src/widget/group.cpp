@@ -1,3 +1,5 @@
+#include <GLES3/gl3.h>
+
 #include "widget/group.h"
 
 Group::Group(ReactImgui* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {

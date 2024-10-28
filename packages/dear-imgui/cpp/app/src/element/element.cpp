@@ -4,6 +4,7 @@
 
 #include "element/element.h"
 #include "color_helpers.h"
+#include <GLES3/gl3.h>
 #include "reactimgui.h"
 
 using json = nlohmann::json;

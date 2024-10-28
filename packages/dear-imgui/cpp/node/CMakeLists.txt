@@ -51,6 +51,10 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/widget.cpp
         ../app/src/widget/styled_widget.cpp
 
+        ../app/src/reactimgui.cpp
+        ../app/src/imgui_renderer.cpp
+        ../app/src/implot_renderer.cpp
+
         ../app/src/widget/button.cpp
         ../app/src/widget/checkbox.cpp
         ../app/src/widget/child.cpp
@@ -73,10 +77,6 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/text_wrap.cpp
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
-
-        ../app/src/reactimgui.cpp
-        ../app/src/imgui_renderer.cpp
-        ../app/src/implot_renderer.cpp
 
         hello.cc
 

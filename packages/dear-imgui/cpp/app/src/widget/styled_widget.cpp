@@ -1,3 +1,5 @@
+#include <GLES3/gl3.h>
+
 #include <optional>
 
 #include "widget/styled_widget.h"

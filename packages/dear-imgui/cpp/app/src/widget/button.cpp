@@ -1,5 +1,7 @@
 #include <string>
 
+#include <GLES3/gl3.h>
+
 #include "widget/button.h"
 #include "widget/styled_widget.h"
 

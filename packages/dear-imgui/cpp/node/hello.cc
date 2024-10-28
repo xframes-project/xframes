@@ -1,4 +1,7 @@
 #include <napi.h>
+
+#include <GLES3/gl3.h>
+
 #include <thread>
 #include <cstdio>
 #include <string>

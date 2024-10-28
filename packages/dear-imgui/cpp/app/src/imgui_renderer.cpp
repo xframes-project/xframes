@@ -9,6 +9,8 @@
 #include "imgui_impl_opengl3.h"
 #endif
 
+#include <GLES3/gl3.h>
+
 #ifdef __EMSCRIPTEN__
 #include <functional>
 static std::function<void()>            MainLoopForEmscriptenP;
