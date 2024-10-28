@@ -114,7 +114,9 @@ void Image::FetchImage() {
     emscripten_fetch(&attr, m_url.c_str());
 };
 #else
-void Image::FetchImage() {}
+void Image::FetchImage() {
+printf("FetchImage\n");
+}
 #endif
 
 YGSize Image::Measure(const YGNodeConstRef node, const float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode) {

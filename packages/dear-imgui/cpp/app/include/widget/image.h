@@ -1,6 +1,5 @@
 #include <optional>
 #include "ada.h"
-#include "mapgenerator.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
 

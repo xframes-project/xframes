@@ -53,7 +53,7 @@ set(REACT_IMGUI_SRC
         ${REACT_IMGUI_BASE_PATH}/src/widget/collapsing_header.cpp
         ${REACT_IMGUI_BASE_PATH}/src/widget/combo.cpp
         ${REACT_IMGUI_BASE_PATH}/src/widget/group.cpp
-#        ${REACT_IMGUI_BASE_PATH}/src/widget/image.cpp
+        ${REACT_IMGUI_BASE_PATH}/src/widget/image.cpp
         ${REACT_IMGUI_BASE_PATH}/src/widget/input_text.cpp
         ${REACT_IMGUI_BASE_PATH}/src/widget/item_tooltip.cpp
 #        ${REACT_IMGUI_BASE_PATH}/src/widget/map_view.cpp
