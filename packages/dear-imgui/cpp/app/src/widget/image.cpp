@@ -128,6 +128,8 @@ void Image::FetchImage() {
 #else
 void Image::FetchImage() {
 printf("FetchImage\n");
+
+    m_view->m_requestTextureFn(m_id, m_url);
 }
 #endif
 

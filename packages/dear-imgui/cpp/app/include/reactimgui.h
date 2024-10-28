@@ -85,6 +85,7 @@ class ReactImgui {
         OnMultipleNumericValuesChangedCallback m_onMultiValueChange;
         OnBooleanValueChangedCallback m_onBooleanValueChange;
         OnClickCallback m_onClick;
+        RequestTextureFn m_requestTextureFn;
 
         ReactImgui(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
 
@@ -105,7 +106,8 @@ class ReactImgui {
             OnNumericValueChangedCallback onNumericValueChangeFn,
             OnMultipleNumericValuesChangedCallback onMultiValueChangeFn,
             OnBooleanValueChangedCallback onBooleanValueChangeFn,
-            OnClickCallback onClickFn
+            OnClickCallback onClickFn,
+            RequestTextureFn requestTextureFn
         );
 
         void PrepareForRender();

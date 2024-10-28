@@ -265,7 +265,8 @@ void ReactImgui::SetEventHandlers(
     const OnNumericValueChangedCallback onNumericValueChangeFn,
     const OnMultipleNumericValuesChangedCallback onMultiValueChangeFn,
     const OnBooleanValueChangedCallback onBooleanValueChangeFn,
-    const OnClickCallback onClickFn
+    const OnClickCallback onClickFn,
+    const RequestTextureFn requestTextureFn
 ) {
     m_onInit = onInitFn;
     m_onInputTextChange = onInputTextChangeFn;
@@ -274,6 +275,7 @@ void ReactImgui::SetEventHandlers(
     m_onMultiValueChange = onMultiValueChangeFn;
     m_onBooleanValueChange = onBooleanValueChangeFn;
     m_onClick = onClickFn;
+    m_requestTextureFn = requestTextureFn;
 
     Widget::onInputTextChange_ = onInputTextChangeFn;
 };

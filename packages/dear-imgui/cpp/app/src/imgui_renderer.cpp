@@ -1,4 +1,7 @@
 #ifdef __EMSCRIPTEN__
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <emscripten.h>
 #include <emscripten/bind.h>
 #include <webgpu/webgpu.h>
@@ -384,6 +387,8 @@ void ImGuiRenderer::SetCurrentContext() {
 void ImGuiRenderer::BeginRenderLoop() {
     // SetCurrentContext();
 
+    SetUp();
+
 #ifdef __EMSCRIPTEN__
     LoadFontsFromDefs();
 #else
@@ -398,7 +403,7 @@ void ImGuiRenderer::BeginRenderLoop() {
 
     m_reactImgui->Init(this);
 
-    SetUp();
+
 
     // Main loop
 #ifdef __EMSCRIPTEN__
