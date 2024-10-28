@@ -37,7 +37,7 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
 
             // ImGui::Text("%x", view->m_imageToTextureMap[m_id]);
 
-            // ImGui::InvisibleButton("##image", imageSize);
+             ImGui::InvisibleButton("##image", imageSize);
             ImDrawList* drawList = ImGui::GetWindowDrawList();
 
             if (!ImGui::IsItemVisible()) {
@@ -54,7 +54,9 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             drawList->AddImage((void*)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
         #else
             // drawList->AddImage((void*)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
-            drawList->AddImage((ImTextureID)(intptr_t)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+            drawList->AddImage((ImTextureID)(intptr_t)view->m_imageToTextureMap[24], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+
+//            ImGui::Image((ImTextureID)(intptr_t)view->m_imageToTextureMap[24], ImVec2(24, 24));
         #endif
             // ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
             // ImVec2 uv_max = ImVec2(1.0f, 1.0f);                 // Lower-right
