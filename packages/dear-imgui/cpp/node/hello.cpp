@@ -1,5 +1,6 @@
 #include <napi.h>
 
+#include <GLFW/glfw3.h>
 #include <GLES3/gl3.h>
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -390,15 +391,13 @@ class Runner {
 
 Runner* Runner::instance = nullptr;
 
-auto pRunner = Runner::getInstance();
-
 void resizeWindow(const int width, const int height) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     pRunner->resizeWindow(width, height);
 }
 
 void setElement(const Napi::CallbackInfo& info) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -413,7 +412,7 @@ void setElement(const Napi::CallbackInfo& info) {
 }
 
 void patchElement(const int id, std::string elementJson) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     pRunner->patchElement(id, elementJson);
 }
 
@@ -423,7 +422,7 @@ void elementInternalOp(const int id, std::string elementJson) {
 }
 
 void setChildren(const Napi::CallbackInfo& info) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
@@ -442,7 +441,7 @@ void setChildren(const Napi::CallbackInfo& info) {
 }
 
 void appendChild(const Napi::CallbackInfo& info) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
@@ -460,22 +459,22 @@ void appendChild(const Napi::CallbackInfo& info) {
 }
 
 std::string getChildren(const int id) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     return IntVectorToJson(pRunner->getChildren(id)).dump();
 }
 
 void appendTextToClippedMultiLineTextRenderer(const int id, std::string data) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     pRunner->appendTextToClippedMultiLineTextRenderer(id, data);
 }
 
 std::string getStyle() {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
     return pRunner->getStyle();
 }
 
 void patchStyle(const Napi::CallbackInfo& info) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
 
     Napi::Env env = info.Env();
 
@@ -492,20 +491,20 @@ void patchStyle(const Napi::CallbackInfo& info) {
 }
 
 void setDebug(const bool debug) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
 
     return pRunner->setDebug(debug);
 }
 
 void showDebugWindow(const Napi::CallbackInfo& info) {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
 
     pRunner->showDebugWindow();
 }
 
 int run()
 {
-    // auto pRunner = Runner::getInstance();
+    auto pRunner = Runner::getInstance();
 
     pRunner->run();
 

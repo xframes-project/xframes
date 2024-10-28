@@ -3,6 +3,7 @@
   "version-string": "1.0.0",
   "dependencies": [
     "stb",
-    "ada-url"
+    "ada-url",
+    "opengl-registry"
   ]
 }

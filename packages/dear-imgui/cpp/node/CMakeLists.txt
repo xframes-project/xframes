@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0042 NEW)
 
-#set(CMAKE_GENERATOR "Ninja")
+set(CMAKE_GENERATOR "Ninja")
 set(CMAKE_TOOLCHAIN_FILE ../deps/vcpkg/scripts/buildsystems/vcpkg.cmake)
 
-#set(VCPKG_TARGET_TRIPLET "x64-windows")
+set(VCPKG_TARGET_TRIPLET "x64-windows")
 
 project (node-imgui LANGUAGES C CXX)
 
@@ -13,6 +13,7 @@ set (CMAKE_CXX_STANDARD 23)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
+find_package(OpenGL REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 
@@ -84,10 +85,6 @@ add_library(${PROJECT_NAME} SHARED
         ${CMAKE_JS_SRC}
 )
 
-add_compile_options(-fno-finite-math-only -O3)
-add_link_options(-fno-finite-math-only -O3)
-# /p:FooLibDir=..\lib
-
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME}
         ${CMAKE_JS_LIB}
@@ -111,9 +108,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
         ${Stb_INCLUDE_DIR}
 
-        ../deps/OpenGL-Registry/api
-        ../deps/EGL-Registry/api
-        ../deps/stb
+#        ../deps/OpenGL-Registry/api
+#        ../deps/EGL-Registry/api
+
+#        ../deps/stb
 
         ../deps/node-addon-api
         ../deps/node-api-headers/include

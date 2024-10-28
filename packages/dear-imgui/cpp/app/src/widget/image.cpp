@@ -33,15 +33,17 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             ImGui::PushID(m_id);
             ImGui::BeginGroup();
 
-            ImGui::InvisibleButton("##image", imageSize);
+            ImGui::Text("%x", view->m_imageToTextureMap[m_id]);
+
+            // ImGui::InvisibleButton("##image", imageSize);
             ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-            if (!ImGui::IsItemVisible()) {
-                // Skip rendering as ImDrawList elements are not clipped.
-                ImGui::EndGroup();
-                ImGui::PopID();
-                return;
-            }
+            // if (!ImGui::IsItemVisible()) {
+            //     // Skip rendering as ImDrawList elements are not clipped.
+            //     ImGui::EndGroup();
+            //     ImGui::PopID();
+            //     return;
+            // }
 
             const ImVec2 p0 = ImGui::GetItemRectMin();
             const ImVec2 p1 = ImGui::GetItemRectMax();
