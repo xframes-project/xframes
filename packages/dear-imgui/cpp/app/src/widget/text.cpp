@@ -1,5 +1,3 @@
-#include <GLES3/gl3.h>
-
 #include <nlohmann/json.hpp>
 
 #include "widget/text.h"

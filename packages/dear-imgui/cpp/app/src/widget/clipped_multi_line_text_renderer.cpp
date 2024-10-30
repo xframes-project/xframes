@@ -1,5 +1,3 @@
-#include <GLES3/gl3.h>
-
 #include "widget/styled_widget.h"
 #include "widget/clipped_multi_line_text_renderer.h"
 

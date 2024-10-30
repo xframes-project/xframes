@@ -1,5 +1,3 @@
-#include <GLES3/gl3.h>
-
 #include <imgui.h>
 #include <implot.h>
 #include <implot_internal.h>

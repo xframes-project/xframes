@@ -1,5 +1,3 @@
-#include <GLES3/gl3.h>
-
 #include "widget/tabs.h"
 #include "reactimgui.h"
 
