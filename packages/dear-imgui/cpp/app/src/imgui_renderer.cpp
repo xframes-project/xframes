@@ -397,7 +397,9 @@ void ImGuiRenderer::HandleNextImageJob() {
 
     m_reactImgui->m_imageJobs.pop();
 
-    FILE* f = fopen(job.url.c_str(), "rb");
+    auto pathToFile = std::format("{}/{}", m_assetsBasePath, job.url);
+
+    FILE* f = fopen(pathToFile.c_str(), "rb");
     if (f == NULL) {
         printf("Unable to open file\n");
     }

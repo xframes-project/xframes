@@ -19,11 +19,13 @@ public:
 
         auto id = widgetDef["id"].template get<int>();
         auto url = widgetDef["url"].template get<std::string>();
-        auto parsedUrl = ada::parse<ada::url>(url);
 
+#ifdef __EMSCRIPTEN__
+        auto parsedUrl = ada::parse<ada::url>(url);
         if (!parsedUrl) {
             throw std::invalid_argument("Invalid url supplied");
         }
+#endif
 
         std::optional<ImVec2> size;
 

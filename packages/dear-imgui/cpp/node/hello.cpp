@@ -3,7 +3,6 @@
 #include <GLFW/glfw3.h>
 #include <GLES3/gl3.h>
 
-
 #include <thread>
 #include <cstdio>
 #include <string>
@@ -313,39 +312,6 @@ class Runner {
 
         void showDebugWindow() const {
             m_reactImgui->ShowDebugWindow();
-        }
-
-        void loadTexture(const int widgetId, std::string resourceLocation) {
-            loadTextureFromFile(widgetId, resourceLocation.c_str());
-        }
-
-        void loadTextureFromFile(const int widgetId, const char* file_name) {
-            FILE* f = fopen(file_name, "rb");
-            if (f == NULL) {
-                printf("Unable to open file\n");
-            }
-
-            fseek(f, 0, SEEK_END);
-
-            size_t file_size = (size_t)ftell(f);
-
-            if (file_size == -1) {
-                printf("Unable to determine file size of image\n");
-            }
-
-            fseek(f, 0, SEEK_SET);
-
-            void* file_data = IM_ALLOC(file_size);
-
-            fread(file_data, 1, file_size, f);
-
-            loadTextureFromMemory(widgetId, file_data, file_size);
-
-            IM_FREE(file_data);
-        }
-
-        void loadTextureFromMemory(const int widgetId, const void* data, size_t data_size) {
-            m_reactImgui->m_imageToTextureMap[widgetId] = m_renderer->LoadTexture(data, data_size);
         }
 };
 

@@ -20,7 +20,7 @@ const fontDefs: any = {
         .flat(),
 };
 
-const assetsBasePath = "assets";
+const assetsBasePath = "../assets";
 
 nodeImgui.init(assetsBasePath, JSON.stringify(fontDefs), JSON.stringify(theme2));
 
