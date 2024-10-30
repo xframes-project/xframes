@@ -410,8 +410,6 @@ void ImGuiRenderer::BeginRenderLoop() {
 
     m_reactImgui->Init(this);
 
-
-
     // Main loop
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_BEGIN
@@ -419,23 +417,9 @@ void ImGuiRenderer::BeginRenderLoop() {
     while (!glfwWindowShouldClose(m_glfwWindow))
 #endif
     {
-        // printf("aaaa\n");
-        std::unique_lock<std::mutex> lck(m_glfwContext_mutex);
-        // printf("1111111111111111\n");
-
-        // glfwMakeContextCurrent(m_glfwWindow);
-
-        // printf("1111111111111111 a\n");
-
         glfwPollEvents();
 
-        // printf("1111111111111111 b\n");
-
         HandleScreenSizeChanged();
-
-        // printf("1111111111111111 c\n");
-
-        // SetCurrentContext();
 
 #ifdef __EMSCRIPTEN__
         ImGui_ImplWGPU_NewFrame();
@@ -444,8 +428,6 @@ void ImGuiRenderer::BeginRenderLoop() {
 #endif
 
         ImGui_ImplGlfw_NewFrame();
-
-        // printf("1111111111111111 d\n");
 
         if (!m_reactImgui->m_imageToTextureMap.contains(24)) {
             FILE* f = fopen("C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\bitcoin-btc-logo_gqud0f.png", "rb");
@@ -474,28 +456,11 @@ void ImGuiRenderer::BeginRenderLoop() {
 
         m_reactImgui->Render(m_window_width, m_window_height);
 
-
-
-        // printf("1111111111111111 e\n");
-
         PerformRendering();
-
-        // printf("1111111111111111 f\n");
-
 
 #ifndef __EMSCRIPTEN__
         glfwSwapBuffers(m_glfwWindow);
-
-        // printf("1111111111111111 g\n");
 #endif
-
-        // glfwMakeContextCurrent(NULL);
-
-        // printf("1111111111111111 h\n");
-
-        lck.release()->unlock();
-
-        // printf("1111111111111111 i\n");
     }
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_END;
@@ -624,18 +589,6 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
 }
 #else
 GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
-    printf("bbbb\n");
-    // std::unique_lock<std::mutex> lck(m_glfwContext_mutex);
-    printf("00000000000000000\n");
-
-    // glfwMakeContextCurrent(m_glfwWindow);
-
-    glEnable(GL_TEXTURE_2D);
-
-    if (!glIsEnabled(GL_TEXTURE_2D)) {
-        printf("GL_TEXTURE_2D is disabledddd\n");
-    }
-
     int image_width = 0;
     int image_height = 0;
     unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)numBytes, &image_width, &image_height, NULL, 4);
@@ -643,16 +596,10 @@ GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
         printf("Unable to load image from memory\n");
     }
 
-    printf("%d %d\n", image_width, image_height);
-
-    // Create a OpenGL texture identifier
     GLuint image_texture = 0;
-
 
     glGenTextures(1, &image_texture);
     glBindTexture(GL_TEXTURE_2D, image_texture);
-
-    printf("%x\n", image_texture);
 
     // Setup filtering parameters for display
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -663,16 +610,11 @@ GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
     stbi_image_free(image_data);
 
-    // glfwMakeContextCurrent(NULL);
-
-    // lck.release()->unlock();
-
     return image_texture;
 }
 #endif
 
 json ImGuiRenderer::GetAvailableFonts() {
-    // SetCurrentContext();
     ImGuiIO& io = m_imGuiCtx->IO;
     json fonts = json::array();
 
