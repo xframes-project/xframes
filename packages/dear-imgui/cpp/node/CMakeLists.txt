@@ -23,8 +23,6 @@ file(GLOB YOGA_SRC CONFIGURE_DEPENDS
         ${DEPS}/yoga/yoga/*.cpp
         ${DEPS}/yoga/yoga/**/*.cpp)
 
-#file(GLOB SOURCE_FILES "hello.cc")
-
 add_library(${PROJECT_NAME} SHARED
         ../deps/css-color-parser-cpp/csscolorparser.hpp
         ../deps/css-color-parser-cpp/csscolorparser.cpp
@@ -107,11 +105,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/node-addon-
 
         ${Stb_INCLUDE_DIR}
-
-#        ../deps/OpenGL-Registry/api
-#        ../deps/EGL-Registry/api
-
-#        ../deps/stb
 
         ../deps/node-addon-api
         ../deps/node-api-headers/include

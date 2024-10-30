@@ -227,12 +227,6 @@ void ImGuiRenderer::InitGlfw() {
 
     ImGui_ImplGlfw_InitForOpenGL(m_glfwWindow, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
-
-    glEnable(GL_TEXTURE_2D);
-
-    if (!glIsEnabled(GL_TEXTURE_2D)) {
-        printf("GL_TEXTURE_2D is disabled\n");
-    }
 #endif
 }
 
@@ -424,8 +418,6 @@ void ImGuiRenderer::HandleNextImageJob() {
 
 void ImGuiRenderer::BeginRenderLoop() {
     using namespace std::placeholders;
-
-    // SetCurrentContext();
 
     SetUp();
 

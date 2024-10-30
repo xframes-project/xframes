@@ -2,7 +2,6 @@
 #define IMGUI_VIEW
 
 #include <format>
-#include <mutex>
 
 #include "IconsFontAwesome6.h"
 #include "imgui.h"
@@ -27,6 +26,8 @@ using json = nlohmann::json;
 
 class ImGuiRenderer {
     protected:
+        GLFWwindow* m_glfwWindow;
+
         std::string m_rawFontDefs;
 
         ReactImgui* m_reactImgui;
@@ -69,10 +70,6 @@ class ImGuiRenderer {
             std::string rawFontDefs,
             const std::optional<std::string>& basePath
         );
-
-        std::mutex m_glfwContext_mutex;
-
-        GLFWwindow* m_glfwWindow;
 
         ImGuiContext* m_imGuiCtx;
 
