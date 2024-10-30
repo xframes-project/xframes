@@ -1,7 +1,10 @@
+#ifndef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#endif
+
 #include <queue>
 #include <string>
 #include <mutex>
-#include <GLES3/gl3.h>
 #include <rpp/rpp.hpp>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -74,7 +77,9 @@ class ReactImgui {
         std::unordered_map<int, std::vector<int>> m_hierarchy;
         std::mutex m_hierarchy_mutex;
 
+#ifndef __EMSCRIPTEN__
         std::unordered_map<int, GLuint> m_imageToTextureMap;
+#endif
 
         std::queue<ImageJob> m_imageJobs;
 
