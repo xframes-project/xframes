@@ -388,15 +388,14 @@ void ImGuiRenderer::SetCurrentContext() {
 
 #ifndef __EMSCRIPTEN__
 void ImGuiRenderer::HandleNextImageJob() {
-    auto job = m_reactImgui->m_imageJobs.front();
+    auto& [widgetId, url] = m_reactImgui->m_imageJobs.front();
 
-    m_reactImgui->m_imageJobs.pop();
-
-    auto pathToFile = std::format("{}/{}", m_assetsBasePath, job.url);
+    auto pathToFile = std::format("{}/{}", m_assetsBasePath, url);
 
     FILE* f = fopen(pathToFile.c_str(), "rb");
     if (f == NULL) {
         printf("Unable to open file\n");
+        return;
     }
 
     fseek(f, 0, SEEK_END);
@@ -413,13 +412,17 @@ void ImGuiRenderer::HandleNextImageJob() {
 
     fread(file_data, 1, file_size, f);
 
-    m_reactImgui->m_imageToTextureMap[job.widgetId] = LoadTexture(file_data, file_size);
+    fclose(f);
+
+    m_reactImgui->m_imageToTextureMap[widgetId] = LoadTexture(file_data, file_size);
+
+    IM_FREE(file_data);
+
+    m_reactImgui->m_imageJobs.pop();
 };
 #endif
 
 void ImGuiRenderer::BeginRenderLoop() {
-    using namespace std::placeholders;
-
     SetUp();
 
 #ifdef __EMSCRIPTEN__
@@ -601,6 +604,7 @@ GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
     unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)numBytes, &image_width, &image_height, NULL, 4);
     if (image_data == NULL) {
         printf("Unable to load image from memory\n");
+        return 0;
     }
 
     GLuint image_texture = 0;
@@ -615,6 +619,13 @@ GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
     // Upload pixels into texture
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        printf("OpenGL Error: %d\n", error);
+        return 0;
+    }
+
     stbi_image_free(image_data);
 
     return image_texture;

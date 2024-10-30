@@ -4,8 +4,6 @@
 #include <sstream>
 #include <utility>
 
-#include <GLES3/gl3.h>
-
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "implot.h"
@@ -15,6 +13,7 @@
 #include <emscripten/bind.h>
 #include "imgui_impl_wgpu.h"
 #else
+#include <GLES3/gl3.h>
 #include "imgui_impl_opengl3.h"
 #endif
 

@@ -2,10 +2,21 @@ cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0042 NEW)
 
-set(CMAKE_GENERATOR "Ninja")
+if(NOT CMAKE_GENERATOR)
+    set(CMAKE_GENERATOR "Ninja")
+endif()
+
 set(CMAKE_TOOLCHAIN_FILE ../deps/vcpkg/scripts/buildsystems/vcpkg.cmake)
 
-set(VCPKG_TARGET_TRIPLET "x64-windows")
+if(NOT VCPKG_TARGET_TRIPLET)
+    if(WIN32)
+        set(VCPKG_TARGET_TRIPLET "x64-windows")
+    elseif(APPLE)
+        set(VCPKG_TARGET_TRIPLET "x64-osx")
+    else()
+        set(VCPKG_TARGET_TRIPLET "x64-linux")
+    endif()
+endif()
 
 project (node-imgui LANGUAGES C CXX)
 
@@ -87,8 +98,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME}
         ${CMAKE_JS_LIB}
         ada::ada
-        ${CMAKE_CURRENT_SOURCE_DIR}/glfw3dll.lib
-        ${CMAKE_CURRENT_SOURCE_DIR}/opengl32.lib
+
+        $<IF:$<PLATFORM_ID:Windows>,
+                ${CMAKE_CURRENT_SOURCE_DIR}/glfw3dll.lib,
+                glfw>
+            $<IF:$<PLATFORM_ID:Windows>,
+                opengl32,
+                GL>
 )
 
 # Include Node-API wrappers
@@ -102,7 +118,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${NODE_ADDON_API_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../app/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/node-addon-
+        ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/node-addon-api
 
         ${Stb_INCLUDE_DIR}
 

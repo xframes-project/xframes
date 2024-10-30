@@ -135,10 +135,6 @@ void Image::FetchImage() {
 };
 #else
 void Image::QueueFetchImage() {
-    json op;
-    op["id"] = m_id;
-    op["url"] = m_url;
-
     m_view->m_imageJobs.push(ImageJob{m_id, m_url});
 }
 #endif

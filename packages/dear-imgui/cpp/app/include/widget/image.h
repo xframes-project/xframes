@@ -2,6 +2,7 @@
 #include "ada.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
+#include <nlohmann/json.hpp>
 
 using fetchImageCallback = std::function<void(void*, size_t)>;
 
