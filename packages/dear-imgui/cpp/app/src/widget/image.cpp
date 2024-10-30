@@ -53,8 +53,7 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
         #ifdef __EMSCRIPTEN__
             drawList->AddImage((void*)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
         #else
-            // drawList->AddImage((void*)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
-            drawList->AddImage((ImTextureID)(intptr_t)view->m_imageToTextureMap[24], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+            drawList->AddImage((ImTextureID)(intptr_t)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
 
 //            ImGui::Image((ImTextureID)(intptr_t)view->m_imageToTextureMap[24], ImVec2(24, 24));
         #endif
@@ -80,9 +79,11 @@ void Image::HandleInternalOp(const json& opDef) {
         auto op = opDef["op"].template get<std::string>();
 
         if (op == "reloadImage") {
+#ifdef __EMSCRIPTEN__
             FetchImage();
-        } else if (op == "loadImage") {
-            FetchImage();
+#else
+            QueueFetchImage();
+#endif
         }
     }
 };
@@ -136,43 +137,11 @@ void Image::FetchImage() {
 };
 #else
 void Image::QueueFetchImage() {
-    printf("QueueFetchImage\n");
-
     json op;
     op["id"] = m_id;
-    op["op"] = "loadImage";
+    op["url"] = m_url;
 
-    auto opString = op.dump();
-
-    m_view->QueueElementInternalOp(m_id, opString);
-}
-
-void Image::FetchImage() {
-    printf("FetchImage\n");
-
-    FILE* f = fopen(R"(C:\u-blox\gallery\ubx\ulogr\react-imgui\packages\dear-imgui\assets\bitcoin-btc-logo_gqud0f.png)", "rb");
-    if (f == NULL) {
-        printf("Unable to open file\n");
-    }
-
-    fseek(f, 0, SEEK_END);
-
-    size_t file_size = (size_t)ftell(f);
-
-    if (file_size == -1) {
-        printf("Unable to determine file size of image\n");
-    }
-
-    fseek(f, 0, SEEK_SET);
-
-    void* file_data = IM_ALLOC(file_size);
-
-    fread(file_data, 1, file_size, f);
-
-
-    m_view->m_renderer->LoadTexture(file_data, file_size);
-
-    IM_FREE(file_data);
+    m_view->m_imageJobs.push(ImageJob{m_id, m_url});
 }
 #endif
 

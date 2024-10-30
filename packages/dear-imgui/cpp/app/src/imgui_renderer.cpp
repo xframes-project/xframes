@@ -391,7 +391,38 @@ void ImGuiRenderer::SetCurrentContext() {
     ImGui::SetCurrentContext(m_imGuiCtx);
 }
 
+#ifndef __EMSCRIPTEN__
+void ImGuiRenderer::HandleNextImageJob() {
+    auto job = m_reactImgui->m_imageJobs.front();
+
+    m_reactImgui->m_imageJobs.pop();
+
+    FILE* f = fopen(job.url.c_str(), "rb");
+    if (f == NULL) {
+        printf("Unable to open file\n");
+    }
+
+    fseek(f, 0, SEEK_END);
+
+    size_t file_size = (size_t)ftell(f);
+
+    if (file_size == -1) {
+        printf("Unable to determine file size of image\n");
+    }
+
+    fseek(f, 0, SEEK_SET);
+
+    void* file_data = IM_ALLOC(file_size);
+
+    fread(file_data, 1, file_size, f);
+
+    m_reactImgui->m_imageToTextureMap[job.widgetId] = LoadTexture(file_data, file_size);
+};
+#endif
+
 void ImGuiRenderer::BeginRenderLoop() {
+    using namespace std::placeholders;
+
     // SetCurrentContext();
 
     SetUp();
@@ -429,30 +460,11 @@ void ImGuiRenderer::BeginRenderLoop() {
 
         ImGui_ImplGlfw_NewFrame();
 
-        if (!m_reactImgui->m_imageToTextureMap.contains(24)) {
-            FILE* f = fopen("C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\bitcoin-btc-logo_gqud0f.png", "rb");
-            if (f == NULL) {
-                printf("Unable to open file\n");
-            }
-
-            fseek(f, 0, SEEK_END);
-
-            size_t file_size = (size_t)ftell(f);
-
-            if (file_size == -1) {
-                printf("Unable to determine file size of image\n");
-            }
-
-            fseek(f, 0, SEEK_SET);
-
-            void* file_data = IM_ALLOC(file_size);
-
-            fread(file_data, 1, file_size, f);
-
-
-
-            m_reactImgui->m_imageToTextureMap[24] = LoadTexture(file_data, file_size);
+#ifndef __EMSCRIPTEN__
+        if (!m_reactImgui->m_imageJobs.empty()) {
+            HandleNextImageJob();
         }
+#endif
 
         m_reactImgui->Render(m_window_width, m_window_height);
 

@@ -85,6 +85,7 @@ class ImGuiRenderer {
 #ifdef __EMSCRIPTEN__
         bool LoadTexture(const void* data, int numBytes, Texture* texture);
 #else
+        void HandleNextImageJob();
         GLuint LoadTexture(const void* data, int numBytes);
 #endif
         // virtual void PrepareForRender() = 0;

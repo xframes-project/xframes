@@ -1,3 +1,4 @@
+#include <queue>
 #include <string>
 #include <mutex>
 #include <GLES3/gl3.h>
@@ -9,6 +10,7 @@
 
 #include "shared.h"
 #include "imgui_helpers.h"
+#include "texture_helpers.h"
 
 using json = nlohmann::json;
 
@@ -73,6 +75,8 @@ class ReactImgui {
         std::mutex m_hierarchy_mutex;
 
         std::unordered_map<int, GLuint> m_imageToTextureMap;
+
+        std::queue<ImageJob> m_imageJobs;
 
         std::unordered_map<int, std::unique_ptr<char[]>> m_floatFormatChars;
 

@@ -56,16 +56,12 @@ public:
 
     void HandleInternalOp(const json& opDef) override;
 
-#ifndef __EMSCRIPTEN__
-    void QueueFetchImage();
-#endif
-
-    void FetchImage();
-
 #ifdef __EMSCRIPTEN__
+    void FetchImage();
     void HandleFetchImageSuccess(emscripten_fetch_t *fetch);
-
     void HandleFetchImageFailure(emscripten_fetch_t *fetch);
+#else
+    void QueueFetchImage();
 #endif
 
     void Init(const json& elementDef) override {
@@ -77,14 +73,7 @@ public:
 #ifdef __EMSCRIPTEN__
         FetchImage();
 #else
-        printf("about to QueueFetchImage %d\n", m_id);
-
-        // std::thread a ([&]() {
-        //     QueueFetchImage();
-        // });
-        //
-        // a.detach();
-
+        QueueFetchImage();
 #endif
     }
 };
