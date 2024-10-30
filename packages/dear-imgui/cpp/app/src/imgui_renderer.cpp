@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -7,6 +8,7 @@
 #include <webgpu/webgpu.h>
 #else
 #include "imgui_impl_opengl3.h"
+#include <GLES3/gl3.h>
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -201,9 +203,11 @@ void ImGuiRenderer::InitGlfw() {
     // This needs to be done explicitly later.
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #else
-    const char* glsl_version = "#version 130";
+    const char* glsl_version = "#version 150";
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 #endif
 
     m_glfwWindow = glfwCreateWindow(m_window_width, m_window_height, m_glWindowTitle, nullptr, nullptr);
@@ -382,8 +386,44 @@ void ImGuiRenderer::SetCurrentContext() {
     ImGui::SetCurrentContext(m_imGuiCtx);
 }
 
+#ifndef __EMSCRIPTEN__
+void ImGuiRenderer::HandleNextImageJob() {
+    auto& [widgetId, url] = m_reactImgui->m_imageJobs.front();
+
+    auto pathToFile = std::format("{}/{}", m_assetsBasePath, url);
+
+    FILE* f = fopen(pathToFile.c_str(), "rb");
+    if (f == NULL) {
+        printf("Unable to open file\n");
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+
+    size_t file_size = (size_t)ftell(f);
+
+    if (file_size == -1) {
+        printf("Unable to determine file size of image\n");
+    }
+
+    fseek(f, 0, SEEK_SET);
+
+    void* file_data = IM_ALLOC(file_size);
+
+    fread(file_data, 1, file_size, f);
+
+    fclose(f);
+
+    m_reactImgui->m_imageToTextureMap[widgetId] = LoadTexture(file_data, file_size);
+
+    IM_FREE(file_data);
+
+    m_reactImgui->m_imageJobs.pop();
+};
+#endif
+
 void ImGuiRenderer::BeginRenderLoop() {
-    // SetCurrentContext();
+    SetUp();
 
 #ifdef __EMSCRIPTEN__
     LoadFontsFromDefs();
@@ -399,8 +439,6 @@ void ImGuiRenderer::BeginRenderLoop() {
 
     m_reactImgui->Init(this);
 
-    SetUp();
-
     // Main loop
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_BEGIN
@@ -412,24 +450,27 @@ void ImGuiRenderer::BeginRenderLoop() {
 
         HandleScreenSizeChanged();
 
-        // SetCurrentContext();
-
-    #ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
         ImGui_ImplWGPU_NewFrame();
-    #else
+#else
         ImGui_ImplOpenGL3_NewFrame();
-    #endif
+#endif
 
         ImGui_ImplGlfw_NewFrame();
+
+#ifndef __EMSCRIPTEN__
+        if (!m_reactImgui->m_imageJobs.empty()) {
+            HandleNextImageJob();
+        }
+#endif
 
         m_reactImgui->Render(m_window_width, m_window_height);
 
         PerformRendering();
 
-
-    #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
         glfwSwapBuffers(m_glfwWindow);
-    #endif
+#endif
     }
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_END;
@@ -557,13 +598,41 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
     return true;
 }
 #else
-bool LoadTexture(const void* data, const int numBytes, Texture* texture) {
-    return true;
+GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
+    int image_width = 0;
+    int image_height = 0;
+    unsigned char* image_data = stbi_load_from_memory((const unsigned char*)data, (int)numBytes, &image_width, &image_height, NULL, 4);
+    if (image_data == NULL) {
+        printf("Unable to load image from memory\n");
+        return 0;
+    }
+
+    GLuint image_texture = 0;
+
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Upload pixels into texture
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        printf("OpenGL Error: %d\n", error);
+        return 0;
+    }
+
+    stbi_image_free(image_data);
+
+    return image_texture;
 }
 #endif
 
 json ImGuiRenderer::GetAvailableFonts() {
-    // SetCurrentContext();
     ImGuiIO& io = m_imGuiCtx->IO;
     json fonts = json::array();
 

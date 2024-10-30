@@ -17,4 +17,9 @@ struct Texture {
     int height;
 };
 
+struct ImageJob {
+    int widgetId;
+    std::string url;
+};
+
 #endif //TEXTURE_HELPERS_H

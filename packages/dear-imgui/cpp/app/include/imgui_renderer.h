@@ -26,11 +26,11 @@ using json = nlohmann::json;
 
 class ImGuiRenderer {
     protected:
+        GLFWwindow* m_glfwWindow;
+
         std::string m_rawFontDefs;
 
         ReactImgui* m_reactImgui;
-
-        GLFWwindow* m_glfwWindow;
 
         const char* m_glWindowTitle;
 
@@ -79,8 +79,12 @@ class ImGuiRenderer {
 
         const char* m_windowId;
 
+#ifdef __EMSCRIPTEN__
         bool LoadTexture(const void* data, int numBytes, Texture* texture);
-
+#else
+        void HandleNextImageJob();
+        GLuint LoadTexture(const void* data, int numBytes);
+#endif
         // virtual void PrepareForRender() = 0;
         // virtual void Render(int window_width, int window_height) = 0;
 

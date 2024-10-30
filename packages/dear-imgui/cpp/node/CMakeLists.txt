@@ -2,19 +2,37 @@ cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0042 NEW)
 
+if(NOT CMAKE_GENERATOR)
+    set(CMAKE_GENERATOR "Ninja")
+endif()
+
+set(CMAKE_TOOLCHAIN_FILE ../deps/vcpkg/scripts/buildsystems/vcpkg.cmake)
+
+if(NOT VCPKG_TARGET_TRIPLET)
+    if(WIN32)
+        set(VCPKG_TARGET_TRIPLET "x64-windows")
+    elseif(APPLE)
+        set(VCPKG_TARGET_TRIPLET "x64-osx")
+    else()
+        set(VCPKG_TARGET_TRIPLET "x64-linux")
+    endif()
+endif()
+
 project (node-imgui LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 23)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
+find_package(OpenGL REQUIRED)
+find_package(ada CONFIG REQUIRED)
+find_package(Stb REQUIRED)
+
 include_directories(${CMAKE_JS_INC})
 
 file(GLOB YOGA_SRC CONFIGURE_DEPENDS
         ${DEPS}/yoga/yoga/*.cpp
         ${DEPS}/yoga/yoga/**/*.cpp)
-
-#file(GLOB SOURCE_FILES "hello.cc")
 
 add_library(${PROJECT_NAME} SHARED
         ../deps/css-color-parser-cpp/csscolorparser.hpp
@@ -43,6 +61,10 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/widget.cpp
         ../app/src/widget/styled_widget.cpp
 
+        ../app/src/reactimgui.cpp
+        ../app/src/imgui_renderer.cpp
+        ../app/src/implot_renderer.cpp
+
         ../app/src/widget/button.cpp
         ../app/src/widget/checkbox.cpp
         ../app/src/widget/child.cpp
@@ -50,6 +72,7 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/collapsing_header.cpp
         ../app/src/widget/combo.cpp
         ../app/src/widget/group.cpp
+        ../app/src/widget/image.cpp
         ../app/src/widget/input_text.cpp
         ../app/src/widget/item_tooltip.cpp
         ../app/src/widget/multi_slider.cpp
@@ -65,22 +88,24 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
 
-        ../app/src/reactimgui.cpp
-        ../app/src/imgui_renderer.cpp
-        ../app/src/implot_renderer.cpp
-
-        hello.cc
+        hello.cpp
 
         ${SOURCE_FILES}
         ${CMAKE_JS_SRC}
 )
 
-add_compile_options(-fno-finite-math-only -O3)
-add_link_options(-fno-finite-math-only -O3)
-# /p:FooLibDir=..\lib
-
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
-target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/glfw3dll.lib ${CMAKE_CURRENT_SOURCE_DIR}/opengl32.lib)
+target_link_libraries(${PROJECT_NAME}
+        ${CMAKE_JS_LIB}
+        ada::ada
+
+        $<IF:$<PLATFORM_ID:Windows>,
+                ${CMAKE_CURRENT_SOURCE_DIR}/glfw3dll.lib,
+                glfw>
+            $<IF:$<PLATFORM_ID:Windows>,
+                opengl32,
+                GL>
+)
 
 # Include Node-API wrappers
 execute_process(COMMAND node -p "require('node-addon-api').include"
@@ -95,9 +120,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../app/include
         ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/node-addon-api
 
-        ../deps/OpenGL-Registry/api
-        ../deps/EGL-Registry/api
-        ../deps/stb
+        ${Stb_INCLUDE_DIR}
 
         ../deps/node-addon-api
         ../deps/node-api-headers/include

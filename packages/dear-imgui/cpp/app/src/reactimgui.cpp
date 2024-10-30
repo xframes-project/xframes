@@ -13,6 +13,7 @@
 #include <emscripten/bind.h>
 #include "imgui_impl_wgpu.h"
 #else
+#include <GLES3/gl3.h>
 #include "imgui_impl_opengl3.h"
 #endif
 
@@ -29,7 +30,6 @@
 #include "implot_renderer.h"
 
 #ifdef __EMSCRIPTEN__
-#include "widget/image.h"
 #include "widget/map_view.h"
 #endif
 
@@ -40,6 +40,7 @@
 #include "widget/collapsing_header.h"
 #include "widget/combo.h"
 #include "widget/group.h"
+#include "widget/image.h"
 #include "widget/input_text.h"
 #include "widget/item_tooltip.h"
 #include "widget/multi_slider.h"
@@ -134,8 +135,9 @@ void ReactImgui::SetUpElementCreatorFunctions() {
     m_element_init_fn["di-table"] = &makeWidget<Table>;
     m_element_init_fn["clipped-multi-line-text-renderer"] = &makeWidget<ClippedMultiLineTextRenderer>;
 
-#ifdef __EMSCRIPTEN__
     m_element_init_fn["di-image"] = &makeWidget<Image>;
+
+#ifdef __EMSCRIPTEN__
     m_element_init_fn["map-view"] = &makeWidget<MapView>;
 #endif
 

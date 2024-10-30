@@ -8,6 +8,8 @@
 #include "reactimgui.h"
 #include "imgui_renderer.h"
 
+using json = nlohmann::json;
+
 bool Image::HasCustomWidth() {
     return false;
 }
@@ -17,14 +19,23 @@ bool Image::HasCustomHeight() {
 }
 
 void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
-    if (m_texture.textureView) {
+#ifdef __EMSCRIPTEN__
+    bool shouldRender = m_texture.textureView;
+#else
+    bool shouldRender = view->m_imageToTextureMap.contains(m_id);
+#endif
+
+    if (shouldRender) {
+
         auto imageSize = m_size.has_value() ? m_size.value() : ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
         if (imageSize.x != 0 && imageSize.y != 0) {
             ImGui::PushID(m_id);
             ImGui::BeginGroup();
 
-            ImGui::InvisibleButton("##image", imageSize);
+            // ImGui::Text("%x", view->m_imageToTextureMap[m_id]);
+
+             ImGui::InvisibleButton("##image", imageSize);
             ImDrawList* drawList = ImGui::GetWindowDrawList();
 
             if (!ImGui::IsItemVisible()) {
@@ -37,8 +48,13 @@ void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
             const ImVec2 p0 = ImGui::GetItemRectMin();
             const ImVec2 p1 = ImGui::GetItemRectMax();
 
+        #ifdef __EMSCRIPTEN__
             drawList->AddImage((void*)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+        #else
+            drawList->AddImage((ImTextureID)(intptr_t)view->m_imageToTextureMap[m_id], p0, p1, ImVec2(0, 0), ImVec2(1, 1));
 
+//            ImGui::Image((ImTextureID)(intptr_t)view->m_imageToTextureMap[24], ImVec2(24, 24));
+        #endif
             // ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
             // ImVec2 uv_max = ImVec2(1.0f, 1.0f);                 // Lower-right
             // ImVec4 tint_col = use_text_color_for_tint ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImVec4(1.0f, 1.0f, 1.0f, 1.0f); // No tint
@@ -61,7 +77,11 @@ void Image::HandleInternalOp(const json& opDef) {
         auto op = opDef["op"].template get<std::string>();
 
         if (op == "reloadImage") {
+#ifdef __EMSCRIPTEN__
             FetchImage();
+#else
+            QueueFetchImage();
+#endif
         }
     }
 };
@@ -114,7 +134,9 @@ void Image::FetchImage() {
     emscripten_fetch(&attr, m_url.c_str());
 };
 #else
-void Image::FetchImage() {}
+void Image::QueueFetchImage() {
+    m_view->m_imageJobs.push(ImageJob{m_id, m_url});
+}
 #endif
 
 YGSize Image::Measure(const YGNodeConstRef node, const float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode) {

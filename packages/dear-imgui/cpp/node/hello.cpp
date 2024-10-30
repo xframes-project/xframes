@@ -1,4 +1,8 @@
 #include <napi.h>
+
+#include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+
 #include <thread>
 #include <cstdio>
 #include <string>
@@ -62,8 +66,19 @@ class Runner {
         std::string m_rawFontDefs;
         std::string m_assetsBasePath;
         std::optional<std::string> m_rawStyleOverridesDefs;
+
+        static Runner * instance;
+
+        Runner() = default;
     public:
-    Runner() = default;
+        static Runner* getInstance() {
+            if (nullptr == instance) {
+                instance = new Runner();
+            }
+            return instance;
+        };
+
+        ~Runner() = default;
 
         static void OnInit() {
             // EM_ASM(
@@ -151,7 +166,7 @@ class Runner {
             m_rawStyleOverridesDefs.emplace(rawStyleOverridesDefs);
         }
 
-        void run() {
+        void init() {
             m_reactImgui = new ReactImgui("ReactImgui", m_rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
                 m_reactImgui,
@@ -170,7 +185,11 @@ class Runner {
                 OnNumericValueChanged,
                 OnMultipleNumericValuesChanged,
                 OnBooleanValueChanged,
-                OnClick);
+                OnClick
+            );
+        }
+
+        void run() {
             m_renderer->Init();
         }
 
@@ -296,13 +315,15 @@ class Runner {
         }
 };
 
-static std::unique_ptr<Runner> pRunner = std::make_unique<Runner>();
+Runner* Runner::instance = nullptr;
 
 void resizeWindow(const int width, const int height) {
+    auto pRunner = Runner::getInstance();
     pRunner->resizeWindow(width, height);
 }
 
 void setElement(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -317,14 +338,17 @@ void setElement(const Napi::CallbackInfo& info) {
 }
 
 void patchElement(const int id, std::string elementJson) {
+    auto pRunner = Runner::getInstance();
     pRunner->patchElement(id, elementJson);
 }
 
 void elementInternalOp(const int id, std::string elementJson) {
+    auto pRunner = Runner::getInstance();
     pRunner->elementInternalOp(id, elementJson);
 }
 
 void setChildren(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
@@ -343,6 +367,7 @@ void setChildren(const Napi::CallbackInfo& info) {
 }
 
 void appendChild(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
@@ -360,18 +385,23 @@ void appendChild(const Napi::CallbackInfo& info) {
 }
 
 std::string getChildren(const int id) {
+    auto pRunner = Runner::getInstance();
     return IntVectorToJson(pRunner->getChildren(id)).dump();
 }
 
 void appendTextToClippedMultiLineTextRenderer(const int id, std::string data) {
+    auto pRunner = Runner::getInstance();
     pRunner->appendTextToClippedMultiLineTextRenderer(id, data);
 }
 
 std::string getStyle() {
+    auto pRunner = Runner::getInstance();
     return pRunner->getStyle();
 }
 
 void patchStyle(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
+
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -381,19 +411,27 @@ void patchStyle(const Napi::CallbackInfo& info) {
     }
 
     auto styleDef = info[0].As<Napi::String>().Utf8Value();
+
+
     return pRunner->patchStyle(styleDef);
 }
 
 void setDebug(const bool debug) {
+    auto pRunner = Runner::getInstance();
+
     return pRunner->setDebug(debug);
 }
 
 void showDebugWindow(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
+
     pRunner->showDebugWindow();
 }
 
 int run()
 {
+    auto pRunner = Runner::getInstance();
+
     pRunner->run();
 
     return 0;
@@ -402,6 +440,8 @@ int run()
 std::thread uiThread;
 
 static Napi::Value init(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
+
     Napi::Env env = info.Env();
 
     if (info.Length() < 3) {
@@ -417,6 +457,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
     pRunner->SetRawFontDefs(info[1].As<Napi::String>().Utf8Value());
     pRunner->SetRawStyleOverridesDefs(info[2].As<Napi::String>().Utf8Value());
+
+    pRunner->init();
 
     printf("Starting UI thread\n");
 

@@ -1,3 +1,8 @@
+#ifndef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#endif
+
+#include <queue>
 #include <string>
 #include <mutex>
 #include <rpp/rpp.hpp>
@@ -8,6 +13,7 @@
 
 #include "shared.h"
 #include "imgui_helpers.h"
+#include "texture_helpers.h"
 
 using json = nlohmann::json;
 
@@ -70,6 +76,12 @@ class ReactImgui {
         ImGuiRenderer* m_renderer;
         std::unordered_map<int, std::vector<int>> m_hierarchy;
         std::mutex m_hierarchy_mutex;
+
+#ifndef __EMSCRIPTEN__
+        std::unordered_map<int, GLuint> m_imageToTextureMap;
+#endif
+
+        std::queue<ImageJob> m_imageJobs;
 
         std::unordered_map<int, std::unique_ptr<char[]>> m_floatFormatChars;
 

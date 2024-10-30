@@ -1,8 +1,8 @@
 #include <optional>
 #include "ada.h"
-#include "mapgenerator.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
+#include <nlohmann/json.hpp>
 
 using fetchImageCallback = std::function<void(void*, size_t)>;
 
@@ -20,11 +20,13 @@ public:
 
         auto id = widgetDef["id"].template get<int>();
         auto url = widgetDef["url"].template get<std::string>();
-        auto parsedUrl = ada::parse<ada::url>(url);
 
+#ifdef __EMSCRIPTEN__
+        auto parsedUrl = ada::parse<ada::url>(url);
         if (!parsedUrl) {
             throw std::invalid_argument("Invalid url supplied");
         }
+#endif
 
         std::optional<ImVec2> size;
 
@@ -57,12 +59,12 @@ public:
 
     void HandleInternalOp(const json& opDef) override;
 
-    void FetchImage();
-
 #ifdef __EMSCRIPTEN__
+    void FetchImage();
     void HandleFetchImageSuccess(emscripten_fetch_t *fetch);
-
     void HandleFetchImageFailure(emscripten_fetch_t *fetch);
+#else
+    void QueueFetchImage();
 #endif
 
     void Init(const json& elementDef) override {
@@ -71,6 +73,10 @@ public:
         YGNodeSetContext(m_layoutNode->m_node, this);
         YGNodeSetMeasureFunc(m_layoutNode->m_node, Measure);
 
+#ifdef __EMSCRIPTEN__
         FetchImage();
+#else
+        QueueFetchImage();
+#endif
     }
 };

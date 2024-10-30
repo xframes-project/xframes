@@ -20,7 +20,7 @@ const fontDefs: any = {
         .flat(),
 };
 
-const assetsBasePath = "C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets";
+const assetsBasePath = "../assets";
 
 nodeImgui.init(assetsBasePath, JSON.stringify(fontDefs), JSON.stringify(theme2));
 
