@@ -155,13 +155,6 @@ class Runner {
             // );
         }
 
-        static void RequestTexture(const int widgetId, const std::string resourceLocation) {
-            printf("%d %s\n", widgetId, resourceLocation.c_str());
-
-            auto ins = getInstance();
-            // ins->loadTexture(widgetId, "C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\sample-raster-map.png");
-        }
-
         void SetRawFontDefs(std::string rawFontDefs) {
             m_rawFontDefs = std::move(rawFontDefs);
         }
@@ -193,8 +186,7 @@ class Runner {
                 OnNumericValueChanged,
                 OnMultipleNumericValuesChanged,
                 OnBooleanValueChanged,
-                OnClick,
-                RequestTexture
+                OnClick
             );
         }
 

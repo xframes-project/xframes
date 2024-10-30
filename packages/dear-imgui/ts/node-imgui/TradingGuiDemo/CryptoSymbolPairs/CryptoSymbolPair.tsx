@@ -28,13 +28,10 @@ export const CryptoSymbolPair = ({ symbol }: Props) => {
 
     return (
         <ReactImgui.Node style={styleSheet.symbolLogoPair}>
-            <ReactImgui.Image
-                url="C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\bitcoin-btc-logo_gqud0f.png"
-                style={styleSheet.symbolLogoLeft}
-            />
+            <ReactImgui.Image url="bitcoin-btc-logo_gqud0f.png" style={styleSheet.symbolLogoLeft} />
 
             <ReactImgui.Image
-                url="C:\\u-blox\\gallery\\ubx\\ulogr\\react-imgui\\packages\\dear-imgui\\assets\\77-771550_dollar-currency-money-finance-usd-us-dollar-dollar_apzzg2.png"
+                url="77-771550_dollar-currency-money-finance-usd-us-dollar-dollar_apzzg2.png"
                 style={styleSheet.symbolLogoRight}
             />
         </ReactImgui.Node>
