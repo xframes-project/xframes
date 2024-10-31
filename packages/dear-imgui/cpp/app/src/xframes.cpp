@@ -474,19 +474,19 @@ void XFrames::RenderDebugWindow() {
 }
 
 template <typename T>
-void XFrames::ExtractNumberFromStyleDef(const json& styleDef, const std::string key, T& value) {
+void XFrames::ExtractNumberFromStyleDef(const json& styleDef, const char* key, T& value) {
     if (styleDef.contains(key) && styleDef[key].is_number_unsigned()) {
         value = styleDef[key].template get<T>();
     }
 };
 
-void XFrames::ExtractBooleanFromStyleDef(const json& styleDef, const std::string key, bool& value) {
+void XFrames::ExtractBooleanFromStyleDef(const json& styleDef, const char* key, bool& value) {
     if (styleDef.contains(key) && styleDef[key].is_number_unsigned()) {
         value = styleDef[key].template get<bool>();
     }
 };
 
-void XFrames::ExtractImVec2FromStyleDef(const json& styleDef, const std::string key, ImVec2& value) {
+void XFrames::ExtractImVec2FromStyleDef(const json& styleDef, const char* key, ImVec2& value) {
     if (styleDef.contains(key)  && styleDef[key].is_array() && styleDef[key].size() == 2) {
         value.x = styleDef[key][0].template get<float>();
         value.y = styleDef[key][1].template get<float>();

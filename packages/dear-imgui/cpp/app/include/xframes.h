@@ -148,11 +148,11 @@ class XFrames {
         json GetAvailableFonts();
 
         template <typename T>
-        void ExtractNumberFromStyleDef(const json& styleDef, std::string key, T& value);
+        void ExtractNumberFromStyleDef(const json& styleDef, const char* key, T& value);
 
-        void ExtractBooleanFromStyleDef(const json& styleDef, std::string key, bool& value);
+        void ExtractBooleanFromStyleDef(const json& styleDef, const char* key, bool& value);
 
-        void ExtractImVec2FromStyleDef(const json& styleDef, std::string key, ImVec2& value);
+        void ExtractImVec2FromStyleDef(const json& styleDef, const char* key, ImVec2& value);
 
         void PatchStyle(const json& styleDef);
 

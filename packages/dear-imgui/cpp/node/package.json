@@ -1,7 +1,7 @@
 {
   "name": "@xframes/node",
   "version": "0.0.1",
-  "description": "A Node.js ImGui implementation",
+  "description": "DOM-less, GPU-accelerated GUI development for Node.js",
   "main": "hello.js",
   "dependencies": {
     "react": "18.2.0"
