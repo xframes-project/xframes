@@ -215,8 +215,8 @@ void XFrames::CreateElement(const json& elementDef) {
                 int id = elementDef["id"].template get<int>();
 
                 if (m_element_init_fn.contains(type) || type == "node") {
-                    const std::lock_guard<std::mutex> elementLock(m_elements_mutex);
                     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+                    const std::lock_guard<std::mutex> elementLock(m_elements_mutex);
 
                     try {
                         if (type == "node") {
@@ -426,8 +426,8 @@ void XFrames::RenderElementTree(const int id) {
 };
 
 void XFrames::Render(const int window_width, const int window_height) {
-    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
 
     ImGui::NewFrame();
 
@@ -495,8 +495,8 @@ void XFrames::ExtractImVec2FromStyleDef(const json& styleDef, const char* key, I
 
 void XFrames::PatchStyle(const json& styleDef) {
     if (styleDef.is_object()) {
-        const std::lock_guard<std::mutex> elementsLock(m_hierarchy_mutex);
-        const std::lock_guard<std::mutex> hierarchyLock(m_elements_mutex);
+        const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+        const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
 
         ImGuiStyle* style = &ImGui::GetStyle();
 
@@ -676,8 +676,8 @@ void XFrames::HandleElementInternalOp(const json& opDef) {
 }
 
 void XFrames::SetChildren(const json& opDef) {
-    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
 
     const auto parentId = opDef["parentId"].template get<int>();
     const auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
@@ -703,7 +703,7 @@ void XFrames::AppendChild(const json& opDef) {
     auto parentId = opDef["parentId"].template get<int>();
     auto childId = opDef["childId"].template get<int>();
 
-    const std::lock_guard<std::mutex> lock(m_hierarchy_mutex);
+    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
 
     if (m_hierarchy.contains(parentId)) {
         if ( std::find(m_hierarchy[parentId].begin(), m_hierarchy[parentId].end(), childId) == m_hierarchy[parentId].end() ) {
