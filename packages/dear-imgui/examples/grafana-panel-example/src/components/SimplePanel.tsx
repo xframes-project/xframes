@@ -5,14 +5,14 @@ import { css, cx } from '@emotion/css';
 import { useStyles2 } from '@grafana/ui';
 import { PanelDataErrorView } from '@grafana/runtime';
 import {
-  ReactImgui,
+  XFrames,
   ImGuiCol,
-  ImGuiStyleForPatching,
+  XFramesStyleForPatching,
   RWStyleSheet,
   PlotLineImperativeHandle,
   ImPlotScale,
   ImPlotMarker,
-} from '@react-wasm/dear-imgui';
+} from '@xframes/wasm';
 // @ts-ignore
 import getWasmModule from '@react-wasm/dear-imgui/dist/reactDearImgui.mjs';
 // @ts-ignore
@@ -31,7 +31,7 @@ export const theme2Colors = {
   white: '#fff',
 };
 
-export const theme2: ImGuiStyleForPatching = {
+export const theme2: XFramesStyleForPatching = {
   // frameBorderSize: 1,
   // framePadding: [0, 0],
   colors: {
@@ -119,7 +119,7 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height, fie
 
   const defaultFont = useMemo(() => ({ name: 'roboto-regular', size: 16 }), []);
 
-  const styleOverrides: ImGuiStyleForPatching = useMemo(() => theme2, []);
+  const styleOverrides: XFramesStyleForPatching = useMemo(() => theme2, []);
 
   const styleSheet = useMemo(
     () =>
@@ -156,7 +156,7 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height, fie
         `
       )}
     >
-      <ReactImgui
+      <XFrames
         wasmDataPackage={wasmDataPackage}
         getWasmModule={getWasmModule}
         containerRef={containerRef}
@@ -164,16 +164,16 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height, fie
         defaultFont={defaultFont}
         styleOverrides={styleOverrides}
       >
-        <ReactImgui.Node root style={styleSheet.rootNode}>
-          <ReactImgui.PlotLine
+        <XFrames.Node root style={styleSheet.rootNode}>
+          <XFrames.PlotLine
             xAxisScale={ImPlotScale.Time}
             ref={plotRef}
             markerStyle={ImPlotMarker.None}
             style={{ width: '100%', height: '100%' }}
             axisAutoFit
           />
-        </ReactImgui.Node>
-      </ReactImgui>
+        </XFrames.Node>
+      </XFrames>
     </div>
   );
 };

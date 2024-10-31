@@ -46,17 +46,14 @@ module.exports = [
                 },
                 {
                     test: /\.(ico|icns|eot|woff|woff2|jpe?g|png)$/,
-                    // exclude: [path.resolve(__dirname, "react-native")],
                     use: [
                         {
-                            // loader: "asset/inline",
                             loader: "url-loader",
                         },
                     ],
                 },
                 {
                     test: /\.(data)$/,
-                    // exclude: [path.resolve(__dirname, "react-native")],
                     use: [
                         {
                             loader: "file-loader",

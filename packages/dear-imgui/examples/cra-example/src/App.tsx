@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ReactImgui,
-  ImGuiDemo,
+  XFrames,
+  XFramesDemo,
   ImGuiCol,
-  ImGuiStyleForPatching,
-} from "@react-wasm/dear-imgui";
+  XFramesStyleForPatching,
+} from "@xframes/wasm";
 // @ts-ignore
-import getWasmModule from "@react-wasm/dear-imgui/dist/reactDearImgui.mjs";
+import getWasmModule from "@xframes/wasm/dist/xframes.mjs";
 // @ts-ignore
-import wasmDataPackage from "@react-wasm/dear-imgui/dist/reactDearImgui.data";
+import wasmDataPackage from "@xframes/wasm/dist/xframes.data";
 
 import "./App.css";
 
@@ -39,7 +39,7 @@ function App() {
 
   const defaultFont = useMemo(() => ({ name: "roboto-regular", size: 16 }), []);
 
-  const styleOverrides: ImGuiStyleForPatching = useMemo(
+  const styleOverrides: XFramesStyleForPatching = useMemo(
     () => ({
       // frameBorderSize: 1,
       // windowPadding: [20, 20],
@@ -104,7 +104,7 @@ function App() {
 
   return (
     <div id="app" ref={containerRef}>
-      <ReactImgui
+      <XFrames
         wasmDataPackage={wasmDataPackage}
         getWasmModule={getWasmModule}
         containerRef={containerRef}
@@ -112,8 +112,8 @@ function App() {
         defaultFont={defaultFont}
         styleOverrides={styleOverrides}
       >
-        <ImGuiDemo />
-      </ReactImgui>
+        <XFramesDemo />
+      </XFrames>
     </div>
   );
 }

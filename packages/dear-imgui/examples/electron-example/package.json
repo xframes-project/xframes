@@ -1,6 +1,6 @@
 {
-    "name": "@react-wasm/electron-example",
-    "productName": "React WASM - Electron Example",
+    "name": "@xframes/electron-example",
+    "productName": "XFrames - Electron Example",
     "version": "0.1.0",
     "private": true,
     "description": "My Electron application description",
@@ -12,7 +12,7 @@
         "lint": "eslint --ext .ts,.tsx ."
     },
     "build": {
-        "appId": "com.reactwasm.example-electron-app",
+        "appId": "dev.xframes.example-electron-app",
         "win": {
             "target": [
                 {
@@ -45,6 +45,7 @@
         "electron-builder": "^24.13.3",
         "eslint": "^8.0.1",
         "eslint-plugin-import": "^2.25.0",
+        "file-loader": "^6.2.0",
         "fork-ts-checker-webpack-plugin": "^7.2.13",
         "node-loader": "^2.0.0",
         "style-loader": "^3.0.0",
@@ -56,12 +57,12 @@
     "keywords": [],
     "author": {
         "name": "Andrea Mancuso",
-        "description": "Example app",
+        "description": "Example Electron app",
         "url": "https://github.com/andreamancuso"
     },
     "license": "MIT",
     "dependencies": {
-        "@react-wasm/dear-imgui": "^0.1.29-canary-001",
+        "@xframes/wasm": "0.0.1",
         "electron-squirrel-startup": "^1.0.0",
         "react": "18.2.0",
         "react-dom": "18.2.0"

@@ -28,4 +28,15 @@ export const rules: Required<ModuleOptions>['rules'] = [
       },
     },
   },
+  {
+    test: /\.(data)$/,
+    use: [
+        {
+            loader: "file-loader",
+            options: {
+                outputPath: "wasm",
+            },
+        },
+    ],
+},
 ];

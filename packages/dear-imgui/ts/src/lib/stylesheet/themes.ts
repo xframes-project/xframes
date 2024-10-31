@@ -1,5 +1,5 @@
 import { ImGuiCol } from "../wasm/wasm-app-types";
-import { ImGuiStyleForPatching } from "./imgui-style";
+import { XFramesStyleForPatching } from "./xframes-style";
 
 export const theme1Colors = {
     black: "#1a1a1a",
@@ -13,7 +13,7 @@ export const theme1Colors = {
     hoverHero: "#ff4a30",
 };
 
-export const theme1: ImGuiStyleForPatching = {
+export const theme1: XFramesStyleForPatching = {
     // frameBorderSize: 1,
     // framePadding: [0, 0],
     colors: {
@@ -86,7 +86,7 @@ export const theme2Colors = {
     white: "#fff",
 };
 
-export const theme2: ImGuiStyleForPatching = {
+export const theme2: XFramesStyleForPatching = {
     // frameBorderSize: 1,
     // framePadding: [0, 0],
     colors: {

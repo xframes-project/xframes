@@ -1,12 +1,12 @@
 {
-  "name": "@react-wasm/grafana-panel-example",
+  "name": "@xframes/grafana-panel-example",
   "version": "0.1.0",
   "private": true,
   "author": {
     "name": "Andrea Mancuso",
     "url": "https://github.com/andreamancuso"
   },
-  "homepage": "https://andreamancuso.github.io/react-wasm/dear-imgui",
+  "homepage": "https://github.com/andreamancuso/xframes",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
     "dev": "webpack -w -c ./.config/webpack/webpack.config.ts --env development",
@@ -70,7 +70,7 @@
     "@grafana/runtime": "^11.2.2",
     "@grafana/schema": "^11.2.2",
     "@grafana/ui": "^11.2.2",
-    "@react-wasm/dear-imgui": "0.3.5",
+    "@xframes/wasm": "0.0.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tslib": "2.5.3"
