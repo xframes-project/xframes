@@ -77,7 +77,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/text_wrap.cpp
     ${XFRAMES_BASE_PATH}/src/widget/tree_node.cpp
     ${XFRAMES_BASE_PATH}/src/widget/window.cpp
-    ${XFRAMES_BASE_PATH}/src/reactimgui.cpp
+    ${XFRAMES_BASE_PATH}/src/xframes.cpp
     ${XFRAMES_BASE_PATH}/src/imgui_renderer.cpp
     ${XFRAMES_BASE_PATH}/src/implot_renderer.cpp
 )

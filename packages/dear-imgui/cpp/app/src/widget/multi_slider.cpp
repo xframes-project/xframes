@@ -2,7 +2,7 @@
 #include <nlohmann/json.hpp>
 
 #include "widget/multi_slider.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
 void MultiSlider::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);

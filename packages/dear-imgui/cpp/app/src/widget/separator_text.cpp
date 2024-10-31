@@ -1,7 +1,7 @@
 #include <imgui.h>
 
 #include "widget/separator_text.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
 void SeparatorText::Patch(const json& widgetPatchDef, ReactImgui* view) {
     StyledWidget::Patch(widgetPatchDef, view);

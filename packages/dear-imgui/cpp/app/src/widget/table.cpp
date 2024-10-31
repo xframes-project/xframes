@@ -1,5 +1,5 @@
 #include "widget/table.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
 void Table::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);

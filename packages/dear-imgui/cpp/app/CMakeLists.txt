@@ -38,7 +38,7 @@ file(GLOB YOGA_SRC CONFIGURE_DEPENDS
 set(XFRAMES_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../app)
 
 set(XFRAMES_SRC
-        ${XFRAMES_BASE_PATH}/src/reactimgui.cpp
+        ${XFRAMES_BASE_PATH}/src/xframes.cpp
         ${XFRAMES_BASE_PATH}/src/imgui_renderer.cpp
         ${XFRAMES_BASE_PATH}/src/implot_renderer.cpp
         ${XFRAMES_BASE_PATH}/src/shared.cpp
@@ -77,7 +77,7 @@ set(XFRAMES_SRC
 
 add_library(xframes
         ${XFRAMES_SRC}
-        ${OSM_STATIC_MAP_GENERATOR_SRC}
+#        ${OSM_STATIC_MAP_GENERATOR_SRC}
         ${LEPTONICA_SRC}
         ${YOGA_SRC}
         ${DEPS}/css-color-parser-cpp/csscolorparser.hpp

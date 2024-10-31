@@ -22,7 +22,7 @@ static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
 #define EMSCRIPTEN_MAINLOOP_END
 #endif
 
-#include "./reactimgui.h"
+#include "./xframes.h"
 #include "imgui_renderer.h"
 
 #include <utility>

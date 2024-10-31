@@ -3,7 +3,7 @@
 #include <implot_internal.h>
 #include "widget/plot_candlestick.h"
 #include "shared.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
 bool PlotCandlestick::HasCustomWidth() {
     return false;
