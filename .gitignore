@@ -150,7 +150,7 @@ vcpkg_installed/
 build/
 
 Makefile
-reactDearImgui.mjs
-reactDearImgui.wasm
-reactDearImgui.data
-reactDearImgui.worker.mjs
+xframes.mjs
+xframes.wasm
+xframes.data
+xframes.worker.mjs
