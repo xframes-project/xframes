@@ -18,7 +18,7 @@ import { Sidebar } from "./Sidebar/Sidebar";
 import { CryptoSymbolPair } from "./CryptoSymbolPairs/CryptoSymbolPair";
 import { CryptoSymbolBlock } from "./CryptoSymbolBlock/CryptoSymbolBlock";
 import { Tabs } from "./Tabs/Tabs";
-import { ReactImgui } from "../ReactImgui";
+import { XFrames } from "../XFrames";
 import { useWidgetRegistrationService } from "../../src/lib/hooks/useWidgetRegistrationService";
 import RWStyleSheet from "../../src/lib/stylesheet/stylesheet";
 import { ImGuiCol, ImGuiStyleVar } from "../../src/lib/wasm/wasm-app-types";
@@ -335,10 +335,10 @@ export const TradingGuiDemo = () => {
     const Component = componentMap[selectedItemIds[0]];
 
     return (
-        <ReactImgui.Node root style={styleSheet.rootNode}>
-            {/* <ReactImgui.UnformattedText text="Trading GUI demo" style={styleSheet.title} /> */}
+        <XFrames.Node root style={styleSheet.rootNode}>
+            {/* <XFrames.UnformattedText text="Trading GUI demo" style={styleSheet.title} /> */}
 
-            {/* <ReactImgui.Node
+            {/* <XFrames.Node
                 style={{
                     width: "100%",
                     flexDirection: "row",
@@ -346,52 +346,52 @@ export const TradingGuiDemo = () => {
                     gap: { column: 15 },
                 }}
             >
-                <ReactImgui.Button onClick={connect} label="Connect" style={styleSheet.button} />
-                <ReactImgui.Button
+                <XFrames.Button onClick={connect} label="Connect" style={styleSheet.button} />
+                <XFrames.Button
                     onClick={subscribeToLiveData}
                     label="Subscribe to live data"
                     style={styleSheet.button}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={getCryptoAssets}
                     label="Get Crypto Assets"
                     style={styleSheet.button}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={getCryptoQuotes}
                     label="Get Crypto Quotes"
                     style={styleSheet.button}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={getCryptoSnapshots}
                     label="Get Crypto Snapshots"
                     style={styleSheet.button}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={getCryptoBars}
                     label="Get Crypto Bars"
                     style={styleSheet.button}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={getLatestCryptoQuotes}
                     label="Get Latest Crypto Quotes"
                     style={styleSheet.button}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={getLatestCryptoBars}
                     label="Get Latest Crypto Bars"
                     style={styleSheet.button}
                 />
-            </ReactImgui.Node> */}
+            </XFrames.Node> */}
 
-            <ReactImgui.Node style={styleSheet.mainLayoutNode}>
+            <XFrames.Node style={styleSheet.mainLayoutNode}>
                 <Sidebar />
-                <ReactImgui.Node style={styleSheet.mainNode}>
-                    <ReactImgui.Node style={styleSheet.mainTitleNode}>
-                        <ReactImgui.UnformattedText text="Trade" style={styleSheet.mainTitle} />
-                    </ReactImgui.Node>
+                <XFrames.Node style={styleSheet.mainNode}>
+                    <XFrames.Node style={styleSheet.mainTitleNode}>
+                        <XFrames.UnformattedText text="Trade" style={styleSheet.mainTitle} />
+                    </XFrames.Node>
 
-                    <ReactImgui.Node style={styleSheet.contentNode}>
+                    <XFrames.Node style={styleSheet.contentNode}>
                         <CryptoSymbolBlock symbol="BTC/USD" />
 
                         <Tabs
@@ -400,76 +400,76 @@ export const TradingGuiDemo = () => {
                             onSelectedTabChange={setSelectedTabIndex}
                         />
 
-                        <ReactImgui.Node style={styleSheet.tabContent}>
-                            <ReactImgui.InputText
+                        <XFrames.Node style={styleSheet.tabContent}>
+                            <XFrames.InputText
                                 hint={`${faIconMap["magnifying-glass"]} SEARCH MARKETS`}
                                 style={styleSheet.marketSearchInput}
                                 hoverStyle={styleSheet.marketSearchInputHover}
                             />
-                            <ReactImgui.Node style={styleSheet.marketSearchFilterWrapper}>
-                                <ReactImgui.Button
+                            <XFrames.Node style={styleSheet.marketSearchFilterWrapper}>
+                                <XFrames.Button
                                     label={faIconMap["star"]}
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="ALL"
                                     style={styleSheet.marketSearchFilterActive}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="TOP"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="BTC"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="ETH"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="USD"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="USDC"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="DAI"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                                <ReactImgui.Button
+                                <XFrames.Button
                                     label="MKR"
                                     style={styleSheet.marketSearchFilter}
                                     hoverStyle={styleSheet.marketSearchFilterActive}
                                 />
-                            </ReactImgui.Node>
-                        </ReactImgui.Node>
-                    </ReactImgui.Node>
-                </ReactImgui.Node>
+                            </XFrames.Node>
+                        </XFrames.Node>
+                    </XFrames.Node>
+                </XFrames.Node>
 
-                {/* <ReactImgui.Node style={styleSheet.contentNode} cull={false}>
+                {/* <XFrames.Node style={styleSheet.contentNode} cull={false}>
                     {Component && (
                         <DataServiceContext.Provider value={dataService}>
                             <Component />
                         </DataServiceContext.Provider>
                     )}
-                </ReactImgui.Node> */}
-            </ReactImgui.Node>
-            <ReactImgui.Node style={styleSheet.sidebarNode}></ReactImgui.Node>
+                </XFrames.Node> */}
+            </XFrames.Node>
+            <XFrames.Node style={styleSheet.sidebarNode}></XFrames.Node>
 
-            <ReactImgui.Node style={styleSheet.debugButton}>
-                <ReactImgui.Button label={faIconMap.bug} onClick={debugModeBtnClicked} />
-            </ReactImgui.Node>
-        </ReactImgui.Node>
+            <XFrames.Node style={styleSheet.debugButton}>
+                <XFrames.Button label={faIconMap.bug} onClick={debugModeBtnClicked} />
+            </XFrames.Node>
+        </XFrames.Node>
     );
 };

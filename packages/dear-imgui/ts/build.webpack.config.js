@@ -20,7 +20,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, "build"),
         // library: {
-        //     name: "reactDearImgui",
+        //     name: "xframes",
         //     type: "umd",
         // },
     },

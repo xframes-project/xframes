@@ -4,7 +4,7 @@ import { HEXA } from "./types";
 export type StyleVarValue = number | ImVec2;
 
 // This is a more or less accurate representation of ImGuiStyle
-export type ImGuiStyle = {
+export type XFramesStyle = {
     alpha: number; // Global alpha applies to everything in Dear ImGui.
     disabledAlpha: number; // Additional alpha multiplier applied by BeginDisabled(). Multiply over current value of Alpha.
     windowPadding: ImVec2; // Padding within a window.
@@ -63,7 +63,7 @@ export type ImGuiStyle = {
 };
 
 // This is what the WASM expects so that it can 'patch' the default style
-export type ImGuiStyleForPatching = Partial<Omit<ImGuiStyle, "colors">> & {
+export type XFramesStyleForPatching = Partial<Omit<XFramesStyle, "colors">> & {
     colors?: {
         [k in ImGuiCol]?: HEXA;
     };

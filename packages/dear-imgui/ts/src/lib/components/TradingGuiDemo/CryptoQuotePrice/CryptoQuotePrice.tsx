@@ -6,7 +6,7 @@ import { interval, intervalToDuration, formatDuration, differenceInMilliseconds 
 import { CryptoQuoteWithSymbol } from "../dataService";
 import { ImGuiCol } from "src/lib/wasm/wasm-app-types";
 import { theme2Colors } from "src/lib/stylesheet/themes";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 
 type Props = { symbol: string };
 
@@ -90,10 +90,10 @@ export const CryptoQuotePrice = ({ symbol }: Props) => {
 
     return (
         <>
-            <ReactImgui.Node style={styleSheet.pricesWrapper}>
-                <ReactImgui.Node style={styleSheet.price}>
-                    <ReactImgui.UnformattedText text="ASK" style={styleSheet.ask} />
-                    <ReactImgui.UnformattedText
+            <XFrames.Node style={styleSheet.pricesWrapper}>
+                <XFrames.Node style={styleSheet.price}>
+                    <XFrames.UnformattedText text="ASK" style={styleSheet.ask} />
+                    <XFrames.UnformattedText
                         text={
                             typeof data?.quote?.AskPrice === "number"
                                 ? data?.quote?.AskPrice.toFixed(6)
@@ -101,10 +101,10 @@ export const CryptoQuotePrice = ({ symbol }: Props) => {
                         }
                         style={styleSheet.ask}
                     />
-                </ReactImgui.Node>
-                <ReactImgui.Node style={styleSheet.price}>
-                    <ReactImgui.UnformattedText text="BID" style={styleSheet.bid} />
-                    <ReactImgui.UnformattedText
+                </XFrames.Node>
+                <XFrames.Node style={styleSheet.price}>
+                    <XFrames.UnformattedText text="BID" style={styleSheet.bid} />
+                    <XFrames.UnformattedText
                         text={
                             typeof data?.quote?.BidPrice === "number"
                                 ? data?.quote?.BidPrice.toFixed(6)
@@ -112,9 +112,9 @@ export const CryptoQuotePrice = ({ symbol }: Props) => {
                         }
                         style={styleSheet.bid}
                     />
-                </ReactImgui.Node>
-            </ReactImgui.Node>
-            {/* <ReactImgui.UnformattedText text={data.lastUpdated} /> */}
+                </XFrames.Node>
+            </XFrames.Node>
+            {/* <XFrames.UnformattedText text={data.lastUpdated} /> */}
         </>
     );
 };

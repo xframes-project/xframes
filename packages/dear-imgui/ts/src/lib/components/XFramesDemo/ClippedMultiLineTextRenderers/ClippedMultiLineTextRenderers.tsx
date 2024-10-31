@@ -1,8 +1,8 @@
 import React, { SyntheticEvent, useCallback, useMemo, useRef, useState } from "react";
 import { ImGuiCol } from "src/lib/wasm/wasm-app-types";
 import faIconMap from "src/lib/fa-icons";
-import { ReactImgui } from "../../ReactImgui/components";
-import { ClippedMultiLineTextRendererImperativeHandle } from "../../ReactImgui/ClippedMultiLineTextRenderer";
+import { ClippedMultiLineTextRendererImperativeHandle } from "../../XFrames/ClippedMultiLineTextRenderer";
+import { XFrames } from "../../XFrames";
 
 export const ClippedMultiLineTextRenderers = () => {
     const clippedMultiLineTextRendererRef =
@@ -20,10 +20,10 @@ export const ClippedMultiLineTextRenderers = () => {
 
     return (
         <>
-            <ReactImgui.Node style={{ flexDirection: "row" }}>
-                <ReactImgui.Button onClick={handleAppendTextToTextRenderer} label="Add text" />
-            </ReactImgui.Node>
-            <ReactImgui.ClippedMultiLineTextRenderer
+            <XFrames.Node style={{ flexDirection: "row" }}>
+                <XFrames.Button onClick={handleAppendTextToTextRenderer} label="Add text" />
+            </XFrames.Node>
+            <XFrames.ClippedMultiLineTextRenderer
                 ref={clippedMultiLineTextRendererRef}
                 style={{ width: 400, height: 400 }}
             />

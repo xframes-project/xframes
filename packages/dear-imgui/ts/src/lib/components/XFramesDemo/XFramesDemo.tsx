@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { ReactImgui } from "src/lib/components/ReactImgui/components";
 import { useWidgetRegistrationService } from "src/lib/hooks";
 import { ImGuiCol, ImGuiStyleVar } from "src/lib/wasm/wasm-app-types";
 // import { HelpMarker } from "./HelpMarker/HelpMarker";
@@ -8,12 +7,13 @@ import RWStyleSheet from "../../stylesheet/stylesheet";
 import { Tables } from "./Tables/Tables";
 import { Maps } from "./Maps/Maps";
 import { Plots } from "./Plots/Plots";
-import { TreeViewItem } from "../ReactImgui/TreeView";
+import { TreeViewItem } from "../XFrames/TreeView";
 import { Images } from "./Images/Images";
 import { Icons } from "./Icons/Icons";
 import { TextFields } from "./TextFields/TextFields";
 import { ClippedMultiLineTextRenderers } from "./ClippedMultiLineTextRenderers/ClippedMultiLineTextRenderers";
 import { Sliders } from "./Sliders/Sliders";
+import { XFrames } from "../XFrames";
 
 const componentMap = {
     textField: TextFields,
@@ -28,7 +28,7 @@ const componentMap = {
 
 type ComponentKeys = keyof typeof componentMap;
 
-export const ImGuiDemo = () => {
+export const XFramesDemo = () => {
     const widgetRegistratonService = useWidgetRegistrationService();
 
     const [selectedItemIds, setSelectedItemIds] = useState<ComponentKeys[]>(["plots"]);
@@ -133,25 +133,25 @@ export const ImGuiDemo = () => {
     const Component = componentMap[selectedItemIds[0]];
 
     return (
-        <ReactImgui.Node root style={styleSheet.rootNode}>
-            <ReactImgui.UnformattedText text="React Dear Imgui bindings" style={styleSheet.title} />
+        <XFrames.Node root style={styleSheet.rootNode}>
+            <XFrames.UnformattedText text="XFrames bindings" style={styleSheet.title} />
 
-            <ReactImgui.Node style={styleSheet.mainLayoutNode}>
-                <ReactImgui.Node style={styleSheet.sidebarNode}>
-                    <ReactImgui.TreeView
+            <XFrames.Node style={styleSheet.mainLayoutNode}>
+                <XFrames.Node style={styleSheet.sidebarNode}>
+                    <XFrames.TreeView
                         items={treeViewItems}
                         selectedItemIds={selectedItemIds}
                         onToggleItemSelection={onToggleItemSelection}
                     />
-                </ReactImgui.Node>
-                <ReactImgui.Node style={styleSheet.contentNode} cull>
+                </XFrames.Node>
+                <XFrames.Node style={styleSheet.contentNode} cull>
                     {Component && <Component />}
-                </ReactImgui.Node>
-            </ReactImgui.Node>
+                </XFrames.Node>
+            </XFrames.Node>
 
-            <ReactImgui.Node style={styleSheet.debugButton}>
-                <ReactImgui.Button label={faIconMap.bug} onClick={debugModeBtnClicked} />
-            </ReactImgui.Node>
-        </ReactImgui.Node>
+            <XFrames.Node style={styleSheet.debugButton}>
+                <XFrames.Button label={faIconMap.bug} onClick={debugModeBtnClicked} />
+            </XFrames.Node>
+        </XFrames.Node>
     );
 };

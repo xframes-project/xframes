@@ -19,9 +19,9 @@
         "build:library": "rimraf ./build && yarn tsup && yarn copy-wasm-to-build-folder",
         "tsc": "tsc --project ./tsconfig-build.json",
         "tsup": "tsup --format cjs --external react,react-dom",
-        "copy-wasm-to-build-folder": "cpy --flat ./src/lib/wasm/reactDearImgui.* dist/",
+        "copy-wasm-to-build-folder": "cpy --flat ./src/lib/wasm/xframes.* dist/",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-        "node-imgui": "tsx ./xframes-node/index.tsx"
+        "xframes-node": "tsx ./xframes-node/index.tsx"
     },
     "tsup": {
         "entry": [

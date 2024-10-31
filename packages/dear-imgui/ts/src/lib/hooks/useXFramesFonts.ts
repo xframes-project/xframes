@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
-import { FontDef, Primitive } from "../components/ReactImgui/types";
+import { FontDef, Primitive } from "../components/XFrames/types";
 
-export const useDearImguiFonts = (fontDefs?: FontDef[]) => {
+export const useXFramesFonts = (fontDefs?: FontDef[]) => {
     const fonts = useMemo(
         () =>
             fontDefs

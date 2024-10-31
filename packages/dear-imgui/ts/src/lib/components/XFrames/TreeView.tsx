@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetFunctionComponent, WidgetPropsMap } from "./types";
-import { ReactImgui } from "./components";
+import { XFrames } from "../XFrames";
 
 export type TreeViewItem = {
     itemId: string;
@@ -27,7 +27,7 @@ const TreeViewItemRenderer = ({
     }, [onToggleItemSelection, item, selectedItemIds]);
 
     return (
-        <ReactImgui.TreeNode
+        <XFrames.TreeNode
             key={item.itemId}
             itemId={item.itemId}
             label={item.label}
@@ -44,7 +44,7 @@ const TreeViewItemRenderer = ({
                     onToggleItemSelection={onToggleItemSelection}
                 />
             ))}
-        </ReactImgui.TreeNode>
+        </XFrames.TreeNode>
     );
 };
 

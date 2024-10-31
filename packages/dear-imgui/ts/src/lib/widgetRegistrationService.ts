@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 // import { MainModule } from "./wasm/wasm-app-types";
-import { ImGuiStyle } from "./stylesheet/imgui-style";
-import { PlotCandlestickDataItem } from "./components/ReactImgui/types";
+import { XFramesStyle } from "./stylesheet/xframes-style";
+import { PlotCandlestickDataItem } from "./components/XFrames/types";
 
 export class WidgetRegistrationService {
     private wasmModule: any;
@@ -26,7 +26,7 @@ export class WidgetRegistrationService {
         return this.fonts;
     }
 
-    getStyle(): ImGuiStyle {
+    getStyle(): XFramesStyle {
         return JSON.parse(this.wasmModule.getStyle());
     }
 

@@ -5,7 +5,7 @@ import { FontDef, ImGuiStyleForPatching, useDearImguiWasm } from "../src/lib";
 import { useDearImguiFonts } from "../src/lib/hooks";
 import { ReactNativeWrapper } from "./ReactNativeWrapper";
 import { attachSubComponents } from "../src/lib/attachSubComponents";
-import { components } from "../src/lib/components/ReactImgui/components";
+import { components } from "../src/lib/components/XFrames/components";
 
 export type MainComponentProps = PropsWithChildren & {
     fontDefs?: FontDef[];
@@ -25,4 +25,4 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
     return <ReactNativeWrapper nodeImgui>{children}</ReactNativeWrapper>;
 };
 
-export const ReactImgui = attachSubComponents("ReactImgui", MainComponent, components);
+export const XFrames = attachSubComponents("XFrames", MainComponent, components);

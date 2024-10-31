@@ -1,8 +1,8 @@
 import React, { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { useDataService } from "../dataServiceContext";
 import { filter } from "rxjs";
-import { ReactImgui } from "../../ReactImgui";
-import { PlotLineImperativeHandle } from "../../../src/lib/components/ReactImgui/PlotLine";
+import { XFrames } from "../../XFrames";
+import { PlotLineImperativeHandle } from "../../../src/lib/components/XFrames/PlotLine";
 import { ImPlotScale } from "../../../src/lib/wasm/wasm-app-types";
 
 type Props = { symbol: string };
@@ -36,7 +36,7 @@ export const CryptoLinePlot = ({ symbol }: Props) => {
     // }, []);
 
     return (
-        <ReactImgui.PlotLine
+        <XFrames.PlotLine
             xAxisScale={ImPlotScale.Time}
             ref={plotRef}
             style={{ width: "100%", height: 400 }}

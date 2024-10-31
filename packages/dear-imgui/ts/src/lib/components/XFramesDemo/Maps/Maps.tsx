@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
-import { ReactImgui } from "src/lib/components/ReactImgui/components";
-import { MapImperativeHandle } from "../../ReactImgui/MapView";
+import { MapImperativeHandle } from "../../XFrames/MapView";
+import { XFrames } from "../../XFrames";
 
 export const Maps = () => {
     const mapRef = useRef<MapImperativeHandle>(null);
@@ -27,7 +27,7 @@ export const Maps = () => {
     }, []);
 
     return (
-        <ReactImgui.Node
+        <XFrames.Node
             style={{
                 width: "100%",
                 height: "100%",
@@ -35,7 +35,7 @@ export const Maps = () => {
                 gap: { row: 5 },
             }}
         >
-            <ReactImgui.Node
+            <XFrames.Node
                 style={{
                     width: "100%",
                     flexDirection: "row",
@@ -43,12 +43,12 @@ export const Maps = () => {
                     gap: { column: 15 },
                 }}
             >
-                <ReactImgui.UnformattedText text={`Center: ${center[0]}, ${center[1]}`} />
-                <ReactImgui.Button onClick={locate} label="Locate" />
-                <ReactImgui.Button onClick={renderMap} label="Render" />
-            </ReactImgui.Node>
+                <XFrames.UnformattedText text={`Center: ${center[0]}, ${center[1]}`} />
+                <XFrames.Button onClick={locate} label="Locate" />
+                <XFrames.Button onClick={renderMap} label="Render" />
+            </XFrames.Node>
 
-            <ReactImgui.MapView ref={mapRef} style={{ flex: 1 }} />
-        </ReactImgui.Node>
+            <XFrames.MapView ref={mapRef} style={{ flex: 1 }} />
+        </XFrames.Node>
     );
 };

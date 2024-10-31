@@ -1,8 +1,8 @@
 import React, { SyntheticEvent, useCallback, useMemo, useRef, useState } from "react";
 import { ImGuiCol } from "src/lib/wasm/wasm-app-types";
 import faIconMap from "src/lib/fa-icons";
-import { ReactImgui } from "../../ReactImgui/components";
-import { WidgetReactElement } from "../../ReactImgui/types";
+import { WidgetReactElement } from "../../XFrames/types";
+import { XFrames } from "../../XFrames";
 
 export const TextFields = () => {
     const [text, setText] = useState("Hello, world!");
@@ -17,7 +17,7 @@ export const TextFields = () => {
 
     return (
         <>
-            <ReactImgui.UnformattedText text="test" />
+            <XFrames.UnformattedText text="test" />
         </>
     );
 };

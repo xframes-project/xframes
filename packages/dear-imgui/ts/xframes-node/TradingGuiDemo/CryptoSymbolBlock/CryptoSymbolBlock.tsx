@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { CryptoSymbolPair } from "../CryptoSymbolPairs/CryptoSymbolPair";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 import RWStyleSheet from "../../../src/lib/stylesheet/stylesheet";
 import { ImGuiCol } from "../../../src/lib/wasm/wasm-app-types";
 
@@ -60,18 +60,18 @@ export const CryptoSymbolBlock = ({ symbol }: Props) => {
     );
 
     return (
-        <ReactImgui.Node style={styleSheet.block}>
-            <ReactImgui.Node style={styleSheet.symbolLogos}>
+        <XFrames.Node style={styleSheet.block}>
+            <XFrames.Node style={styleSheet.symbolLogos}>
                 <CryptoSymbolPair symbol={symbol} />
-            </ReactImgui.Node>
-            <ReactImgui.Node style={styleSheet.info}>
-                <ReactImgui.UnformattedText style={styleSheet.symbol} text={symbol} />
-                <ReactImgui.Node style={styleSheet.priceRow}>
-                    <ReactImgui.UnformattedText style={styleSheet.price} text={price} />
-                    <ReactImgui.UnformattedText style={styleSheet.currency} text={currency} />
-                    <ReactImgui.UnformattedText style={styleSheet.trend} text={trend} />
-                </ReactImgui.Node>
-            </ReactImgui.Node>
-        </ReactImgui.Node>
+            </XFrames.Node>
+            <XFrames.Node style={styleSheet.info}>
+                <XFrames.UnformattedText style={styleSheet.symbol} text={symbol} />
+                <XFrames.Node style={styleSheet.priceRow}>
+                    <XFrames.UnformattedText style={styleSheet.price} text={price} />
+                    <XFrames.UnformattedText style={styleSheet.currency} text={currency} />
+                    <XFrames.UnformattedText style={styleSheet.trend} text={trend} />
+                </XFrames.Node>
+            </XFrames.Node>
+        </XFrames.Node>
     );
 };

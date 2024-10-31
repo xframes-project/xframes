@@ -1,7 +1,7 @@
 import React from "react";
 import { useStore } from "../store";
 import { CryptoCandlestickPlot } from "./CryptoCandlestickPlot";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 
 type Props = {};
 
@@ -9,7 +9,7 @@ export const CryptoCandlestickPlots = ({}: Props) => {
     const symbols = useStore((state) => state.symbols);
 
     return (
-        <ReactImgui.Node
+        <XFrames.Node
             style={{
                 width: "100%",
                 height: "100%",
@@ -20,6 +20,6 @@ export const CryptoCandlestickPlots = ({}: Props) => {
             {symbols.map((sym) => (
                 <CryptoCandlestickPlot key={sym} symbol={sym} />
             ))}
-        </ReactImgui.Node>
+        </XFrames.Node>
     );
 };

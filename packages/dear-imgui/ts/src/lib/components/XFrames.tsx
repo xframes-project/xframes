@@ -6,11 +6,11 @@ import debounce from "lodash.debounce";
 import ReactNativePrivateInterface from "../react-native/ReactNativePrivateInterface";
 import { GetWasmModule, MainModule, WasmExitStatus } from "../wasm/wasm-app-types";
 import { ReactNativeWrapper } from "../components/ReactNativeWrapper";
-import { useDearImguiFonts, useDearImguiWasm } from "../hooks";
-import { FontDef } from "./ReactImgui/types";
-import { ImGuiStyleForPatching } from "../stylesheet/imgui-style";
+import { FontDef } from "./XFrames/types";
 import { attachSubComponents } from "../attachSubComponents";
-import { components } from "./ReactImgui/components";
+import { components } from "./XFrames/components";
+import { XFramesStyleForPatching } from "../stylesheet/xframes-style";
+import { useXFramesFonts, useXFramesWasm } from "../hooks";
 
 export type MainComponentProps = PropsWithChildren & {
     containerRef?: React.RefObject<HTMLElement>;
@@ -18,7 +18,7 @@ export type MainComponentProps = PropsWithChildren & {
     wasmDataPackage: string;
     fontDefs?: FontDef[];
     defaultFont?: { name: string; size: number };
-    styleOverrides?: ImGuiStyleForPatching;
+    styleOverrides?: XFramesStyleForPatching;
 };
 
 export const MainComponent: React.ComponentType<MainComponentProps> = ({
@@ -37,8 +37,8 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
 
     const canvasId = useMemo(() => `canvas-${uuidv4()}`, []);
 
-    const { eventHandlers } = useDearImguiWasm(ReactNativePrivateInterface);
-    const fonts = useDearImguiFonts(fontDefs);
+    const { eventHandlers } = useXFramesWasm(ReactNativePrivateInterface);
+    const fonts = useXFramesFonts(fontDefs);
 
     useEffect(() => {
         if (canvasRef.current) {
@@ -149,4 +149,4 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
     );
 };
 
-export const ReactImgui = attachSubComponents("ReactImgui", MainComponent, components);
+export const XFrames = attachSubComponents("XFrames", MainComponent, components);

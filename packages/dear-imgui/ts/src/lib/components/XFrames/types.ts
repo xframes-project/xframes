@@ -1,5 +1,5 @@
 import { FunctionComponent, JSXElementConstructor, ReactElement, SyntheticEvent } from "react";
-import { MainComponentProps, ReactImgui } from "../ReactImgui";
+import { MainComponentProps, XFrames } from "../XFrames";
 import { StyleRules } from "src/lib/stylesheet/stylesheet";
 import { ImPlotMarker, ImPlotScale, ImVec2 } from "src/lib/wasm/wasm-app-types";
 import { YogaStyle } from "src/lib/stylesheet/yoga-style";
@@ -187,7 +187,7 @@ export type WidgetPropsMap = {
 
 export type WidgetKeys = keyof WidgetPropsMap;
 
-type ReactImguiType = typeof ReactImgui;
+type XFramesType = typeof XFrames;
 
 export type WidgetsRequiringId =
     | "Button"
@@ -223,8 +223,8 @@ type WidgetReactElements = {
 };
 type WidgetReactElementsFlat = WidgetReactElements[keyof WidgetReactElements];
 
-export type ReactImguiTypeKeys = Exclude<
-    keyof ReactImguiType,
+export type XFramesTypeKeys = Exclude<
+    keyof XFramesType,
     keyof React.FunctionComponent<MainComponentProps>
 >;
 
@@ -258,25 +258,25 @@ export type NodeProps = {
 
 export type YogaNode = NodeProps & { id?: string };
 
-export type ImguiWidget<
+export type XFramesWidget<
     K extends WidgetKeys,
     P extends WidgetPropsMapFlat = WidgetPropsMapFlat,
 > = K extends WidgetsRequiringId
     ? { [L in keyof Omit<P, "children">]: P[L] } & {
           id: string;
           type: K;
-          children?: ImguiWidget<WidgetKeys>[];
+          children?: XFramesWidget<WidgetKeys>[];
       }
     : { [L in keyof Omit<P, "children">]: P[L] } & {
           type: K;
-          children?: ImguiWidget<WidgetKeys>[];
+          children?: XFramesWidget<WidgetKeys>[];
       };
 
-type ImguiWidgets = {
-    [K in WidgetKeys]: ImguiWidget<K, WidgetPropsMap[K]>;
+type XFramesWidgets = {
+    [K in WidgetKeys]: XFramesWidget<K, WidgetPropsMap[K]>;
 };
 
-export type ImguiWidgetsFlat = ImguiWidgets[keyof ImguiWidgets];
+export type XFramesWidgetsFlat = XFramesWidgets[keyof XFramesWidgets];
 
 export type WidgetPropsMapFlat = WidgetPropsMap[keyof WidgetPropsMap];
 

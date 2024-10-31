@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 import RWStyleSheet from "../../../src/lib/stylesheet/stylesheet";
 
 type Props = {
@@ -27,13 +27,13 @@ export const CryptoSymbolPair = ({ symbol }: Props) => {
     );
 
     return (
-        <ReactImgui.Node style={styleSheet.symbolLogoPair}>
-            <ReactImgui.Image url="bitcoin-btc-logo_gqud0f.png" style={styleSheet.symbolLogoLeft} />
+        <XFrames.Node style={styleSheet.symbolLogoPair}>
+            <XFrames.Image url="bitcoin-btc-logo_gqud0f.png" style={styleSheet.symbolLogoLeft} />
 
-            <ReactImgui.Image
+            <XFrames.Image
                 url="77-771550_dollar-currency-money-finance-usd-us-dollar-dollar_apzzg2.png"
                 style={styleSheet.symbolLogoRight}
             />
-        </ReactImgui.Node>
+        </XFrames.Node>
     );
 };

@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useRef } from "react";
-import { ReactImgui } from "src/lib/components/ReactImgui/components";
-import { TableImperativeHandle } from "../../ReactImgui/Table";
+import { TableImperativeHandle } from "../../XFrames/Table";
 import RWStyleSheet from "src/lib/stylesheet/stylesheet";
 import { ImGuiCol } from "src/lib/wasm/wasm-app-types";
+import { XFrames } from "../../XFrames";
 
 const sampleData = [
     { id: "1", name: "Name" },
@@ -82,7 +82,7 @@ export const Tables = () => {
     // TODO: work out `root` automatically as having multiple root nodes can lead to major layout issues - not always immediately obvious...
 
     return (
-        <ReactImgui.Node
+        <XFrames.Node
             root
             style={{
                 width: "100%",
@@ -91,7 +91,7 @@ export const Tables = () => {
                 gap: { row: 5 },
             }}
         >
-            <ReactImgui.Node
+            <XFrames.Node
                 style={{
                     width: "100%",
                     height: 200,
@@ -99,7 +99,7 @@ export const Tables = () => {
                     gap: { column: 5 },
                 }}
             >
-                <ReactImgui.Table
+                <XFrames.Table
                     ref={tableRef1}
                     columns={tableColumns}
                     clipRows={10}
@@ -108,7 +108,7 @@ export const Tables = () => {
                         height: "100%",
                     }}
                 />
-                <ReactImgui.Table
+                <XFrames.Table
                     ref={tableRef2}
                     columns={tableColumns}
                     clipRows={10}
@@ -117,7 +117,7 @@ export const Tables = () => {
                         height: "100%",
                     }}
                 />
-                <ReactImgui.Table
+                <XFrames.Table
                     ref={tableRef3}
                     columns={tableColumns}
                     clipRows={10}
@@ -126,7 +126,7 @@ export const Tables = () => {
                         height: "100%",
                     }}
                 />
-                <ReactImgui.Table
+                <XFrames.Table
                     ref={tableRef4}
                     columns={tableColumns}
                     clipRows={10}
@@ -135,8 +135,8 @@ export const Tables = () => {
                         height: "100%",
                     }}
                 />
-            </ReactImgui.Node>
-            <ReactImgui.Node
+            </XFrames.Node>
+            <XFrames.Node
                 style={{
                     width: "100%",
                     height: 30,
@@ -145,17 +145,17 @@ export const Tables = () => {
                     gap: { column: 5 },
                 }}
             >
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={handleAppendDataToTableClick}
                     label="Add data to table"
                     style={styleSheet.primaryButton}
                 />
-                <ReactImgui.Button
+                <XFrames.Button
                     onClick={handleStopAppendingDataToTableClick}
                     label="Stop adding data"
                     style={styleSheet.secondaryButton}
                 />
-            </ReactImgui.Node>
-        </ReactImgui.Node>
+            </XFrames.Node>
+        </XFrames.Node>
     );
 };

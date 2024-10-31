@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
-import { ReactImgui } from "src/lib/components/ReactImgui/components";
-import { PlotLineImperativeHandle } from "../../ReactImgui/PlotLine";
+import { PlotLineImperativeHandle } from "../../XFrames/PlotLine";
+import { XFrames } from "../../XFrames";
 
 export const Plots = () => {
     const plotRef = useRef<PlotLineImperativeHandle>(null);
@@ -25,7 +25,7 @@ export const Plots = () => {
     }, []);
 
     return (
-        <ReactImgui.Node
+        <XFrames.Node
             style={{
                 width: "100%",
                 height: "100%",
@@ -33,7 +33,7 @@ export const Plots = () => {
                 gap: { row: 5 },
             }}
         >
-            <ReactImgui.Node
+            <XFrames.Node
                 style={{
                     width: "100%",
                     flexDirection: "row",
@@ -41,12 +41,12 @@ export const Plots = () => {
                     gap: { column: 15 },
                 }}
             >
-                <ReactImgui.Button onClick={appendData} label="Append" />
-                <ReactImgui.Button onClick={toggleAxisAutoFit} label="Toggle Axis Auto-Fit" />
-                <ReactImgui.Button onClick={resetData} label="Reset" />
-            </ReactImgui.Node>
+                <XFrames.Button onClick={appendData} label="Append" />
+                <XFrames.Button onClick={toggleAxisAutoFit} label="Toggle Axis Auto-Fit" />
+                <XFrames.Button onClick={resetData} label="Reset" />
+            </XFrames.Node>
 
-            <ReactImgui.PlotLine ref={plotRef} style={{ flex: 1 }} axisAutoFit={axisAutoFit} />
-        </ReactImgui.Node>
+            <XFrames.PlotLine ref={plotRef} style={{ flex: 1 }} axisAutoFit={axisAutoFit} />
+        </XFrames.Node>
     );
 };

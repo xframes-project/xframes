@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import faIconMap, { faIconKeys } from "src/lib/fa-icons";
-import { ReactImgui } from "../../ReactImgui/components";
 import RWStyleSheet from "src/lib/stylesheet/stylesheet";
+import { XFrames } from "../../XFrames";
 
 export const Icons = () => {
     const styleSheet = useMemo(
@@ -19,8 +19,10 @@ export const Icons = () => {
                     maxWidth: 240,
                     flex: 1,
                     height: 100,
-                    borderColor: "#000",
-                    borderThickness: 1,
+                    border: {
+                        color: "#000",
+                        thickness: 1,
+                    },
                     alignItems: "center",
                 },
                 icon: {
@@ -34,18 +36,18 @@ export const Icons = () => {
     );
 
     return (
-        <ReactImgui.Node style={styleSheet.mainWrapperNode}>
+        <XFrames.Node style={styleSheet.mainWrapperNode}>
             {Object.keys(faIconMap)
                 // .slice(0, 60)
                 .map((key) => (
-                    <ReactImgui.Node key={key} style={styleSheet.iconWrapperNode}>
-                        <ReactImgui.UnformattedText
+                    <XFrames.Node key={key} style={styleSheet.iconWrapperNode}>
+                        <XFrames.UnformattedText
                             text={faIconMap[key as faIconKeys]}
                             style={styleSheet.icon}
                         />
-                        <ReactImgui.UnformattedText text={key} style={styleSheet.iconKey} />
-                    </ReactImgui.Node>
+                        <XFrames.UnformattedText text={key} style={styleSheet.iconKey} />
+                    </XFrames.Node>
                 ))}
-        </ReactImgui.Node>
+        </XFrames.Node>
     );
 };
