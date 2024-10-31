@@ -1,32 +1,28 @@
-# React WASM GUI bindings
-
-<video src='https://github.com/user-attachments/assets/61fbc418-a419-4bdc-8202-50ff16c5ee56' style="width:90%"></video>
-
-![React Dear Imgui screenshot](https://github.com/user-attachments/assets/1512b95f-640d-4555-8a4b-57ad08119876)
-
-![React Dear Imgui screenshot](https://github.com/user-attachments/assets/1a9b8ae9-d529-45af-ab7b-7e173799136f)
+# XFrames - DOM-free GUI development
 
 ## Motivation
 
-I've always found WebAssembly very interesting conceptually but I never really needed to use it - until relatively recently.
+I've always found DOM-free GUI development very interesting conceptually but I never really needed to use it - until relatively recently.
 
 I invested quite a bit of time and effort into figuring out how [WebAssembly](https://webassembly.org/) and [Emscripten](https://emscripten.org/index.html) work. I eventually managed to compile the [Dear ImGui](https://github.com/ocornut/imgui) emscripten example and modified it to suit my requirements. Given my lack of experience with C/C++, I can tell you that this has been far from being a straightforward process. I have eventually realized that someone else out there might benefit from this experience of mine.
 
-As I write these paragraphs, I realise that, despite accomplishing a few small initial goals, there is still lot to do. I hope you find these libraries useful, if anything just to get yourself acquainted with WebAssembly, C/C++ (and soon Rust).
+As I write these paragraphs, I realise that, despite accomplishing a few small initial goals, there is still lot to do. I hope you find these libraries useful, if anything just to get yourself acquainted with WebAssembly, C/C++, GLFW, OpenGL.
 
 ## Caveats
 
 ### Overall quality
 
-I work on this project during my spare time so the overall quality is ... quite poor. Please bear with me while I make the necessary improvements.
+I work on this project during my spare time so the overall quality is ... suboptimal. Please bear with me while I make the necessary improvements.
 
-Due of my very limited expertise with C/C++, it is highly likely that the code I wrote so far is buggy and not particularly performant (read, quite crappy).
+Due of my limited expertise with C/C++, you might come across bugs - and the code may not be particularly performant.
 
-There are currently no tests. I would like to add coverage for the C/C++ layer ASAP.
+On the plus side, although still lacking, I added some unit tests for the C++ layer.
 
 ### Performance
 
-Performance-wise, the current implementation of the libraries is far from being production-ready. In general the code can be optimised but I also have a growing suspicion that they could benefit from multi-threading. That said, I have learned that, for example, ImGui cannot take control of an off-screen Canvas instance due to its attempts to resize it. Also, attempts to enable the `-sPROXY_TO_PTHREAD` emscripten switch proved unsuccessful as ultimately WebGL instructions can be sent only from the main thread. I believe it is possible to leverage multi-threading in an emscripten-compatible way though I have yet to figure that one out.
+As the rendering is delegated to the GPU, the overall performance should be at the very least half-decent. That said, I am still getting familiar with the more advanced data structures available in C++. 
+
+I still need to benchmark/compare the differences in terms performance between WASM and the native Node module.
 
 ### Accessibility
 
@@ -37,25 +33,21 @@ GUI libraries such as [egui](https://github.com/emilk/egui) are a very good exam
 At the moment I am focusing on bindings for React only. The renderer is actually adapted from react-native's Fabric renderer.
 Perhaps there are other options I could/should have considered. Feel free to let me know your thoughts.
 
-## Bindings
+## Basic online demo
 
-### Dear Imgui
+([online demo](https://andreamancuso.github.io/react-wasm/dear-imgui)) Only browsers that natively support WebGPU: Chrome, Edge, Firefox nightly, possibly Safari (though I have not tested it).
 
-[Dear Imgui](https://github.com/andreamancuso/react-wasm/tree/main/packages/dear-imgui) (work in progress) ([very basic online demo](https://andreamancuso.github.io/react-wasm/dear-imgui)) Browser support: latest Chrome and Edge only presently.
+## Screenshots
+
+<video src='https://github.com/user-attachments/assets/61fbc418-a419-4bdc-8202-50ff16c5ee56' style="width:90%"></video>
+
+![React Dear Imgui screenshot](https://github.com/user-attachments/assets/1512b95f-640d-4555-8a4b-57ad08119876)
+
+![React Dear Imgui screenshot](https://github.com/user-attachments/assets/1a9b8ae9-d529-45af-ab7b-7e173799136f)
 
 ![React Dear Imgui screenshot 4](/screenshots/dear-imgui/screenshot-react-wasm-dear-imgui-sample-code.png?raw=true)
 
 ![React Dear Imgui Electron demo](/screenshots/dear-imgui/electron-demo.png?raw=true)
-
-### egui
-
-- [egui](https://github.com/andreamancuso/react-wasm/tree/main/packages/egui) (work in progress) ([very basic online demo](https://andreamancuso.github.io/react-wasm/egui)) Browser support: Chrome, Firefox, Edge
-
-![egui hello world](/screenshots/egui/egui-hello-world.png?raw=true)
-
-## Other/future bindings
-
-Would you like to help add support for a GUI library of your choice? Let's discuss.
 
 ## Contributors ✨
 
