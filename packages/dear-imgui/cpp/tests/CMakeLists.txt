@@ -16,6 +16,7 @@ project(Google_tests)
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
 find_package(OpenGL REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(implot REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -115,6 +116,6 @@ target_link_libraries(Google_Tests_run
         implot::implot
         nlohmann_json::nlohmann_json
         ada::ada
-        ${CMAKE_CURRENT_SOURCE_DIR}/../glfw3dll.lib
-        ${CMAKE_CURRENT_SOURCE_DIR}/../opengl32.lib
+        glfw
+        OpenGL::GL
 )

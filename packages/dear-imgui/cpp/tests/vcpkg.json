@@ -17,6 +17,7 @@
         "implot",
         "nlohmann-json",
         "opengl-registry",
+        "glfw3",
         "stb",
         "ada-url"
     ]
