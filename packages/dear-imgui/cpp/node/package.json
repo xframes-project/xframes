@@ -11,7 +11,7 @@
     "url": "https://github.com/andreamancuso/xframes.git"
   },
   "scripts": {
-    "build": "cmake-js compile",
+    "install": "prebuild-install -r napi || cmake-js compile",
     "generate-module": "prebuild --backend cmake-js --strip",
     "_prebuild-all": "prebuild --all --backend cmake-js --strip",
     "test": "node hello.js"
@@ -25,6 +25,7 @@
     "bindings": "^1.5.0",
     "cmake-js": "^7.3.0",
     "node-addon-api": "^8.2.1",
-    "prebuild": "^13.0.1"
+    "prebuild": "^13.0.1",
+    "prebuild-install": "^7.1.2"
   }
 }
