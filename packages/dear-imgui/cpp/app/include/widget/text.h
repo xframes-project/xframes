@@ -4,7 +4,7 @@ class Text : public StyledWidget {
     public:
         std::string m_text;
 
-        Text(ReactImgui* view, int id, const std::string& text, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        Text(XFrames* view, int id, const std::string& text, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_text = text;
         }
 
@@ -21,7 +21,7 @@ class Text : public StyledWidget {
             return size;
         }
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         void Init(const json& elementDef) override {
             Element::Init(elementDef);
@@ -33,33 +33,33 @@ class Text : public StyledWidget {
 
 class BulletText final : public Text {
     public:
-        static std::unique_ptr<BulletText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view);
+        static std::unique_ptr<BulletText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view);
 
-        BulletText(ReactImgui* view, const int id, const std::string& text, std::optional<WidgetStyle>& style) : Text(view, id, text, style) {
+        BulletText(XFrames* view, const int id, const std::string& text, std::optional<WidgetStyle>& style) : Text(view, id, text, style) {
             m_type = "bullet-text";
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 };
 
 class UnformattedText final : public Text {
     public:
-        static std::unique_ptr<UnformattedText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view);
+        static std::unique_ptr<UnformattedText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view);
 
-        UnformattedText(ReactImgui* view, const int id, const std::string& text, std::optional<WidgetStyle>& style) : Text(view, id, text, style) {
+        UnformattedText(XFrames* view, const int id, const std::string& text, std::optional<WidgetStyle>& style) : Text(view, id, text, style) {
             m_type = "unformatted-text";
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 };
 
 class DisabledText final : public Text {
     public:
-        static std::unique_ptr<DisabledText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view);
+        static std::unique_ptr<DisabledText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view);
 
-        DisabledText(ReactImgui* view, const int id, const std::string& text, std::optional<WidgetStyle>& style) : Text(view, id, text, style) {
+        DisabledText(XFrames* view, const int id, const std::string& text, std::optional<WidgetStyle>& style) : Text(view, id, text, style) {
             m_type = "disabled-text";
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 };

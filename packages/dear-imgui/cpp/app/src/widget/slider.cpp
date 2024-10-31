@@ -3,7 +3,7 @@
 #include "widget/slider.h"
 #include "widget/styled_widget.h"
 
-void Slider::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Slider::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
     if (m_sliderType == "angle") {
         if (ImGui::SliderAngle("", &m_value, -360.0f, 360.0f, "%.0f")) {
@@ -17,7 +17,7 @@ void Slider::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void Slider::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Slider::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("min") && widgetPatchDef["min"].is_number()) {

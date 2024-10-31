@@ -2,7 +2,7 @@
 
 class MultiSlider final : public StyledWidget {
     protected:
-        MultiSlider(ReactImgui* view, const int id, const float min, const float max, const int numValues, const int decimalDigits, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        MultiSlider(XFrames* view, const int id, const float min, const float max, const int numValues, const int decimalDigits, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "multi-slider";
             m_numValues = numValues;
             m_values = std::make_unique<float[]>(numValues);
@@ -18,7 +18,7 @@ class MultiSlider final : public StyledWidget {
         int m_numValues;
         int m_decimalDigits;
 
-        static std::unique_ptr<MultiSlider> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<MultiSlider> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
             const auto numValues = widgetDef.contains("numValues") && widgetDef["numValues"].is_number() ? widgetDef["numValues"].template get<int>() : 2;
             const auto decimalDigits = widgetDef.contains("decimalDigits") && widgetDef["decimalDigits"].is_number() ? widgetDef["decimalDigits"].template get<int>() : 0;
@@ -35,7 +35,7 @@ class MultiSlider final : public StyledWidget {
             // throw std::invalid_argument("Invalid JSON data");
         }
 
-        static std::unique_ptr<MultiSlider> makeWidget(ReactImgui* view, const int id, const float min, const float max, const int numValues, const int decimalDigits, const json& defaultValues, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<MultiSlider> makeWidget(XFrames* view, const int id, const float min, const float max, const int numValues, const int decimalDigits, const json& defaultValues, std::optional<WidgetStyle>& style) {
             MultiSlider instance(view, id, min, max, numValues, decimalDigits, style);
 
             for (auto& [key, item] : defaultValues.items()) {
@@ -45,7 +45,7 @@ class MultiSlider final : public StyledWidget {
             return std::make_unique<MultiSlider>(std::move(instance));
         }
 
-        static std::unique_ptr<MultiSlider> makeWidget(ReactImgui* view, const int id, const float min, const float max, const int numValues, const int decimalDigits, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<MultiSlider> makeWidget(XFrames* view, const int id, const float min, const float max, const int numValues, const int decimalDigits, std::optional<WidgetStyle>& style) {
             MultiSlider instance(view, id, min, max, numValues, decimalDigits, style);
 
             return std::make_unique<MultiSlider>(std::move(instance));
@@ -64,9 +64,9 @@ class MultiSlider final : public StyledWidget {
             return size;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         void Init(const json& elementDef) override {
             Element::Init(elementDef);

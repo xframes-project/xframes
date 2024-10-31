@@ -1,7 +1,6 @@
 import { ReactNativeWrapper } from "./components/ReactNativeWrapper";
-import { useWidgetEventManagement, useWidgetRegistrationService, useDearImguiWasm } from "./hooks";
+import { useWidgetEventManagement, useWidgetRegistrationService, useXFramesWasm } from "./hooks";
 import { WidgetRegistrationServiceContext } from "./contexts";
-import { ImGuiDemo } from "./components/ImGuiDemo/ImGuiDemo";
 import faIconMap from "./fa-icons";
 import {
     ImGuiCol,
@@ -11,10 +10,10 @@ import {
     ImPlotScale,
     ImPlotMarker,
 } from "./wasm/wasm-app-types";
-import { ImGuiStyleForPatching, ImGuiStyle, StyleVarValue } from "./stylesheet/imgui-style";
+import { XFramesStyleForPatching, XFramesStyle, StyleVarValue } from "./stylesheet/xframes-style";
 import { HEXA, StyleColValue } from "./stylesheet/types";
-import { TableImperativeHandle } from "./components/ReactImgui/Table";
-import { ClippedMultiLineTextRendererImperativeHandle } from "./components/ReactImgui/ClippedMultiLineTextRenderer";
+import { TableImperativeHandle } from "./components/XFrames/Table";
+import { ClippedMultiLineTextRendererImperativeHandle } from "./components/XFrames/ClippedMultiLineTextRenderer";
 import {
     CheckboxChangeEvent,
     ComboChangeEvent,
@@ -32,27 +31,28 @@ import {
     WidgetPropsMap,
     WidgetReactNode,
     NodeProps,
-} from "./components/ReactImgui/types";
+} from "./components/XFrames/types";
 import RWStyleSheet from "./stylesheet/stylesheet";
-import { PlotLineImperativeHandle } from "./components/ReactImgui/PlotLine";
-import { PlotCandlestickImperativeHandle } from "./components/ReactImgui/PlotCandlestick";
-import { ReactImgui } from "./components/ReactImgui";
+import { PlotLineImperativeHandle } from "./components/XFrames/PlotLine";
+import { PlotCandlestickImperativeHandle } from "./components/XFrames/PlotCandlestick";
+import { XFrames } from "./components/XFrames";
+import { XFramesDemo } from "./components/XFramesDemo/XFramesDemo";
 
 export {
-    ReactImgui,
+    XFrames,
     ReactNativeWrapper,
     useWidgetEventManagement,
     useWidgetRegistrationService,
-    useDearImguiWasm,
+    useXFramesWasm,
     WidgetRegistrationServiceContext,
-    ImGuiDemo,
+    XFramesDemo,
     faIconMap,
     ImGuiCol,
     ImVec2,
     WasmExitStatus,
     ImGuiStyleVar,
-    ImGuiStyleForPatching,
-    ImGuiStyle,
+    XFramesStyleForPatching,
+    XFramesStyle,
     HEXA,
     StyleVarValue,
     StyleColValue,

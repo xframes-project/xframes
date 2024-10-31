@@ -1,7 +1,7 @@
 #include "widget/styled_widget.h"
 #include "widget/clipped_multi_line_text_renderer.h"
 
-void ClippedMultiLineTextRenderer::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void ClippedMultiLineTextRenderer::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     const char* buf = m_textBuffer.begin();
@@ -26,7 +26,7 @@ void ClippedMultiLineTextRenderer::Render(ReactImgui* view, const std::optional<
     ImGui::PopID();
 };
 
-void ClippedMultiLineTextRenderer::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void ClippedMultiLineTextRenderer::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("numberOfLines") && widgetPatchDef["numberOfLines"].is_number_unsigned()) {

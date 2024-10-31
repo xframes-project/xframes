@@ -3,7 +3,7 @@
 
 #include "mapgenerator.h"
 #include "widget/map_view.h"
-#include "reactimgui.h"
+#include "xframes.h"
 #include "imgui_renderer.h"
 
 bool MapView::HasCustomWidth() {
@@ -14,7 +14,7 @@ bool MapView::HasCustomHeight() {
     return false;
 }
 
-void MapView::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (m_textures.contains(0)) {
 
         auto imageSize = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
@@ -80,7 +80,7 @@ bool MapView::HasInternalOps() {
     return true;
 }
 
-// void ReactImgui::RenderMap(int id, double centerX, double centerY, int zoom)
+// void XFrames::RenderMap(int id, double centerX, double centerY, int zoom)
 void MapView::HandleInternalOp(const json& opDef) {
     if (opDef.contains("op") && opDef["op"].is_string()) {
         auto op = opDef["op"].template get<std::string>();

@@ -2,7 +2,7 @@
 
 class Separator final : public StyledWidget {
 public:
-    static std::unique_ptr<Separator> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<Separator> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
 
         return std::make_unique<Separator>(view, id, maybeStyle);
@@ -20,9 +20,9 @@ public:
         return size;
     }
 
-    Separator(ReactImgui* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {}
+    Separator(XFrames* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {}
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
     void Init(const json& elementDef) override {
         Element::Init(elementDef);

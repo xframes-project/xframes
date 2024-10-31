@@ -13,7 +13,7 @@ class Table final : public StyledWidget {
     protected:
         ImGuiTableFlags m_flags = ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody;
 
-        Table(ReactImgui* view, const int id, const std::vector<TableColumn>& columns, const std::optional<int> clipRows, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        Table(XFrames* view, const int id, const std::vector<TableColumn>& columns, const std::optional<int> clipRows, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "di-table";
             m_columns = columns;
             m_clipRows = 0;
@@ -43,7 +43,7 @@ class Table final : public StyledWidget {
             return columns;
         }
 
-        static std::unique_ptr<Table> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<Table> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             if (!widgetDef.contains("columns") || !widgetDef["columns"].is_array()) {
                 throw std::invalid_argument("columns not set or not an array");
             }
@@ -64,7 +64,7 @@ class Table final : public StyledWidget {
             return makeWidget(view, id, extractedColumns, clipRows, maybeStyle);
         }
 
-        static std::unique_ptr<Table> makeWidget(ReactImgui* view, const int id, const std::vector<TableColumn>& columns, std::optional<int> clipRows, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<Table> makeWidget(XFrames* view, const int id, const std::vector<TableColumn>& columns, std::optional<int> clipRows, std::optional<WidgetStyle>& style) {
             Table instance(view, id, columns, clipRows, style);
 
             return std::make_unique<Table>(std::move(instance));
@@ -74,9 +74,9 @@ class Table final : public StyledWidget {
 
         static TableData parseTableData(const json& jsonTableData);
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         bool HasInternalOps();
 

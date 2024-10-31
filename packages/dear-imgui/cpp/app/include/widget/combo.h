@@ -2,7 +2,7 @@
 
 class Combo final : public StyledWidget {
     protected:
-        Combo(ReactImgui* view, const int id, const std::string& placeholder, const int initialSelectedIndex, const std::vector<std::string>& options, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        Combo(XFrames* view, const int id, const std::string& placeholder, const int initialSelectedIndex, const std::vector<std::string>& options, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "combo";
             m_placeholder = placeholder;
             m_options = options;
@@ -17,7 +17,7 @@ class Combo final : public StyledWidget {
         std::string m_placeholder;
         std::vector<std::string> m_options;
 
-        static std::unique_ptr<Combo> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<Combo> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
             const auto initialSelectedIndex = widgetDef.contains("initialSelectedIndex") && widgetDef["initialSelectedIndex"].is_number()
                 ? widgetDef["initialSelectedIndex"].template get<int>()
@@ -39,7 +39,7 @@ class Combo final : public StyledWidget {
             // throw std::invalid_argument("Invalid JSON data");
         }
 
-        static std::unique_ptr<Combo> makeWidget(ReactImgui* view, const int id, const std::string& placeholder, const int initialSelectedIndex, const std::vector<std::string>& options, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<Combo> makeWidget(XFrames* view, const int id, const std::string& placeholder, const int initialSelectedIndex, const std::vector<std::string>& options, std::optional<WidgetStyle>& style) {
             Combo instance(view, id, placeholder, initialSelectedIndex, options, style);
             return std::make_unique<Combo>(std::move(instance));
         }
@@ -83,9 +83,9 @@ class Combo final : public StyledWidget {
             m_selectedIndex = -1;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         bool HasInternalOps() override;
 

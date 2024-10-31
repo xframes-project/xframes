@@ -1,11 +1,12 @@
 {
-    "name": "@react-wasm/dear-imgui",
-    "version": "0.3.5",
+    "name": "@xframes/wasm",
+    "version": "0.0.1",
+    "description": "DOM-less, GPU-accelerated GUI development for the browser",
     "main": "dist/index.js",
     "files": [
         "dist/*"
     ],
-    "homepage": "https://github.com/andreamancuso/react-wasm#readme",
+    "homepage": "https://github.com/andreamancuso/xframes#readme",
     "license": "MIT",
     "author": {
         "name": "Andrea Mancuso",
@@ -19,9 +20,9 @@
         "build:library": "rimraf ./build && yarn tsup && yarn copy-wasm-to-build-folder",
         "tsc": "tsc --project ./tsconfig-build.json",
         "tsup": "tsup --format cjs --external react,react-dom",
-        "copy-wasm-to-build-folder": "cpy --flat ./src/lib/wasm/reactDearImgui.* dist/",
+        "copy-wasm-to-build-folder": "cpy --flat ./src/lib/wasm/xframes.* dist/",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-        "node-imgui": "tsx ./node-imgui/index.tsx"
+        "xframes-node": "tsx ./xframes-node/index.tsx"
     },
     "tsup": {
         "entry": [

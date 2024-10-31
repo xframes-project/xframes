@@ -1,19 +1,19 @@
 #include "styled_widget.h"
 
-class ReactImgui;
+class XFrames;
 
 class Button final : public StyledWidget {
     protected:
-        Button(ReactImgui* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        Button(XFrames* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "di-button";
             m_label = label;
         }
     public:
         std::string m_label;
 
-        static std::unique_ptr<Button> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view);
+        static std::unique_ptr<Button> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view);
 
-        static std::unique_ptr<Button> makeWidget(ReactImgui* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<Button> makeWidget(XFrames* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) {
             Button instance(view, id, label, style);
 
             return std::make_unique<Button>(std::move(instance));
@@ -38,13 +38,13 @@ class Button final : public StyledWidget {
             return size;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
         bool HasCustomWidth() override;
 
         bool HasCustomHeight() override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         void Init(const json& elementDef) override {
             Element::Init(elementDef);

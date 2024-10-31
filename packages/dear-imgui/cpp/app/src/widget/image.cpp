@@ -5,7 +5,7 @@
 #endif
 
 #include "widget/image.h"
-#include "reactimgui.h"
+#include "xframes.h"
 #include "imgui_renderer.h"
 
 using json = nlohmann::json;
@@ -18,7 +18,7 @@ bool Image::HasCustomHeight() {
     return false;
 }
 
-void Image::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Image::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 #ifdef __EMSCRIPTEN__
     bool shouldRender = m_texture.textureView;
 #else
@@ -71,7 +71,7 @@ bool Image::HasInternalOps() {
     return true;
 }
 
-// void ReactImgui::RenderMap(int id, double centerX, double centerY, int zoom)
+// void XFrames::RenderMap(int id, double centerX, double centerY, int zoom)
 void Image::HandleInternalOp(const json& opDef) {
     if (opDef.contains("op") && opDef["op"].is_string()) {
         auto op = opDef["op"].template get<std::string>();

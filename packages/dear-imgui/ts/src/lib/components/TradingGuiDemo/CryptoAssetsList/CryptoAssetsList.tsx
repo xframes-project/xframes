@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { ReactImgui } from "src/lib/components/ReactImgui/components";
-import { TableImperativeHandle } from "../../ReactImgui/Table";
+import { TableImperativeHandle } from "../../XFrames/Table";
 import { useDataService } from "../dataServiceContext";
+import { XFrames } from "../../XFrames";
 
 type Props = {};
 
@@ -63,5 +63,5 @@ export const CryptoAssetsList = ({}: Props) => {
         };
     }, [dataService]);
 
-    return <ReactImgui.Table ref={tableRef} columns={tableColumns} />;
+    return <XFrames.Table ref={tableRef} columns={tableColumns} />;
 };

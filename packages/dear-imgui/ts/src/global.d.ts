@@ -2,7 +2,7 @@ import {
     ReactElementWidgets,
     ReactElementWidgetsFlat,
     YogaNode,
-} from "./lib/components/ReactImgui/types";
+} from "./lib/components/XFrames/types";
 
 export {};
 

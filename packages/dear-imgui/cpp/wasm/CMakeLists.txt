@@ -15,7 +15,7 @@ else()
     message(FATAL_ERROR "Environment variable EMSDK is not defined. Follow the README steps and source emsdk_env.* from the EMSDK root directory in this shell before running CMake")
 endif()
 
-project(reactDearImgui LANGUAGES C CXX)
+project(xframes LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -43,43 +43,43 @@ file(GLOB YOGA_SRC CONFIGURE_DEPENDS
         ${DEPS}/yoga/yoga/*.cpp
         ${DEPS}/yoga/yoga/**/*.cpp)
 
-set(REACT_IMGUI_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../app)
+set(XFRAMES_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../app)
 
-set(REACT_IMGUI_SRC
-    ${REACT_IMGUI_BASE_PATH}/src/shared.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/color_helpers.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/imgui_helpers.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/yoga_helpers.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/element/layout_node.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/element/element.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/widget.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/styled_widget.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/button.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/checkbox.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/child.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/clipped_multi_line_text_renderer.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/collapsing_header.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/combo.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/group.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/image.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/input_text.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/item_tooltip.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/map_view.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/multi_slider.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/plot_line.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/plot_candlestick.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/separator.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/separator_text.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/slider.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/table.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/tabs.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/text.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/text_wrap.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/tree_node.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/widget/window.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/reactimgui.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/imgui_renderer.cpp
-    ${REACT_IMGUI_BASE_PATH}/src/implot_renderer.cpp
+set(XFRAMES_SRC
+    ${XFRAMES_BASE_PATH}/src/shared.cpp
+    ${XFRAMES_BASE_PATH}/src/color_helpers.cpp
+    ${XFRAMES_BASE_PATH}/src/imgui_helpers.cpp
+    ${XFRAMES_BASE_PATH}/src/yoga_helpers.cpp
+    ${XFRAMES_BASE_PATH}/src/element/layout_node.cpp
+    ${XFRAMES_BASE_PATH}/src/element/element.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/widget.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/styled_widget.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/button.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/checkbox.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/child.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/clipped_multi_line_text_renderer.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/collapsing_header.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/combo.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/group.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/image.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/input_text.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/item_tooltip.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/map_view.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/multi_slider.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/plot_line.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/plot_candlestick.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/separator.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/separator_text.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/slider.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/table.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/tabs.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/text.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/text_wrap.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/tree_node.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/window.cpp
+    ${XFRAMES_BASE_PATH}/src/xframes.cpp
+    ${XFRAMES_BASE_PATH}/src/imgui_renderer.cpp
+    ${XFRAMES_BASE_PATH}/src/implot_renderer.cpp
 )
 
 file(GLOB LIBTIFF_SRC CONFIGURE_DEPENDS
@@ -87,9 +87,9 @@ file(GLOB LIBTIFF_SRC CONFIGURE_DEPENDS
 list(REMOVE_ITEM LIBTIFF_SRC ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff/tif_win32.c)
 
 if (DEFINED EMSCRIPTEN)
-	add_executable(reactDearImgui
+	add_executable(xframes
         src/main.cpp
-        ${REACT_IMGUI_SRC}
+        ${XFRAMES_SRC}
         ${OSM_STATIC_MAP_GENERATOR_SRC}
         ${LEPTONICA_SRC}
         ${LIBTIFF_SRC}
@@ -101,20 +101,20 @@ if (DEFINED EMSCRIPTEN)
     # https://github.com/emscripten-core/emscripten/issues/18476
     # -c -fexperimental-library
 
-	set_target_properties(reactDearImgui PROPERTIES COMPILE_FLAGS "-O3 -Wall -Wformat -Wno-implicit-int -s DISABLE_EXCEPTION_CATCHING=0 --use-port=libjpeg --use-port=libpng")
-    set_target_properties(reactDearImgui PROPERTIES LINK_FLAGS "--no-heap-copy --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets -O3 -lembind --emit-tsd interface.d.ts --use-port=libjpeg --use-port=libpng -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s WASM=1 -s USE_GLFW=3 -s USE_WEBGPU=1 -sFETCH -s NO_EXIT_RUNTIME=0 -s STANDALONE_WASM=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
-    set_target_properties(reactDearImgui PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../ts/src/lib/wasm)
+	set_target_properties(xframes PROPERTIES COMPILE_FLAGS "-O3 -Wall -Wformat -Wno-implicit-int -s DISABLE_EXCEPTION_CATCHING=0 --use-port=libjpeg --use-port=libpng")
+    set_target_properties(xframes PROPERTIES LINK_FLAGS "--no-heap-copy --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets -O3 -lembind --emit-tsd interface.d.ts --use-port=libjpeg --use-port=libpng -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s WASM=1 -s USE_GLFW=3 -s USE_WEBGPU=1 -sFETCH -s NO_EXIT_RUNTIME=0 -s STANDALONE_WASM=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
+    set_target_properties(xframes PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../ts/src/lib/wasm)
 
     # Reinstate line below once ReactivePlusPlus 2.1.2 gets released (preferably in the vcpkg repo)
-    # target_link_libraries(reactDearImgui PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json RPP::rpp RPP::rppqt)
+    # target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json RPP::rpp RPP::rppqt)
 
     # This currently breaks custom fonts - known issue
-    # target_compile_definitions(reactDearImgui PUBLIC IMGUI_USE_WCHAR32)
+    # target_compile_definitions(xframes PUBLIC IMGUI_USE_WCHAR32)
 endif()
 
 target_include_directories(
-    reactDearImgui PRIVATE
-    ${REACT_IMGUI_BASE_PATH}/include
+    xframes PRIVATE
+    ${XFRAMES_BASE_PATH}/include
     ${DEPS}/IconFontCppHeaders
     ${DEPS}/ReactivePlusPlus/src/rpp
 
@@ -128,4 +128,4 @@ target_include_directories(
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
 )
 
-target_link_libraries(reactDearImgui PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada)
+target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada)

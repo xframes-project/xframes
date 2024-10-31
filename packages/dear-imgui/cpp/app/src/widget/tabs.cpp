@@ -1,7 +1,7 @@
 #include "widget/tabs.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
-TabBar::TabBar(ReactImgui* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+TabBar::TabBar(XFrames* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
     m_type = "tab-bar";
     m_handlesChildrenWithinRenderMethod = true;
 }
@@ -14,7 +14,7 @@ bool TabBar::HasCustomHeight() {
     return false;
 }
 
-void TabBar::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void TabBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
     // todo: double-check if we need to pass a proper id here?
 
@@ -36,7 +36,7 @@ void TabBar::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-TabItem::TabItem(ReactImgui* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+TabItem::TabItem(XFrames* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
     m_type = "tab-item";
     m_handlesChildrenWithinRenderMethod = true;
     m_label = label;
@@ -50,7 +50,7 @@ bool TabItem::HasCustomHeight() {
     return false;
 }
 
-void TabItem::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
     if (ImGui::BeginTabItem(m_label.c_str())) {
         m_layoutNode->SetDisplay(YGDisplayFlex);
@@ -72,7 +72,7 @@ void TabItem::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void TabItem::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void TabItem::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("label") && widgetPatchDef["label"].is_string()) {

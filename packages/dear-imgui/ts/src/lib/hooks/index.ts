@@ -1,11 +1,6 @@
 import { useWidgetEventManagement } from "./useWidgetEventManagement";
 import { useWidgetRegistrationService } from "./useWidgetRegistrationService";
-import { useDearImguiWasm } from "./useDearImguiWasm";
-import { useDearImguiFonts } from "./useDearImguiFonts";
+import { useXFramesWasm } from "./useXFramesWasm";
+import { useXFramesFonts } from "./useXFramesFonts";
 
-export {
-    useWidgetEventManagement,
-    useWidgetRegistrationService,
-    useDearImguiWasm,
-    useDearImguiFonts,
-};
+export { useWidgetEventManagement, useWidgetRegistrationService, useXFramesWasm, useXFramesFonts };

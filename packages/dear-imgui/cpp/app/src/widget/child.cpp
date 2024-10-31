@@ -1,7 +1,7 @@
 #include "widget/styled_widget.h"
 #include "widget/child.h"
 
-Child::Child(ReactImgui* view, const int id, const float width, const float height, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+Child::Child(XFrames* view, const int id, const float width, const float height, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
     m_type = "child";
     m_handlesChildrenWithinRenderMethod = true;
 
@@ -9,7 +9,7 @@ Child::Child(ReactImgui* view, const int id, const float width, const float heig
     m_height = height;
 };
 
-void Child::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Child::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
     ImGui::BeginChild("", ImVec2(m_width, m_height), m_flags);
     Widget::HandleChildren(view, viewport);
@@ -17,7 +17,7 @@ void Child::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void Child::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Child::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef["width"].is_string()) {

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RWStyleSheet from "../../../stylesheet/stylesheet";
 import { theme2Colors } from "src/lib/stylesheet/themes";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 
 type Props = {
     tabs: string[];
@@ -94,12 +94,12 @@ export const Tabs = ({ tabs, selectedTabIndex, onSelectedTabChange }: Props) => 
     );
 
     return (
-        <ReactImgui.Node style={styleSheet.tabs}>
+        <XFrames.Node style={styleSheet.tabs}>
             {tabs.map((tab, index) => {
                 const isSelected = selectedTabIndex === index;
 
                 return (
-                    <ReactImgui.Node
+                    <XFrames.Node
                         key={tab}
                         style={isSelected ? styleSheet.selectedTab : styleSheet.tab}
                         hoverStyle={isSelected ? styleSheet.selectedTab : styleSheet.hoveredTab}
@@ -110,10 +110,10 @@ export const Tabs = ({ tabs, selectedTabIndex, onSelectedTabChange }: Props) => 
                         }}
                         trackMouseClickEvents
                     >
-                        <ReactImgui.UnformattedText text={tab} style={styleSheet.tabText} />
-                    </ReactImgui.Node>
+                        <XFrames.UnformattedText text={tab} style={styleSheet.tabText} />
+                    </XFrames.Node>
                 );
             })}
-        </ReactImgui.Node>
+        </XFrames.Node>
     );
 };

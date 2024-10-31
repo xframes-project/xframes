@@ -3,7 +3,7 @@
 #include "widget/button.h"
 #include "widget/styled_widget.h"
 
-std::unique_ptr<Button> Button::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+std::unique_ptr<Button> Button::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
     auto id = widgetDef["id"].template get<int>();
     auto label = widgetDef.contains("label") && widgetDef["label"].is_string() ? widgetDef["label"].template get<std::string>() : "";
 
@@ -21,7 +21,7 @@ bool Button::HasCustomHeight() {
     return false;
 }
 
-void Button::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Button::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     ImVec2 size = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
@@ -32,7 +32,7 @@ void Button::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void Button::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Button::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("label") && widgetPatchDef["label"].is_string()) {

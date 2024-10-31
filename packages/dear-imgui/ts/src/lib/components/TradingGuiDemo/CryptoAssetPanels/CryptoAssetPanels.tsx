@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import RWStyleSheet from "src/lib/stylesheet/stylesheet";
 import { useStore } from "../store";
 import { CryptoQuotePrice } from "../CryptoQuotePrice/CryptoQuotePrice";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 
 type Props = {};
 
@@ -50,22 +50,22 @@ export const CryptoAssetPanels = ({}: Props) => {
     );
 
     return (
-        <ReactImgui.Node style={styleSheet.mainWrapperNode}>
+        <XFrames.Node style={styleSheet.mainWrapperNode}>
             {cryptoAssets.map((asset) => {
                 return (
-                    <ReactImgui.Node key={asset.id} style={styleSheet.asset}>
-                        <ReactImgui.UnformattedText style={styleSheet.symbol} text={asset.symbol} />
-                        {/* <ReactImgui.ItemTooltip>
-                            <ReactImgui.UnformattedText text={asset.name} />
-                        </ReactImgui.ItemTooltip> */}
+                    <XFrames.Node key={asset.id} style={styleSheet.asset}>
+                        <XFrames.UnformattedText style={styleSheet.symbol} text={asset.symbol} />
+                        {/* <XFrames.ItemTooltip>
+                            <XFrames.UnformattedText text={asset.name} />
+                        </XFrames.ItemTooltip> */}
 
                         {/** Fix tooltip! */}
                         {/* <HelpMarker text={asset.name} /> */}
 
                         <CryptoQuotePrice symbol={asset.symbol} />
-                    </ReactImgui.Node>
+                    </XFrames.Node>
                 );
             })}
-        </ReactImgui.Node>
+        </XFrames.Node>
     );
 };

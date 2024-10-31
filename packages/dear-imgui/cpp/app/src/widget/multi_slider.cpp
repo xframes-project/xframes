@@ -2,9 +2,9 @@
 #include <nlohmann/json.hpp>
 
 #include "widget/multi_slider.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
-void MultiSlider::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void MultiSlider::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     if (m_numValues == 2) {
@@ -24,7 +24,7 @@ void MultiSlider::Render(ReactImgui* view, const std::optional<ImRect>& viewport
     ImGui::PopID();
 };
 
-void MultiSlider::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void MultiSlider::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("min") && widgetPatchDef["min"].is_number()) {

@@ -1,7 +1,7 @@
 #include <imgui.h>
 
 #include "widget/plot_line.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
 bool PlotLine::HasCustomWidth() {
     return false;
@@ -11,7 +11,7 @@ bool PlotLine::HasCustomHeight() {
     return false;
 }
 
-void PlotLine::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void PlotLine::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     auto size = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
@@ -48,7 +48,7 @@ void PlotLine::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void PlotLine::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void PlotLine::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("xAxisDecimalDigits") && widgetPatchDef.contains("yAxisDecimalDigits")) {
@@ -68,7 +68,7 @@ bool PlotLine::HasInternalOps() {
     return true;
 }
 
-// void ReactImgui::RenderMap(int id, double centerX, double centerY, int zoom)
+// void XFrames::RenderMap(int id, double centerX, double centerY, int zoom)
 void PlotLine::HandleInternalOp(const json& opDef) {
     if (opDef.contains("op") && opDef["op"].is_string()) {
         const auto op = opDef["op"].template get<std::string>();

@@ -15,6 +15,7 @@ project(Google_tests)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
+find_package(OpenGL REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(implot REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -61,6 +62,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/collapsing_header.cpp
         ../app/src/widget/combo.cpp
         ../app/src/widget/group.cpp
+        ../app/src/widget/image.cpp
         ../app/src/widget/input_text.cpp
         ../app/src/widget/item_tooltip.cpp
         ../app/src/widget/multi_slider.cpp
@@ -76,7 +78,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
 
-        ../app/src/reactimgui.cpp
+        ../app/src/xframes.cpp
         ../app/src/imgui_renderer.cpp
         ../app/src/implot_renderer.cpp
 
@@ -104,4 +106,15 @@ target_include_directories(
 #        ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
 )
 
-target_link_libraries(Google_Tests_run gtest gmock gmock_main gtest_main imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada)
+target_link_libraries(Google_Tests_run
+        gtest
+        gmock
+        gmock_main
+        gtest_main
+        imgui::imgui
+        implot::implot
+        nlohmann_json::nlohmann_json
+        ada::ada
+        ${CMAKE_CURRENT_SOURCE_DIR}/../glfw3dll.lib
+        ${CMAKE_CURRENT_SOURCE_DIR}/../opengl32.lib
+)

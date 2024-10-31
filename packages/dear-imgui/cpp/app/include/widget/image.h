@@ -13,7 +13,7 @@ private:
     Texture m_texture;
 
 public:
-    static std::unique_ptr<Image> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<Image> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         if (!widgetDef.contains("url") || !widgetDef["url"].is_string()) {
             throw std::invalid_argument("url not defined or not a string");
         }
@@ -44,14 +44,14 @@ public:
 
     bool HasCustomHeight() override;
 
-    Image(ReactImgui* view, const int id, const std::string& url, const std::optional<ImVec2>& size, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style), m_texture() {
+    Image(XFrames* view, const int id, const std::string& url, const std::optional<ImVec2>& size, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style), m_texture() {
         m_type = "di-image";
         m_url = url;
 
         m_size = size;
     }
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
     static YGSize Measure(YGNodeConstRef node, float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode);
 

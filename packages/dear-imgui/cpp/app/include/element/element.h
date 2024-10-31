@@ -8,7 +8,7 @@ using json = nlohmann::json;
 
 #pragma once
 
-class ReactImgui;
+class XFrames;
 
 // For simplicity, only 1 'non-base' state at a time is allowed
 enum ElementState {
@@ -49,7 +49,7 @@ class Element {
     public:
         int m_id;
         std::string m_type;
-        ReactImgui* m_view;
+        XFrames* m_view;
         bool m_handlesChildrenWithinRenderMethod;
         bool m_isRoot;
         bool m_cull;
@@ -60,9 +60,9 @@ class Element {
         std::unique_ptr<LayoutNode> m_layoutNode;
         std::optional<ElementStyle> m_elementStyle;
 
-        Element(ReactImgui* view, int id, bool isRoot, bool cull, bool trackMouseClickEvents);
+        Element(XFrames* view, int id, bool isRoot, bool cull, bool trackMouseClickEvents);
 
-        static std::unique_ptr<Element> makeElement(const json& val, ReactImgui* view);
+        static std::unique_ptr<Element> makeElement(const json& val, XFrames* view);
 
         const char* GetType() const;
 
@@ -70,17 +70,17 @@ class Element {
 
         virtual const char* GetElementType();
 
-        virtual void HandleChildren(ReactImgui* view, const std::optional<ImRect>& parentViewport);
+        virtual void HandleChildren(XFrames* view, const std::optional<ImRect>& parentViewport);
 
         bool ShouldRenderContent(const std::optional<ImRect>& viewport) const;
 
-        virtual bool ShouldRender(ReactImgui* view) const;
+        virtual bool ShouldRender(XFrames* view) const;
 
-        virtual void PreRender(ReactImgui* view);
+        virtual void PreRender(XFrames* view);
 
-        virtual void Render(ReactImgui* view, const std::optional<ImRect>& viewport);
+        virtual void Render(XFrames* view, const std::optional<ImRect>& viewport);
 
-        virtual void PostRender(ReactImgui* view);
+        virtual void PostRender(XFrames* view);
 
         virtual ElementState GetState() const;
 
@@ -98,7 +98,7 @@ class Element {
 
         virtual std::optional<ElementStyle> ExtractStyle(const json& elementDef);
 
-        virtual void Patch(const json& elementPatchDef, ReactImgui* view);
+        virtual void Patch(const json& elementPatchDef, XFrames* view);
 
         virtual bool HasInternalOps();
 

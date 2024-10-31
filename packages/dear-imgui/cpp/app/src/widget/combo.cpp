@@ -1,9 +1,9 @@
 #include <imgui.h>
 
 #include "widget/combo.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
-void Combo::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Combo::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     if (ImGui::BeginCombo("",
@@ -30,7 +30,7 @@ void Combo::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void Combo::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Combo::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("placeholder") && widgetPatchDef["placeholder"].is_string()) {

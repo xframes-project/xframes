@@ -3,7 +3,7 @@
 #include <implot_internal.h>
 #include "widget/plot_candlestick.h"
 #include "shared.h"
-#include "reactimgui.h"
+#include "xframes.h"
 
 bool PlotCandlestick::HasCustomWidth() {
     return false;
@@ -13,7 +13,7 @@ bool PlotCandlestick::HasCustomHeight() {
     return false;
 }
 
-void PlotCandlestick::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void PlotCandlestick::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     auto size = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
@@ -125,7 +125,7 @@ void PlotCandlestick::RenderPlotCandlestick() {
     }
 };
 
-void PlotCandlestick::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void PlotCandlestick::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("axisAutoFit")) {
@@ -138,7 +138,7 @@ bool PlotCandlestick::HasInternalOps() {
     return true;
 }
 
-// void ReactImgui::RenderMap(int id, double centerX, double centerY, int zoom)
+// void XFrames::RenderMap(int id, double centerX, double centerY, int zoom)
 void PlotCandlestick::HandleInternalOp(const json& opDef) {
     if (opDef.contains("op") && opDef["op"].is_string()) {
         const auto op = opDef["op"].template get<std::string>();

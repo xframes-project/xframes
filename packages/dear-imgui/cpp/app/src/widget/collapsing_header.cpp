@@ -3,13 +3,13 @@
 #include "widget/styled_widget.h"
 #include "widget/collapsing_header.h"
 
-CollapsingHeader::CollapsingHeader(ReactImgui* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+CollapsingHeader::CollapsingHeader(XFrames* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
     m_type = "collapsing-header";
     m_handlesChildrenWithinRenderMethod = true;
     m_label = label;
 }
 
-void CollapsingHeader::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void CollapsingHeader::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     YGNodeStyleSetMargin(m_layoutNode->m_node, YGEdgeBottom, m_view->GetFrameHeightWithSpacing(this));
 
     ImGui::PushID(m_id);
@@ -36,7 +36,7 @@ void CollapsingHeader::Render(ReactImgui* view, const std::optional<ImRect>& vie
     ImGui::PopID();
 };
 
-void CollapsingHeader::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void CollapsingHeader::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("label") && widgetPatchDef["label"].is_string()) {

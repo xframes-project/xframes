@@ -5,7 +5,7 @@
 
 #include "imgui_renderer.h"
 
-class ReactImgui;
+class XFrames;
 
 class ImPlotRenderer : public ImGuiRenderer {
     protected:
@@ -13,7 +13,7 @@ class ImPlotRenderer : public ImGuiRenderer {
 
     public:
         ImPlotRenderer(
-            ReactImgui* reactImgui,
+            XFrames* xframes,
             const char* newWindowId,
             const char* newGlWindowTitle,
             std::string& rawFontDefs,

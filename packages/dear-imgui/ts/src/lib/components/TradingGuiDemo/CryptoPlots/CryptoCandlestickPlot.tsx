@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import { map } from "rxjs";
 import { useDataService } from "../dataServiceContext";
-import { PlotCandlestickImperativeHandle } from "../../ReactImgui/PlotCandlestick";
-import { PlotCandlestickDataItem } from "../../ReactImgui/types";
-import { ReactImgui } from "../../ReactImgui";
+import { PlotCandlestickImperativeHandle } from "../../XFrames/PlotCandlestick";
+import { PlotCandlestickDataItem } from "../../XFrames/types";
+import { XFrames } from "../../XFrames";
 
 type Props = { symbol: string };
 
@@ -46,7 +46,7 @@ export const CryptoCandlestickPlot = ({ symbol }: Props) => {
     // }, []);
 
     return (
-        <ReactImgui.PlotCandlestick
+        <XFrames.PlotCandlestick
             ref={plotRef}
             style={{ width: "100%", height: 400 }}
             // axisAutoFit={axisAutoFit}

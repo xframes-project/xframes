@@ -18,13 +18,14 @@ if(NOT VCPKG_TARGET_TRIPLET)
     endif()
 endif()
 
-project (node-imgui LANGUAGES C CXX)
+project (xframes LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 23)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
 find_package(OpenGL REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 
@@ -61,7 +62,7 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/widget.cpp
         ../app/src/widget/styled_widget.cpp
 
-        ../app/src/reactimgui.cpp
+        ../app/src/xframes.cpp
         ../app/src/imgui_renderer.cpp
         ../app/src/implot_renderer.cpp
 
@@ -99,12 +100,8 @@ target_link_libraries(${PROJECT_NAME}
         ${CMAKE_JS_LIB}
         ada::ada
 
-        $<IF:$<PLATFORM_ID:Windows>,
-                ${CMAKE_CURRENT_SOURCE_DIR}/glfw3dll.lib,
-                glfw>
-            $<IF:$<PLATFORM_ID:Windows>,
-                opengl32,
-                GL>
+        glfw
+        OpenGL::GL
 )
 
 # Include Node-API wrappers

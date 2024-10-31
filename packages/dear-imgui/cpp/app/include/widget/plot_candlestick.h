@@ -42,7 +42,7 @@ private:
 
 
 public:
-    static std::unique_ptr<PlotCandlestick> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<PlotCandlestick> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         bool axisAutoFit = false;
         ImVec4 bullCol = ImVec4(0.000f, 1.000f, 0.441f, 1.000f);
@@ -69,7 +69,7 @@ public:
 
     bool HasCustomHeight() override;
 
-    PlotCandlestick(ReactImgui* view, const int id, const ImVec4& bullCol, const ImVec4& bearCol, const bool axisAutoFit, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+    PlotCandlestick(XFrames* view, const int id, const ImVec4& bullCol, const ImVec4& bearCol, const bool axisAutoFit, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
         m_type = "plot-candlestick";
         m_axisAutoFit = axisAutoFit;
 
@@ -83,9 +83,9 @@ public:
         m_highs.reserve(m_dataPointsLimit);
     }
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-    void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+    void Patch(const json& widgetPatchDef, XFrames* view) override;
 
     bool HasInternalOps() override;
 

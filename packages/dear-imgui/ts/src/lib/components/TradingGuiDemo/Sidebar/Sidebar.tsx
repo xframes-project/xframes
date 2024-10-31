@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ImGuiCol, ImGuiStyleVar } from "src/lib/wasm/wasm-app-types";
 import faIconMap from "../../../fa-icons";
 import RWStyleSheet from "../../../stylesheet/stylesheet";
-import { ReactImgui } from "../../ReactImgui";
+import { XFrames } from "../../XFrames";
 
 export const Sidebar = () => {
     const styleSheet = useMemo(
@@ -52,32 +52,32 @@ export const Sidebar = () => {
     );
 
     return (
-        <ReactImgui.Node style={styleSheet.sidebarNode}>
-            <ReactImgui.Node style={styleSheet.sideBarItem}>
-                <ReactImgui.UnformattedText text={faIconMap.otter} style={styleSheet.logo} />
-            </ReactImgui.Node>
+        <XFrames.Node style={styleSheet.sidebarNode}>
+            <XFrames.Node style={styleSheet.sideBarItem}>
+                <XFrames.UnformattedText text={faIconMap.otter} style={styleSheet.logo} />
+            </XFrames.Node>
 
-            <ReactImgui.Node style={styleSheet.sideBarItem}>
-                <ReactImgui.Button
+            <XFrames.Node style={styleSheet.sideBarItem}>
+                <XFrames.Button
                     label={faIconMap["arrow-trend-up"]}
                     style={styleSheet.iconActive}
                     hoverStyle={styleSheet.iconActive}
                 />
-            </ReactImgui.Node>
-            <ReactImgui.Node style={styleSheet.sideBarItem}>
-                <ReactImgui.Button
+            </XFrames.Node>
+            <XFrames.Node style={styleSheet.sideBarItem}>
+                <XFrames.Button
                     label={faIconMap["wallet"]}
                     style={styleSheet.icon}
                     hoverStyle={styleSheet.iconActive}
                 />
-            </ReactImgui.Node>
-            <ReactImgui.Node style={styleSheet.sideBarItem}>
-                <ReactImgui.Button
+            </XFrames.Node>
+            <XFrames.Node style={styleSheet.sideBarItem}>
+                <XFrames.Button
                     label={faIconMap["chart-pie"]}
                     style={styleSheet.icon}
                     hoverStyle={styleSheet.iconActive}
                 />
-            </ReactImgui.Node>
-        </ReactImgui.Node>
+            </XFrames.Node>
+        </XFrames.Node>
     );
 };

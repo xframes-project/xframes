@@ -14,7 +14,7 @@ public:
     std::optional<bool> m_defaultOpen;
     std::optional<bool> m_localOpen;
 
-    static std::unique_ptr<TreeNode> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<TreeNode> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         if (!widgetDef.contains("itemId") || !widgetDef["itemId"].is_string()) {
             throw std::invalid_argument("itemId missing or not a string");
         }
@@ -22,13 +22,13 @@ public:
         return std::make_unique<TreeNode>(view, widgetDef["id"].template get<int>(), maybeStyle);
     }
 
-    TreeNode(ReactImgui* view, int id, std::optional<WidgetStyle>& style);
+    TreeNode(XFrames* view, int id, std::optional<WidgetStyle>& style);
 
     void Init(const json& elementDef) override;
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-    void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+    void Patch(const json& widgetPatchDef, XFrames* view) override;
 
     bool HasCustomWidth() override;
 
