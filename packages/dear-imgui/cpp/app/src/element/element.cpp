@@ -8,7 +8,7 @@
 
 using json = nlohmann::json;
 
-Element::Element(ReactImgui* view, const int id, const bool isRoot, const bool cull, const bool trackMouseClickEvents) {
+Element::Element(XFrames* view, const int id, const bool isRoot, const bool cull, const bool trackMouseClickEvents) {
     m_type = "node";
     m_id = id;
     m_view = view;
@@ -57,7 +57,7 @@ const char* Element::GetType() const {
     return m_type.c_str();
 };
 
-std::unique_ptr<Element> Element::makeElement(const json& nodeDef, ReactImgui* view) {
+std::unique_ptr<Element> Element::makeElement(const json& nodeDef, XFrames* view) {
     auto id = nodeDef["id"].template get<int>();
     bool isRoot = (nodeDef.contains("root") && nodeDef["root"].is_boolean()) ? nodeDef["root"].template get<bool>() : false;
     bool cull = (nodeDef.contains("cull") && nodeDef["cull"].is_boolean()) ? nodeDef["cull"].template get<bool>() : false;
@@ -186,7 +186,7 @@ ImRect Element::GetScrollingAwareViewport() {
     return viewport;
 };
 
-void Element::HandleChildren(ReactImgui* view, const std::optional<ImRect>& parentViewport) {
+void Element::HandleChildren(XFrames* view, const std::optional<ImRect>& parentViewport) {
     if (parentViewport.has_value()) {
         // printf("%d has parent viewport\n", m_id);
 
@@ -232,7 +232,7 @@ float Element::GetLayoutTopFromParentNode(YGNodeRef node, float top) {
     }
 }
 
-void Element::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Element::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImVec2 contentRegionAvail = ImGui::GetContentRegionAvail();
 
     if (!m_layoutNode->m_node) {
@@ -463,13 +463,13 @@ bool Element::ShouldRenderContent(const std::optional<ImRect>& viewport) const {
     return true;
 }
 
-bool Element::ShouldRender(ReactImgui* view) const {
+bool Element::ShouldRender(XFrames* view) const {
     return LayoutNode::ShouldRender(m_layoutNode->m_node);
 };
 
-void Element::PreRender(ReactImgui* view) {};
+void Element::PreRender(XFrames* view) {};
 
-void Element::PostRender(ReactImgui* view) {
+void Element::PostRender(XFrames* view) {
     const auto isHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone);
 
     auto hoveredStateChanged = false;
@@ -484,7 +484,7 @@ void Element::PostRender(ReactImgui* view) {
     }
 };
 
-void Element::Patch(const json& elementPatchDef, ReactImgui* view) {
+void Element::Patch(const json& elementPatchDef, XFrames* view) {
     m_elementStyle = ExtractStyle(elementPatchDef);
 
     ApplyStyle();

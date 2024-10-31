@@ -3,7 +3,7 @@
 // todo: should we preallocate buffer size?
 class ClippedMultiLineTextRenderer final : public StyledWidget {
     protected:
-        ClippedMultiLineTextRenderer(ReactImgui* view, const int id, const int numberOfLines, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        ClippedMultiLineTextRenderer(XFrames* view, const int id, const int numberOfLines, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "clipped-multi-line-text-renderer";
             m_numberOfLines = numberOfLines;
         }
@@ -13,7 +13,7 @@ class ClippedMultiLineTextRenderer final : public StyledWidget {
         ImVector<int> m_lineOffsets;
         ImGuiTextBuffer m_textBuffer;
 
-        static std::unique_ptr<ClippedMultiLineTextRenderer> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<ClippedMultiLineTextRenderer> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
             int numberOfLines = 10;
 
@@ -26,7 +26,7 @@ class ClippedMultiLineTextRenderer final : public StyledWidget {
             // throw std::invalid_argument("Invalid JSON data");
         }
 
-        static std::unique_ptr<ClippedMultiLineTextRenderer> makeWidget(ReactImgui* view, int id, const int numberOfLines, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<ClippedMultiLineTextRenderer> makeWidget(XFrames* view, int id, const int numberOfLines, std::optional<WidgetStyle>& style) {
             ClippedMultiLineTextRenderer instance(view, id, numberOfLines, style);
 
             return std::make_unique<ClippedMultiLineTextRenderer>(std::move(instance));
@@ -45,9 +45,9 @@ class ClippedMultiLineTextRenderer final : public StyledWidget {
             return size;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         void SetNumberOfLines(int numberOfLines) {
             m_numberOfLines = numberOfLines;

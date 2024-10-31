@@ -2,7 +2,7 @@
 
 class Slider final : public StyledWidget {
     protected:
-        Slider(ReactImgui* view, const int id, const float defaultValue, const float min, const float max, const std::string& sliderType, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        Slider(XFrames* view, const int id, const float defaultValue, const float min, const float max, const std::string& sliderType, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "slider";
             m_sliderType = sliderType;
             m_value = defaultValue;
@@ -20,7 +20,7 @@ class Slider final : public StyledWidget {
         float m_min;
         float m_max;
 
-        static std::unique_ptr<Slider> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<Slider> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
             const auto defaultValue = widgetDef.contains("defaultValue") && widgetDef["defaultValue"].is_number() ? widgetDef["defaultValue"].template get<float>() : 0.0f;
             const auto min = widgetDef.contains("min") && widgetDef["min"].is_number() ? widgetDef["min"].template get<float>() : 0.0f;
@@ -32,7 +32,7 @@ class Slider final : public StyledWidget {
             // throw std::invalid_argument("Invalid JSON data");
         }
 
-        static std::unique_ptr<Slider> makeWidget(ReactImgui* view, const int id, const float defaultValue, const float min, const float max, const std::string& sliderType, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<Slider> makeWidget(XFrames* view, const int id, const float defaultValue, const float min, const float max, const std::string& sliderType, std::optional<WidgetStyle>& style) {
             Slider instance(view, id, defaultValue, min, max, sliderType, style);
             return std::make_unique<Slider>(std::move(instance));
         }
@@ -50,9 +50,9 @@ class Slider final : public StyledWidget {
             return size;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         void Init(const json& elementDef) override {
             Element::Init(elementDef);

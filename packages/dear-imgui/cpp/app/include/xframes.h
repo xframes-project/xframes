@@ -39,7 +39,7 @@ struct ElementOpDef {
     json data;
 };
 
-class ReactImgui {
+class XFrames {
     private:
         std::optional<std::string> m_rawStyleOverridesDefs;
 
@@ -51,7 +51,7 @@ class ReactImgui {
 
         rpp::subjects::serialized_replay_subject<ElementOpDef> m_elementOpSubject;
 
-        std::unordered_map<std::string, std::function<std::unique_ptr<Element>(const json&, std::optional<WidgetStyle>, ReactImgui*)>> m_element_init_fn;
+        std::unordered_map<std::string, std::function<std::unique_ptr<Element>(const json&, std::optional<WidgetStyle>, XFrames*)>> m_element_init_fn;
 
         std::unordered_map<int, std::unique_ptr<Element>> m_elements;
         std::mutex m_elements_mutex;
@@ -95,7 +95,7 @@ class ReactImgui {
         OnBooleanValueChangedCallback m_onBooleanValueChange;
         OnClickCallback m_onClick;
 
-        ReactImgui(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
+        XFrames(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
 
         void Init(ImGuiRenderer* renderer);
 
@@ -176,6 +176,6 @@ class ReactImgui {
 };
 
 template <typename T, typename std::enable_if<std::is_base_of<Widget, T>::value, int>::type = 0>
-std::unique_ptr<T> makeWidget(const json& val, std::optional<WidgetStyle> maybeStyle, ReactImgui* view);
+std::unique_ptr<T> makeWidget(const json& val, std::optional<WidgetStyle> maybeStyle, XFrames* view);
 
-std::unique_ptr<Element> makeElement(const json& val, ReactImgui* view);
+std::unique_ptr<Element> makeElement(const json& val, XFrames* view);

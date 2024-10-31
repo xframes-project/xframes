@@ -2,7 +2,7 @@
 
 class TabBar final : public StyledWidget {
 public:
-    static std::unique_ptr<TabBar> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<TabBar> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
 
         return std::make_unique<TabBar>(view, id, maybeStyle);
@@ -10,9 +10,9 @@ public:
         // throw std::invalid_argument("Invalid JSON data");
     }
 
-    TabBar(ReactImgui* view, int id, std::optional<WidgetStyle>& style);
+    TabBar(XFrames* view, int id, std::optional<WidgetStyle>& style);
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
     bool HasCustomWidth() override;
 
@@ -29,7 +29,7 @@ class TabItem final : public StyledWidget {
 public:
     std::string m_label;
 
-    static std::unique_ptr<TabItem> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<TabItem> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         auto label = widgetDef["label"].template get<std::string>();
 
@@ -38,11 +38,11 @@ public:
         // throw std::invalid_argument("Invalid JSON data");
     }
 
-    TabItem(ReactImgui* view, int id, const std::string& label, std::optional<WidgetStyle>& style);
+    TabItem(XFrames* view, int id, const std::string& label, std::optional<WidgetStyle>& style);
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-    void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+    void Patch(const json& widgetPatchDef, XFrames* view) override;
 
     bool HasCustomWidth() override;
 

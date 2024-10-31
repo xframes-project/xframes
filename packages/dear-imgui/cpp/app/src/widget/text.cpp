@@ -3,7 +3,7 @@
 #include "widget/text.h"
 #include "widget/styled_widget.h"
 
-void Text::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Text::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("text") && widgetPatchDef["text"].is_string()) {
@@ -11,7 +11,7 @@ void Text::Patch(const json& widgetPatchDef, ReactImgui* view) {
     }
 };
 
-std::unique_ptr<BulletText> BulletText::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+std::unique_ptr<BulletText> BulletText::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
     auto id = widgetDef["id"].template get<int>();
     auto text = widgetDef["text"].template get<std::string>();
 
@@ -20,11 +20,11 @@ std::unique_ptr<BulletText> BulletText::makeWidget(const json& widgetDef, std::o
     // throw std::invalid_argument("Invalid JSON data");
 };
 
-void BulletText::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void BulletText::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::BulletText("%s", m_text.c_str());
 };
 
-std::unique_ptr<UnformattedText> UnformattedText::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+std::unique_ptr<UnformattedText> UnformattedText::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
     auto id = widgetDef["id"].template get<int>();
     auto text = widgetDef["text"].template get<std::string>();
 
@@ -33,11 +33,11 @@ std::unique_ptr<UnformattedText> UnformattedText::makeWidget(const json& widgetD
     // throw std::invalid_argument("Invalid JSON data");
 };
 
-void UnformattedText::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void UnformattedText::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::TextUnformatted(m_text.c_str());
 };
 
-std::unique_ptr<DisabledText> DisabledText::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+std::unique_ptr<DisabledText> DisabledText::makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
     auto id = widgetDef["id"].template get<int>();
     auto text = widgetDef["text"].template get<std::string>();
 
@@ -46,6 +46,6 @@ std::unique_ptr<DisabledText> DisabledText::makeWidget(const json& widgetDef, st
     // throw std::invalid_argument("Invalid JSON data");
 };
 
-void DisabledText::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void DisabledText::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::TextDisabled("%s", m_text.c_str());
 };

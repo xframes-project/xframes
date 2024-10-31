@@ -8,7 +8,7 @@ using json = nlohmann::json;
 
 #pragma once
 
-class ReactImgui;
+class XFrames;
 
 class Widget : public Element {
     public:
@@ -17,20 +17,20 @@ class Widget : public Element {
         // todo: does this belong here?
         inline static OnTextChangedCallback onInputTextChange_;
 
-        explicit Widget(ReactImgui* view, int id);
+        explicit Widget(XFrames* view, int id);
 
         const char* GetElementType() override;
 
-        void HandleChildren(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void HandleChildren(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void SetChildrenDisplay(ReactImgui* view, YGDisplay display) const;
+        void SetChildrenDisplay(XFrames* view, YGDisplay display) const;
 
-        void PreRender(ReactImgui* view) override;
+        void PreRender(XFrames* view) override;
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void PostRender(ReactImgui* view) override;
+        void PostRender(XFrames* view) override;
 
-        void Patch(const json& elementPatchDef, ReactImgui* view) override;
+        void Patch(const json& elementPatchDef, XFrames* view) override;
 };
 

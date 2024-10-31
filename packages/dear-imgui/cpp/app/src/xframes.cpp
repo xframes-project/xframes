@@ -61,15 +61,15 @@
 using json = nlohmann::json;
 
 template <typename T, typename std::enable_if<std::is_base_of<Widget, T>::value, int>::type>
-std::unique_ptr<T> makeWidget(const json& val, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+std::unique_ptr<T> makeWidget(const json& val, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
     return T::makeWidget(val, maybeStyle, view);
 }
 
-std::unique_ptr<Element> makeElement(const json& val, ReactImgui* view) {
+std::unique_ptr<Element> makeElement(const json& val, XFrames* view) {
     return Element::makeElement(val, view);
 }
 
-ReactImgui::ReactImgui(
+XFrames::XFrames(
     const char* windowId,
     std::optional<std::string> rawStyleOverridesDefs
 ) {
@@ -81,7 +81,7 @@ ReactImgui::ReactImgui(
     SetUpFloatFormatChars();
 }
 
-void ReactImgui::SetDebug(bool debug) {
+void XFrames::SetDebug(bool debug) {
     m_debug = debug;
 
     if (m_debug) {
@@ -89,11 +89,11 @@ void ReactImgui::SetDebug(bool debug) {
     }
 };
 
-void ReactImgui::ShowDebugWindow() {
+void XFrames::ShowDebugWindow() {
     ImGui::SetWindowFocus("debug");
 };
 
-void ReactImgui::SetUpSubjects() {
+void XFrames::SetUpSubjects() {
     auto handler = [this](const ElementOpDef& elementOpDef) {
         switch(elementOpDef.op) {
             case OpCreateElement: {
@@ -121,7 +121,7 @@ void ReactImgui::SetUpSubjects() {
     m_elementOpSubject.get_observable() | rpp::ops::subscribe(handler);
 };
 
-void ReactImgui::SetUpElementCreatorFunctions() {
+void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["group"] = &makeWidget<Group>;
     m_element_init_fn["child"] = &makeWidget<Child>;
     m_element_init_fn["di-window"] = &makeWidget<Window>;
@@ -160,7 +160,7 @@ void ReactImgui::SetUpElementCreatorFunctions() {
     m_element_init_fn["text-wrap"] = &makeWidget<TextWrap>;
 };
 
-void ReactImgui::RenderElementById(const int id, const std::optional<ImRect>& viewport) {
+void XFrames::RenderElementById(const int id, const std::optional<ImRect>& viewport) {
     if (m_elements[id]->ShouldRender(this)) {
         m_elements[id]->m_layoutNode->SetDisplay(YGDisplayFlex);
 
@@ -174,7 +174,7 @@ void ReactImgui::RenderElementById(const int id, const std::optional<ImRect>& vi
     }
 };
 
-void ReactImgui::RenderElements(const int id, const std::optional<ImRect>& viewport) {
+void XFrames::RenderElements(const int id, const std::optional<ImRect>& viewport) {
     if (m_elements.contains(id)) {
         RenderElementById(id, viewport);
     }
@@ -184,7 +184,7 @@ void ReactImgui::RenderElements(const int id, const std::optional<ImRect>& viewp
     }
 };
 
-void ReactImgui::RenderChildren(const int id, const std::optional<ImRect>& viewport) {
+void XFrames::RenderChildren(const int id, const std::optional<ImRect>& viewport) {
     if (m_hierarchy.contains(id)) {
         if (!m_hierarchy[id].empty()) {
             for (const auto& childId : m_hierarchy[id]) {
@@ -194,7 +194,7 @@ void ReactImgui::RenderChildren(const int id, const std::optional<ImRect>& viewp
     }
 };
 
-void ReactImgui::SetChildrenDisplay(const int id, const YGDisplay display) {
+void XFrames::SetChildrenDisplay(const int id, const YGDisplay display) {
     if (m_hierarchy.contains(id)) {
         if (!m_hierarchy[id].empty()) {
             for (const auto& childId : m_hierarchy[id]) {
@@ -206,7 +206,7 @@ void ReactImgui::SetChildrenDisplay(const int id, const YGDisplay display) {
     }
 };
 
-void ReactImgui::CreateElement(const json& elementDef) {
+void XFrames::CreateElement(const json& elementDef) {
     if (elementDef.is_object()) {
         if (elementDef.contains("type") && elementDef["type"].is_string()) {
             std::string type = elementDef["type"].template get<std::string>();
@@ -257,7 +257,7 @@ void ReactImgui::CreateElement(const json& elementDef) {
     }
 };
 
-void ReactImgui::SetEventHandlers(
+void XFrames::SetEventHandlers(
     const OnInitCallback onInitFn,
     const OnTextChangedCallback onInputTextChangeFn,
     const OnComboChangedCallback onComboChangeFn,
@@ -277,7 +277,7 @@ void ReactImgui::SetEventHandlers(
     Widget::onInputTextChange_ = onInputTextChangeFn;
 };
 
-void ReactImgui::SetUpFloatFormatChars() {
+void XFrames::SetUpFloatFormatChars() {
     m_floatFormatChars[0] = std::make_unique<char[]>(4);
     m_floatFormatChars[1] = std::make_unique<char[]>(4);
     m_floatFormatChars[2] = std::make_unique<char[]>(4);
@@ -301,7 +301,7 @@ void ReactImgui::SetUpFloatFormatChars() {
     strcpy(m_floatFormatChars[9].get(), "%.9f");
 };
 
-void ReactImgui::Init(ImGuiRenderer* renderer) {
+void XFrames::Init(ImGuiRenderer* renderer) {
     m_renderer = renderer;
 
     if (m_rawStyleOverridesDefs.has_value()) {
@@ -319,7 +319,7 @@ void ReactImgui::Init(ImGuiRenderer* renderer) {
     m_onInit();
 }
 
-void ReactImgui::PrepareForRender() {
+void XFrames::PrepareForRender() {
     ImGuiIO& io = m_renderer->m_imGuiCtx->IO;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -333,7 +333,7 @@ void ReactImgui::PrepareForRender() {
     }
 };
 
-void ReactImgui::RenderElementTree(const int id) {
+void XFrames::RenderElementTree(const int id) {
     if (m_elements.contains(id)) {
         // float left = YGNodeLayoutGetLeft(m_elements[id]->m_layoutNode->m_node);
         // float top = YGNodeLayoutGetTop(m_elements[id]->m_layoutNode->m_node);
@@ -425,7 +425,7 @@ void ReactImgui::RenderElementTree(const int id) {
     }
 };
 
-void ReactImgui::Render(const int window_width, const int window_height) {
+void XFrames::Render(const int window_width, const int window_height) {
     const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
 
@@ -448,7 +448,7 @@ void ReactImgui::Render(const int window_width, const int window_height) {
     ImGui::Render();
 };
 
-void ReactImgui::RenderDebugWindow() {
+void XFrames::RenderDebugWindow() {
     ImGui::SetNextWindowSize(ImVec2(1000, 700));
     ImGui::Begin("debug", nullptr);
 
@@ -474,26 +474,26 @@ void ReactImgui::RenderDebugWindow() {
 }
 
 template <typename T>
-void ReactImgui::ExtractNumberFromStyleDef(const json& styleDef, const std::string key, T& value) {
+void XFrames::ExtractNumberFromStyleDef(const json& styleDef, const std::string key, T& value) {
     if (styleDef.contains(key) && styleDef[key].is_number_unsigned()) {
         value = styleDef[key].template get<T>();
     }
 };
 
-void ReactImgui::ExtractBooleanFromStyleDef(const json& styleDef, const std::string key, bool& value) {
+void XFrames::ExtractBooleanFromStyleDef(const json& styleDef, const std::string key, bool& value) {
     if (styleDef.contains(key) && styleDef[key].is_number_unsigned()) {
         value = styleDef[key].template get<bool>();
     }
 };
 
-void ReactImgui::ExtractImVec2FromStyleDef(const json& styleDef, const std::string key, ImVec2& value) {
+void XFrames::ExtractImVec2FromStyleDef(const json& styleDef, const std::string key, ImVec2& value) {
     if (styleDef.contains(key)  && styleDef[key].is_array() && styleDef[key].size() == 2) {
         value.x = styleDef[key][0].template get<float>();
         value.y = styleDef[key][1].template get<float>();
     }
 };
 
-void ReactImgui::PatchStyle(const json& styleDef) {
+void XFrames::PatchStyle(const json& styleDef) {
     if (styleDef.is_object()) {
         const std::lock_guard<std::mutex> elementsLock(m_hierarchy_mutex);
         const std::lock_guard<std::mutex> hierarchyLock(m_elements_mutex);
@@ -570,34 +570,34 @@ void ReactImgui::PatchStyle(const json& styleDef) {
     }
 };
 
-void ReactImgui::TakeStyleSnapshot() {
+void XFrames::TakeStyleSnapshot() {
     const auto style = ImGui::GetStyle();
 
     // This is necessary as the style is repeatedly modified during render via push and pop calls
     memcpy(&m_appStyle, &style, sizeof(style));
 };
 
-void ReactImgui::QueueCreateElement(std::string& elementJsonAsString) {
+void XFrames::QueueCreateElement(std::string& elementJsonAsString) {
     try {
         ElementOpDef elementOp{OpCreateElement,json::parse(elementJsonAsString)};
         m_elementOpSubject.get_observer().on_next(elementOp);
     } catch (nlohmann::detail::parse_error& parseError) {
-        printf("ReactImgui::QueueCreateElement, parse error: %s\n", parseError.what());
+        printf("XFrames::QueueCreateElement, parse error: %s\n", parseError.what());
     }
 };
 
-void ReactImgui::QueuePatchElement(const int id, std::string& elementJsonAsString) {
+void XFrames::QueuePatchElement(const int id, std::string& elementJsonAsString) {
     try {
         json opDef = json::parse(elementJsonAsString);
         opDef["id"] = id;
         ElementOpDef elementOp{OpPatchElement,opDef};
         m_elementOpSubject.get_observer().on_next(elementOp);
     } catch (nlohmann::detail::parse_error& parseError) {
-        printf("ReactImgui::QueuePatchElement, parse error: %s\n", parseError.what());
+        printf("XFrames::QueuePatchElement, parse error: %s\n", parseError.what());
     }
 };
 
-void ReactImgui::QueueAppendChild(int parentId, int childId) {
+void XFrames::QueueAppendChild(int parentId, int childId) {
     try {
         json opDef;
         opDef["parentId"] = parentId;
@@ -605,11 +605,11 @@ void ReactImgui::QueueAppendChild(int parentId, int childId) {
         ElementOpDef elementOp{OpAppendChild,opDef};
         m_elementOpSubject.get_observer().on_next(elementOp);
     } catch (nlohmann::detail::parse_error& parseError) {
-        printf("ReactImgui::QueueAppendChild, parse error: %s\n", parseError.what());
+        printf("XFrames::QueueAppendChild, parse error: %s\n", parseError.what());
     }
 };
 
-void ReactImgui::QueueSetChildren(const int parentId, const std::vector<int>& childrenIds) {
+void XFrames::QueueSetChildren(const int parentId, const std::vector<int>& childrenIds) {
     try {
         json opDef;
         opDef["parentId"] = parentId;
@@ -617,11 +617,11 @@ void ReactImgui::QueueSetChildren(const int parentId, const std::vector<int>& ch
         ElementOpDef elementOp{OpSetChildren,opDef};
         m_elementOpSubject.get_observer().on_next(elementOp);
     } catch (nlohmann::detail::parse_error& parseError) {
-        printf("ReactImgui::QueueSetChildren, parse error: %s\n", parseError.what());
+        printf("XFrames::QueueSetChildren, parse error: %s\n", parseError.what());
     }
 };
 
-void ReactImgui::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
+void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
     try {
         const json opDef = json::parse(widgetOpDef);
 
@@ -629,11 +629,11 @@ void ReactImgui::QueueElementInternalOp(const int id, std::string& widgetOpDef) 
             m_elementInternalOpsSubject[id].get_observer().on_next(opDef);
         }
     } catch (nlohmann::detail::parse_error& parseError) {
-        printf("ReactImgui::QueueElementInternalOp, parse error: %s\n", parseError.what());
+        printf("XFrames::QueueElementInternalOp, parse error: %s\n", parseError.what());
     }
 };
 
-void ReactImgui::PatchElement(const json& patchDef) {
+void XFrames::PatchElement(const json& patchDef) {
     if (patchDef.is_object()) {
         const auto id = patchDef["id"].template get<int>();
 
@@ -655,7 +655,7 @@ void ReactImgui::PatchElement(const json& patchDef) {
     }
 }
 
-void ReactImgui::HandleElementInternalOp(const json& opDef) {
+void XFrames::HandleElementInternalOp(const json& opDef) {
     const auto id = opDef["id"].template get<int>();
 
     const std::lock_guard<std::mutex> lock(m_elements_mutex);
@@ -675,7 +675,7 @@ void ReactImgui::HandleElementInternalOp(const json& opDef) {
     }
 }
 
-void ReactImgui::SetChildren(const json& opDef) {
+void XFrames::SetChildren(const json& opDef) {
     const std::lock_guard<std::mutex> elementsLock(m_hierarchy_mutex);
     const std::lock_guard<std::mutex> hierarchyLock(m_elements_mutex);
 
@@ -699,7 +699,7 @@ void ReactImgui::SetChildren(const json& opDef) {
     m_hierarchy[parentId] = childrenIds;
 }
 
-void ReactImgui::AppendChild(const json& opDef) {
+void XFrames::AppendChild(const json& opDef) {
     auto parentId = opDef["parentId"].template get<int>();
     auto childId = opDef["childId"].template get<int>();
 
@@ -726,12 +726,12 @@ void ReactImgui::AppendChild(const json& opDef) {
     }
 }
 
-std::vector<int> ReactImgui::GetChildren(int id) {
+std::vector<int> XFrames::GetChildren(int id) {
     return m_hierarchy[id];
 };
 
 // todo: switch to ReactivePlusPlus's BehaviorSubject
-void ReactImgui::AppendTextToClippedMultiLineTextRenderer(const int id, const std::string& data) {
+void XFrames::AppendTextToClippedMultiLineTextRenderer(const int id, const std::string& data) {
     const std::lock_guard<std::mutex> lock(m_elements_mutex);
 
     if (m_elements.contains(id)) {
@@ -741,7 +741,7 @@ void ReactImgui::AppendTextToClippedMultiLineTextRenderer(const int id, const st
     }
 };
 
-StyleVarValueRef ReactImgui::GetStyleVar(const ImGuiStyleVar key) {
+StyleVarValueRef XFrames::GetStyleVar(const ImGuiStyleVar key) {
     StyleVarValueRef value;
 
     switch(key) {
@@ -784,7 +784,7 @@ StyleVarValueRef ReactImgui::GetStyleVar(const ImGuiStyleVar key) {
 };
 
 // todo: ensure this returns the font based on current state of the widget, i.e. 'base', 'hover', 'active'
-ImFont* ReactImgui::GetWidgetFont(const StyledWidget* widget) {
+ImFont* XFrames::GetWidgetFont(const StyledWidget* widget) {
     if (widget->HasCustomStyles() && widget->HasCustomFont(this)) {
         // auto result = widget->m_style.value()->GetCustomFontId(widget->GetState(), this);
 
@@ -800,7 +800,7 @@ ImFont* ReactImgui::GetWidgetFont(const StyledWidget* widget) {
 }
 
 // todo: ensure this returns the font size based on current state of the widget, i.e. 'base', 'hover', 'active'
-float ReactImgui::GetWidgetFontSize(const StyledWidget* widget) {
+float XFrames::GetWidgetFontSize(const StyledWidget* widget) {
     ImGui::CreateContext();
 
     if (widget->HasCustomStyles() && widget->HasCustomFont(this)) {
@@ -823,11 +823,11 @@ float ReactImgui::GetWidgetFontSize(const StyledWidget* widget) {
     return io.FontDefault->FontSize;
 }
 
-float ReactImgui::GetTextLineHeight(const StyledWidget* widget) {
+float XFrames::GetTextLineHeight(const StyledWidget* widget) {
     return GetWidgetFontSize(widget);
 };
 
-float ReactImgui::GetTextLineHeightWithSpacing(const StyledWidget* widget) {
+float XFrames::GetTextLineHeightWithSpacing(const StyledWidget* widget) {
     auto fontSize = GetWidgetFontSize(widget);
 
     float itemSpacingY = m_appStyle.ItemSpacing.y;
@@ -842,7 +842,7 @@ float ReactImgui::GetTextLineHeightWithSpacing(const StyledWidget* widget) {
     return fontSize + itemSpacingY;
 };
 
-float ReactImgui::GetFrameHeight(const StyledWidget* widget) {
+float XFrames::GetFrameHeight(const StyledWidget* widget) {
     auto fontSize = GetWidgetFontSize(widget);
 
     float framePaddingY = m_appStyle.FramePadding.y;
@@ -857,7 +857,7 @@ float ReactImgui::GetFrameHeight(const StyledWidget* widget) {
     return fontSize + framePaddingY * 2.0f;
 };
 
-float ReactImgui::GetFrameHeightWithSpacing(const StyledWidget* widget) {
+float XFrames::GetFrameHeightWithSpacing(const StyledWidget* widget) {
     auto fontSize = GetWidgetFontSize(widget);
 
     float framePaddingY = m_appStyle.FramePadding.y;
@@ -882,7 +882,7 @@ float ReactImgui::GetFrameHeightWithSpacing(const StyledWidget* widget) {
     return fontSize + framePaddingY * 2.0f + itemSpacingY;
 };
 
-ImVec2 ReactImgui::CalcTextSize(const StyledWidget* widget, const char* text, const char* text_end, bool hide_text_after_double_hash, float wrap_width)
+ImVec2 XFrames::CalcTextSize(const StyledWidget* widget, const char* text, const char* text_end, bool hide_text_after_double_hash, float wrap_width)
 {
     auto font = GetWidgetFont(widget);
     const char* text_display_end;

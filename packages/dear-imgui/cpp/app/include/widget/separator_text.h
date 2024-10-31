@@ -4,7 +4,7 @@ class SeparatorText final : public StyledWidget {
 public:
     std::string m_label;
 
-    static std::unique_ptr<SeparatorText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<SeparatorText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         if (!widgetDef.contains("label") || !widgetDef["label"].is_string()) {
             throw std::invalid_argument("Missing label or not a string");
         }
@@ -28,14 +28,14 @@ public:
         return size;
     }
 
-    SeparatorText(ReactImgui* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+    SeparatorText(XFrames* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
         m_type = "separator-text";
         m_label = label;
     }
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-    void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+    void Patch(const json& widgetPatchDef, XFrames* view) override;
 
     void Init(const json& elementDef) override {
         Element::Init(elementDef);

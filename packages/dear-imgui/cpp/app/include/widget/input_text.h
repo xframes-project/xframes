@@ -6,7 +6,7 @@ class InputText final : public StyledWidget {
 
         static int InputTextCb(ImGuiInputTextCallbackData* data);
 
-        InputText(ReactImgui* view, const int id, const std::string& defaultValue, const std::string& hint, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        InputText(XFrames* view, const int id, const std::string& defaultValue, const std::string& hint, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "input-text";
             m_bufferPointer = std::make_unique<char[]>(100);
             m_defaultValue = defaultValue;
@@ -22,7 +22,7 @@ class InputText final : public StyledWidget {
         std::string m_defaultValue;
         std::string m_hint;
 
-        static std::unique_ptr<InputText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<InputText> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
             const auto defaultValue = widgetDef.contains("defaultValue") && widgetDef["defaultValue"].is_string() ? widgetDef["defaultValue"].template get<std::string>() : "";
             const auto hint = widgetDef.contains("hint") && widgetDef["hint"].is_string() ? widgetDef["hint"].template get<std::string>() : "";
@@ -32,7 +32,7 @@ class InputText final : public StyledWidget {
             // throw std::invalid_argument("Invalid JSON data");
         }
 
-        static std::unique_ptr<InputText> makeWidget(ReactImgui* view, const int id, const std::string& defaultValue, const std::string& hint, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<InputText> makeWidget(XFrames* view, const int id, const std::string& defaultValue, const std::string& hint, std::optional<WidgetStyle>& style) {
             InputText instance(view, id, defaultValue, hint, style);
             return std::make_unique<InputText>(std::move(instance));
         }
@@ -53,9 +53,9 @@ class InputText final : public StyledWidget {
             return size;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         bool HasInternalOps() override;
 

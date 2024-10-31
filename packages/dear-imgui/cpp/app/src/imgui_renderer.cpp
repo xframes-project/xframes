@@ -49,13 +49,13 @@ void wgpu_error_callback(WGPUErrorType error_type, const char* message, void*)
 #endif
 
 ImGuiRenderer::ImGuiRenderer(
-    ReactImgui* reactImgui,
+    XFrames* xframes,
     const char* windowId,
     const char* glWindowTitle,
     std::string rawFontDefs,
     const std::optional<std::string>& basePath) {
 
-    m_reactImgui = reactImgui;
+    m_xframes = xframes;
 
     m_windowId = windowId;
     m_glWindowTitle = glWindowTitle;
@@ -388,7 +388,7 @@ void ImGuiRenderer::SetCurrentContext() {
 
 #ifndef __EMSCRIPTEN__
 void ImGuiRenderer::HandleNextImageJob() {
-    auto& [widgetId, url] = m_reactImgui->m_imageJobs.front();
+    auto& [widgetId, url] = m_xframes->m_imageJobs.front();
 
     auto pathToFile = std::format("{}/{}", m_assetsBasePath, url);
 
@@ -414,11 +414,11 @@ void ImGuiRenderer::HandleNextImageJob() {
 
     fclose(f);
 
-    m_reactImgui->m_imageToTextureMap[widgetId] = LoadTexture(file_data, file_size);
+    m_xframes->m_imageToTextureMap[widgetId] = LoadTexture(file_data, file_size);
 
     IM_FREE(file_data);
 
-    m_reactImgui->m_imageJobs.pop();
+    m_xframes->m_imageJobs.pop();
 };
 #endif
 
@@ -437,7 +437,7 @@ void ImGuiRenderer::BeginRenderLoop() {
     // printf("Default font added\n");
 #endif
 
-    m_reactImgui->Init(this);
+    m_xframes->Init(this);
 
     // Main loop
 #ifdef __EMSCRIPTEN__
@@ -459,12 +459,12 @@ void ImGuiRenderer::BeginRenderLoop() {
         ImGui_ImplGlfw_NewFrame();
 
 #ifndef __EMSCRIPTEN__
-        if (!m_reactImgui->m_imageJobs.empty()) {
+        if (!m_xframes->m_imageJobs.empty()) {
             HandleNextImageJob();
         }
 #endif
 
-        m_reactImgui->Render(m_window_width, m_window_height);
+        m_xframes->Render(m_window_width, m_window_height);
 
         PerformRendering();
 

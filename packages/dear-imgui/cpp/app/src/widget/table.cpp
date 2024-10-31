@@ -1,7 +1,7 @@
 #include "widget/table.h"
 #include "xframes.h"
 
-void Table::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
     ImGui::BeginGroup();
@@ -78,7 +78,7 @@ void Table::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void Table::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Table::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("columns") && widgetPatchDef["columns"].is_array()) {

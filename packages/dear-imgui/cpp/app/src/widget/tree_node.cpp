@@ -3,7 +3,7 @@
 #include "widget/tree_node.h"
 #include "widget/styled_widget.h"
 
-TreeNode::TreeNode(ReactImgui* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+TreeNode::TreeNode(XFrames* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
     m_type = "tree-node";
     m_handlesChildrenWithinRenderMethod = true;
 }
@@ -39,7 +39,7 @@ void TreeNode::Init(const json &elementDef) {
     }
 };
 
-void TreeNode::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void TreeNode::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     YGNodeStyleSetMargin(m_layoutNode->m_node, YGEdgeBottom, m_view->GetWidgetFontSize(this));
 
     ImGui::PushID(m_id);
@@ -107,7 +107,7 @@ void TreeNode::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
-void TreeNode::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void TreeNode::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("label") && widgetPatchDef["label"].is_string()) {

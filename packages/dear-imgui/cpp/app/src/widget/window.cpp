@@ -3,14 +3,14 @@
 #include "widget/window.h"
 #include "widget/styled_widget.h"
 
-class ReactImgui;
+class XFrames;
 
-Window::Window(ReactImgui* view, const int id, const std::string& title, const float width, const float height, std::optional<WidgetStyle>& style)
+Window::Window(XFrames* view, const int id, const std::string& title, const float width, const float height, std::optional<WidgetStyle>& style)
 : StyledWidget(view, id, style), m_flags(ImGuiWindowFlags_None), m_open(false), m_title(title), m_width(width), m_height(height) {
     m_type = "di-window";
 }
 
-void Window::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Window::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     // ImGui::PushID(m_id);
     ImGui::SetNextWindowSize(ImVec2(m_width, m_height), ImGuiCond_FirstUseEver);
 
@@ -23,7 +23,7 @@ void Window::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
     // ImGui::PopID();
 };
 
-void Window::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void Window::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef["title"].is_string()) {

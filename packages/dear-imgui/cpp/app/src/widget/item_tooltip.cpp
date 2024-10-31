@@ -3,12 +3,12 @@
 #include "widget/item_tooltip.h"
 #include "widget/widget.h"
 
-ItemTooltip::ItemTooltip(ReactImgui* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+ItemTooltip::ItemTooltip(XFrames* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
     m_type = "item-tooltip";
     m_handlesChildrenWithinRenderMethod = true;
 }
 
-void ItemTooltip::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void ItemTooltip::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (ImGui::BeginItemTooltip()) {
         Widget::HandleChildren(view, viewport);
 

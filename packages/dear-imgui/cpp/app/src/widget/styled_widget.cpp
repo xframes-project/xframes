@@ -5,7 +5,7 @@
 #include "xframes.h"
 #include "imgui_renderer.h"
 
-bool WidgetStyle::HasCustomFont(const std::optional<ElementState> widgetState, ReactImgui* view) {
+bool WidgetStyle::HasCustomFont(const std::optional<ElementState> widgetState, XFrames* view) {
     const auto hasBaseValue = maybeBase.has_value() && maybeBase.value().maybeFontIndex.has_value() && view->m_renderer->IsFontIndexValid(maybeBase.value().maybeFontIndex.value());
 
     switch(widgetState.value_or(ElementState_Base)) {
@@ -161,7 +161,7 @@ StyleVars& WidgetStyle::GetCustomStyleVars(std::optional<ElementState> widgetSta
     return baseStyleVars;
 }
 
-int WidgetStyle::GetCustomFontId(std::optional<ElementState> widgetState, ReactImgui* view) {
+int WidgetStyle::GetCustomFontId(std::optional<ElementState> widgetState, XFrames* view) {
     auto fontIndex = maybeBase.value().maybeFontIndex.value();
 
     switch(widgetState.value_or(ElementState_Base)) {
@@ -204,7 +204,7 @@ StyleVarValue WidgetStyle::GetCustomStyleVar(std::optional<ElementState> widgetS
     }
 }
 
-WidgetStyleParts extractStyleParts(const json& styleDef, ReactImgui* view) {
+WidgetStyleParts extractStyleParts(const json& styleDef, XFrames* view) {
     auto widgetStyleParts = WidgetStyleParts{};
 
     if (styleDef.contains("font")
@@ -261,7 +261,7 @@ WidgetStyleParts extractStyleParts(const json& styleDef, ReactImgui* view) {
     return widgetStyleParts;
 }
 
-std::optional<WidgetStyle> StyledWidget::ExtractStyle(const json& widgetDef, ReactImgui* view) {
+std::optional<WidgetStyle> StyledWidget::ExtractStyle(const json& widgetDef, XFrames* view) {
     std::optional<WidgetStyle> maybeStyle;
 
     WidgetStyle widgetStyle;
@@ -287,9 +287,9 @@ std::optional<WidgetStyle> StyledWidget::ExtractStyle(const json& widgetDef, Rea
     return maybeStyle;
 };
 
-StyledWidget::StyledWidget(ReactImgui* view, const int id) : Widget(view, id) {}
+StyledWidget::StyledWidget(XFrames* view, const int id) : Widget(view, id) {}
 
-StyledWidget::StyledWidget(ReactImgui* view, const int id, std::optional<WidgetStyle>& maybeStyle) : Widget(view, id) {
+StyledWidget::StyledWidget(XFrames* view, const int id, std::optional<WidgetStyle>& maybeStyle) : Widget(view, id) {
     if (maybeStyle.has_value()) {
         m_style.emplace(std::make_unique<WidgetStyle>(maybeStyle.value()));
     }
@@ -300,7 +300,7 @@ void StyledWidget::ReplaceStyle(WidgetStyle& newStyle) {
     m_style.emplace(std::make_unique<WidgetStyle>(newStyle));
 };
 
-void StyledWidget::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void StyledWidget::Patch(const json& widgetPatchDef, XFrames* view) {
     Widget::Patch(widgetPatchDef, view);
 
     // todo: we probably need to test all 4 state objects individually
@@ -320,7 +320,7 @@ bool StyledWidget::HasCustomStyles() const {
 };
 
 // Assumes m_style is not null, you should call HasCustomStyles() first
-bool StyledWidget::HasCustomFont(ReactImgui* view) const {
+bool StyledWidget::HasCustomFont(XFrames* view) const {
     return m_style.value()->HasCustomFont(GetState(), view);
 };
 
@@ -344,7 +344,7 @@ bool StyledWidget::HasCustomStyleVars() const {
     return m_style.value()->HasCustomStyleVars(GetState());
 };
 
-void StyledWidget::PreRender(ReactImgui* view) {
+void StyledWidget::PreRender(XFrames* view) {
     const float left = YGNodeLayoutGetLeft(m_layoutNode->m_node);
     const float top = YGNodeLayoutGetTop(m_layoutNode->m_node);
 
@@ -383,7 +383,7 @@ void StyledWidget::PreRender(ReactImgui* view) {
     }
 };
 
-void StyledWidget::PostRender(ReactImgui* view) {
+void StyledWidget::PostRender(XFrames* view) {
     if (HasCustomWidth()) {
         ImGui::PopItemWidth();
     }

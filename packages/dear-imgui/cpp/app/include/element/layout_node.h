@@ -10,7 +10,7 @@ using json = nlohmann::json;
 
 #pragma once
 
-class ReactImgui;
+class XFrames;
 
 class LayoutNode {
     std::unordered_map<std::string, std::unique_ptr<IVariadicFn>, StringHash, std::equal_to<>> m_setters;

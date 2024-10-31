@@ -20,7 +20,7 @@
 
 #include "./shared.h"
 
-class ReactImgui;
+class XFrames;
 
 using json = nlohmann::json;
 
@@ -30,7 +30,7 @@ class ImGuiRenderer {
 
         std::string m_rawFontDefs;
 
-        ReactImgui* m_reactImgui;
+        XFrames* m_xframes;
 
         const char* m_glWindowTitle;
 
@@ -64,7 +64,7 @@ class ImGuiRenderer {
 
     public:
         ImGuiRenderer(
-            ReactImgui* reactImgui,
+            XFrames* xframes,
             const char* newWindowId,
             const char* newGlWindowTitle,
             std::string rawFontDefs,

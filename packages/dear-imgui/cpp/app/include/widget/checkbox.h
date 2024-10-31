@@ -4,7 +4,7 @@
 
 class Checkbox final : public StyledWidget {
     protected:
-        Checkbox(ReactImgui* view, const int id, const std::string& label, const bool defaultChecked, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+        Checkbox(XFrames* view, const int id, const std::string& label, const bool defaultChecked, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "checkbox";
             m_checked = defaultChecked;
             m_label = label;
@@ -14,7 +14,7 @@ class Checkbox final : public StyledWidget {
         bool m_checked;
         std::string m_label;
 
-        static std::unique_ptr<Checkbox> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+        static std::unique_ptr<Checkbox> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
             const auto defaultChecked = widgetDef.contains("defaultChecked") && widgetDef["defaultChecked"].is_boolean() ? widgetDef["defaultChecked"].template get<bool>() : false;
             const auto label = widgetDef.contains("label") && widgetDef["label"].is_string() ? widgetDef["label"].template get<std::string>() : "";
@@ -24,7 +24,7 @@ class Checkbox final : public StyledWidget {
             // throw std::invalid_argument("Invalid JSON data");
         }
 
-        static std::unique_ptr<Checkbox> makeWidget(ReactImgui* view, const int id,  const std::string& label, const bool defaultChecked, std::optional<WidgetStyle>& style) {
+        static std::unique_ptr<Checkbox> makeWidget(XFrames* view, const int id,  const std::string& label, const bool defaultChecked, std::optional<WidgetStyle>& style) {
             Checkbox instance(view, id, label, defaultChecked, style);
             return std::make_unique<Checkbox>(std::move(instance));
         }
@@ -43,9 +43,9 @@ class Checkbox final : public StyledWidget {
             return size;
         }
 
-        void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+        void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-        void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+        void Patch(const json& widgetPatchDef, XFrames* view) override;
 
         void Init(const json& elementDef) override {
             Element::Init(elementDef);

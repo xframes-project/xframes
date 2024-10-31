@@ -5,7 +5,7 @@
 #include "widget/input_text.h"
 #include "xframes.h"
 
-void InputText::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void InputText::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
     // imgui_stdlib.cpp
     // bool ImGui::InputText(const char* label, std::string* str, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, void* user_data)
@@ -13,7 +13,7 @@ void InputText::Render(ReactImgui* view, const std::optional<ImRect>& viewport) 
     ImGui::PopID();
 };
 
-void InputText::Patch(const json& widgetPatchDef, ReactImgui* view) {
+void InputText::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
     if (widgetPatchDef.contains("hint") && widgetPatchDef["hint"].is_string()) {

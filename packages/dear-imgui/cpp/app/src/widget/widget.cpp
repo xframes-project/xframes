@@ -9,7 +9,7 @@
 
 using json = nlohmann::json;
 
-Widget::Widget(ReactImgui* view, const int id) : Element(view, id, false, false, false) {
+Widget::Widget(XFrames* view, const int id) : Element(view, id, false, false, false) {
     m_handlesChildrenWithinRenderMethod = false;
 }
 
@@ -18,20 +18,20 @@ const char* Widget::GetElementType() {
 };
 
 // todo: seems redundant
-void Widget::HandleChildren(ReactImgui* view, const std::optional<ImRect>& viewport) {
+void Widget::HandleChildren(XFrames* view, const std::optional<ImRect>& viewport) {
     view->RenderChildren(m_id, std::nullopt);
 };
 
-void Widget::SetChildrenDisplay(ReactImgui* view, YGDisplay display) const {
+void Widget::SetChildrenDisplay(XFrames* view, YGDisplay display) const {
     view->SetChildrenDisplay(m_id, display);
 };
 
-void Widget::Patch(const json& elementPatchDef, ReactImgui* view) {
+void Widget::Patch(const json& elementPatchDef, XFrames* view) {
     Element::Patch(elementPatchDef, view);
 };
 
-void Widget::PreRender(ReactImgui* view) {};
+void Widget::PreRender(XFrames* view) {};
 
-void Widget::Render(ReactImgui* view, const std::optional<ImRect>& viewport) {};
+void Widget::Render(XFrames* view, const std::optional<ImRect>& viewport) {};
 
-void Widget::PostRender(ReactImgui* view) {};
+void Widget::PostRender(XFrames* view) {};

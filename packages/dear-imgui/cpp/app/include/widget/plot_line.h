@@ -21,7 +21,7 @@ private:
     bool m_axisAutoFit;
 
 public:
-    static std::unique_ptr<PlotLine> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, ReactImgui* view) {
+    static std::unique_ptr<PlotLine> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         int xAxisDecimalDigits = 0;
         int yAxisDecimalDigits = 0;
@@ -69,7 +69,7 @@ public:
     bool HasCustomHeight() override;
 
     PlotLine(
-        ReactImgui* view,
+        XFrames* view,
         const int id,
         const int xAxisDecimalDigits,
         const int yAxisDecimalDigits,
@@ -91,9 +91,9 @@ public:
         m_yValues.reserve(m_dataPointsLimit);
     }
 
-    void Render(ReactImgui* view, const std::optional<ImRect>& viewport) override;
+    void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
-    void Patch(const json& widgetPatchDef, ReactImgui* view) override;
+    void Patch(const json& widgetPatchDef, XFrames* view) override;
 
     bool HasInternalOps() override;
 
