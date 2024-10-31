@@ -25,6 +25,7 @@ set (CMAKE_CXX_STANDARD 23)
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
 find_package(OpenGL REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 
@@ -99,12 +100,8 @@ target_link_libraries(${PROJECT_NAME}
         ${CMAKE_JS_LIB}
         ada::ada
 
-        $<IF:$<PLATFORM_ID:Windows>,
-                ${CMAKE_CURRENT_SOURCE_DIR}/glfw3dll.lib,
-                glfw>
-            $<IF:$<PLATFORM_ID:Windows>,
-                opengl32,
-                GL>
+        glfw
+        OpenGL::GL
 )
 
 # Include Node-API wrappers
