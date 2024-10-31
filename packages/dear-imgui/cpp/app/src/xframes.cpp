@@ -152,7 +152,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["multi-slider"] = &makeWidget<MultiSlider>;
     m_element_init_fn["checkbox"] = &makeWidget<Checkbox>;
     m_element_init_fn["di-button"] = &makeWidget<Button>;
-    
+
     m_element_init_fn["separator-text"] = &makeWidget<SeparatorText>;
     m_element_init_fn["bullet-text"] = &makeWidget<BulletText>;
     m_element_init_fn["unformatted-text"] = &makeWidget<UnformattedText>;
@@ -469,7 +469,7 @@ void XFrames::RenderDebugWindow() {
 
         ImGui::EndTable();
     }
-    
+
     ImGui::End();
 }
 
@@ -676,11 +676,11 @@ void XFrames::HandleElementInternalOp(const json& opDef) {
 }
 
 void XFrames::SetChildren(const json& opDef) {
-    const std::lock_guard<std::mutex> elementsLock(m_hierarchy_mutex);
-    const std::lock_guard<std::mutex> hierarchyLock(m_elements_mutex);
+    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
+    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
 
-    auto parentId = opDef["parentId"].template get<int>();
-    auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
+    const auto parentId = opDef["parentId"].template get<int>();
+    const auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
 
     if (m_elements.contains(parentId)) {
         YGNodeRemoveAllChildren(m_elements[parentId]->m_layoutNode->m_node);
@@ -704,22 +704,22 @@ void XFrames::AppendChild(const json& opDef) {
     auto childId = opDef["childId"].template get<int>();
 
     const std::lock_guard<std::mutex> lock(m_hierarchy_mutex);
-    
+
     if (m_hierarchy.contains(parentId)) {
         if ( std::find(m_hierarchy[parentId].begin(), m_hierarchy[parentId].end(), childId) == m_hierarchy[parentId].end() ) {
             const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
-    
+
             if (m_elements.contains(childId)) {
                 if (!m_elements[childId]->m_isRoot) {
                     auto parentNode = YGNodeGetParent(m_elements[childId]->m_layoutNode->m_node);
-    
+
                     if (!parentNode) {
                         const auto childCount = m_elements[parentId]->m_layoutNode->GetChildCount();
-    
+
                         m_elements[parentId]->m_layoutNode->InsertChild(m_elements[childId]->m_layoutNode.get(), childCount);
                     }
                 }
-    
+
                 m_hierarchy[parentId].push_back(childId);
             }
         }
@@ -801,8 +801,6 @@ ImFont* XFrames::GetWidgetFont(const StyledWidget* widget) {
 
 // todo: ensure this returns the font size based on current state of the widget, i.e. 'base', 'hover', 'active'
 float XFrames::GetWidgetFontSize(const StyledWidget* widget) {
-    ImGui::CreateContext();
-
     if (widget->HasCustomStyles() && widget->HasCustomFont(this)) {
         // auto result = widget->m_style.value()->GetCustomFontId(widget->GetState(), this);
 

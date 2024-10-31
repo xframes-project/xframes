@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/andreamancuso/xframes.git"
+    "url": "https://github.com/andreamancuso/xframes.git"
   },
   "scripts": {
     "build": "cmake-js compile",

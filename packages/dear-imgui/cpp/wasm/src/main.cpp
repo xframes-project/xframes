@@ -63,7 +63,7 @@ class WasmRunner {
         ImGuiRenderer* m_renderer{};
 
     public:
-    WasmRunner() = default;
+        WasmRunner() = default;
 
         static void OnInit() {
             EM_ASM(
