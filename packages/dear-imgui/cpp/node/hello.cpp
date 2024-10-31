@@ -167,11 +167,11 @@ class Runner {
         }
 
         void init() {
-            m_reactImgui = new ReactImgui("ReactImgui", m_rawStyleOverridesDefs);
+            m_reactImgui = new ReactImgui("XFrames", m_rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
                 m_reactImgui,
-                "ReactImgui",
-                "ReactImgui",
+                "XFrames",
+                "XFrames",
                 m_rawFontDefs,
                 m_assetsBasePath
             );

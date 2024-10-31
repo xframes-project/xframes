@@ -140,11 +140,11 @@ class WasmRunner {
         }
 
         void run(std::string& canvasSelector, std::string& rawFontDefs, std::optional<std::string>& rawStyleOverridesDefs) {
-            m_reactImgui = new ReactImgui("ReactImgui", rawStyleOverridesDefs);
+            m_reactImgui = new ReactImgui("XFrames", rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
                 m_reactImgui,
-                "ReactImgui",
-                "ReactImgui",
+                "XFrames",
+                "XFrames",
                 rawFontDefs,
                 std::nullopt
             );

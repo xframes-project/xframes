@@ -18,7 +18,7 @@ if(NOT VCPKG_TARGET_TRIPLET)
     endif()
 endif()
 
-project (node-imgui LANGUAGES C CXX)
+project (xframes LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 23)
 

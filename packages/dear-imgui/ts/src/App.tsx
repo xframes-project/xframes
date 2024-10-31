@@ -1,8 +1,8 @@
 import { useMemo, useRef } from "react";
 // @ts-ignore
-import getWasmModule from "./lib/wasm/reactDearImgui.mjs";
+import getWasmModule from "./lib/wasm/xframes.mjs";
 // @ts-ignore
-import wasmDataPackage from "./lib/wasm/reactDearImgui.data";
+import wasmDataPackage from "./lib/wasm/xframes.data";
 // import { ImGuiDemo } from "./lib";
 import { GetWasmModule, ImGuiCol } from "./lib/wasm/wasm-app-types";
 import { ImGuiStyleForPatching } from "./lib/stylesheet/imgui-style";
