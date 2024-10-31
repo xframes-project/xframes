@@ -4,7 +4,7 @@
             "./vcpkg-overlay-ports/imgui"
         ]
     },
-    "name": "reactdearimguitests",
+    "name": "xframestests",
     "version-string": "1.0.0",
     "dependencies": [
         {
