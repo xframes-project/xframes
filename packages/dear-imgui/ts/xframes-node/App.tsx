@@ -1,6 +1,6 @@
 import * as React from "react";
-import { XFrames } from "./XFrames";
 import { TradingGuiDemo } from "./TradingGuiDemo/TradingGuiDemo";
+import { XFrames } from "./XFrames";
 
 export const App = () => {
     return (

@@ -2,9 +2,13 @@
   "name": "@xframes/node",
   "version": "0.0.1",
   "description": "DOM-less, GPU-accelerated GUI development for Node.js",
-  "main": "hello.js",
+  "main": "xframes.js",
   "dependencies": {
     "react": "18.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/andreamancuso/xframes.git"
   },
   "scripts": {
     "build": "cmake-js compile",

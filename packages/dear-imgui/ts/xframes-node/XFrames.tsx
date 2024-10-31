@@ -1,16 +1,16 @@
 import * as React from "react";
 import { PropsWithChildren } from "react";
 import ReactNativePrivateInterface from "../src/lib/react-native/ReactNativePrivateInterface";
-import { FontDef, ImGuiStyleForPatching, useDearImguiWasm } from "../src/lib";
-import { useDearImguiFonts } from "../src/lib/hooks";
+import { FontDef, useXFramesWasm, XFramesStyleForPatching } from "../src/lib";
 import { ReactNativeWrapper } from "./ReactNativeWrapper";
 import { attachSubComponents } from "../src/lib/attachSubComponents";
 import { components } from "../src/lib/components/XFrames/components";
+import { useXFramesFonts } from "../src/lib/hooks";
 
 export type MainComponentProps = PropsWithChildren & {
     fontDefs?: FontDef[];
     defaultFont?: { name: string; size: number };
-    styleOverrides?: ImGuiStyleForPatching;
+    styleOverrides?: XFramesStyleForPatching;
 };
 
 export const MainComponent: React.ComponentType<MainComponentProps> = ({
@@ -19,8 +19,8 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
     defaultFont,
     styleOverrides,
 }: MainComponentProps) => {
-    const { eventHandlers } = useDearImguiWasm(ReactNativePrivateInterface);
-    const fonts = useDearImguiFonts(fontDefs);
+    const { eventHandlers } = useXFramesWasm(ReactNativePrivateInterface);
+    const fonts = useXFramesFonts(fontDefs);
 
     return <ReactNativeWrapper nodeImgui>{children}</ReactNativeWrapper>;
 };
