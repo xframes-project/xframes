@@ -12,3 +12,7 @@ Open a developer terminal then run the following:
 - `msbuild /p:Platform=x64 /p:Configuration=Release /p:PlatformToolset=v142 ..\deps\glfw\ALL_BUILD.vcxproj`
 - `copy /y ..\deps\glfw\src\Release\glfw3.dll .\`
 - `copy /y ..\deps\glfw\src\Release\glfw3dll.lib .\`
+
+### WSL2
+
+Run `export GALLIUM_DRIVER=d3d12`

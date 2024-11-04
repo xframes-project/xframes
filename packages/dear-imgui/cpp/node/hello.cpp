@@ -607,19 +607,31 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected third arg to be string");
     } else if (!info[3].IsFunction()) {
         throw Napi::TypeError::New(env, "Expected fourth arg to be function");
+    } else if (!info[4].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected fifth arg to be function");
+    } else if (!info[5].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected sixth arg to be function");
+    } else if (!info[6].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected seventh arg to be function");
+    } else if (!info[7].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected eighth arg to be function");
+    } else if (!info[8].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected ninth arg to be function");
+    } else if (!info[9].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected tenth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
     pRunner->SetRawFontDefs(info[1].As<Napi::String>().Utf8Value());
     pRunner->SetRawStyleOverridesDefs(info[2].As<Napi::String>().Utf8Value());
 
-    Napi::Function onInit = info[3].As<Napi::Function>();
-    Napi::Function onTextChanged = info[4].As<Napi::Function>();
-    Napi::Function onComboChanged = info[5].As<Napi::Function>();
-    Napi::Function onNumericValueChanged = info[6].As<Napi::Function>();
-    Napi::Function onBooleanValueChanged = info[7].As<Napi::Function>();
-    Napi::Function onMultipleNumericValuesChanged = info[8].As<Napi::Function>();
-    Napi::Function onClick = info[9].As<Napi::Function>();
+    const auto onInit = info[3].As<Napi::Function>();
+    const auto onTextChanged = info[4].As<Napi::Function>();
+    const auto onComboChanged = info[5].As<Napi::Function>();
+    const auto onNumericValueChanged = info[6].As<Napi::Function>();
+    const auto onBooleanValueChanged = info[7].As<Napi::Function>();
+    const auto onMultipleNumericValuesChanged = info[8].As<Napi::Function>();
+    const auto onClick = info[9].As<Napi::Function>();
 
     pRunner->SetHandlers(
         info,
