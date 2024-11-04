@@ -10,13 +10,13 @@ As I write these paragraphs, I realise that, despite accomplishing a few small i
 
 ## Supported platforms
 
-| Architecture      | OS                      | Notes                                           |  
-| ----------------- | ----------------------- | ----------------------------------------------- |
-| wasm32-emscripten | N/A                     | Works in browsers that support WebGPU rendering |
-| x64-windows       | Windows 11 Home         | Works                                           |
-| x64-linux         | WSL2 Ubuntu 24.02.1 LTS | Works by setting `export GALLIUM_DRIVER=d3d12`  |
-| x64-linux         | Fedora 41               | WIP                                             |
-| x64-linux         | Debian Trixie           | WIP                                             |
+| Architecture      | OS                      | Compiler           | Notes                                           |  
+| ----------------- | ----------------------- | ------------------ | ----------------------------------------------- |
+| wasm32-emscripten | N/A                     | emsdk 3.1.64       | Works in browsers that support WebGPU rendering |
+| x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
+| x64-linux         | WSL2 Ubuntu 24.02.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
+| x64-linux         | Fedora 41               | gcc 14             | WIP                                             |
+| x64-linux         | Debian Trixie           | gcc 14             | WIP                                             |
 
 
 ## Caveats
