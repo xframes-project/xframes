@@ -67,9 +67,19 @@ class Runner {
         std::string m_assetsBasePath;
         std::optional<std::string> m_rawStyleOverridesDefs;
 
+        Napi::ThreadSafeFunction m_tsfnOnInit;
+        Napi::ThreadSafeFunction m_tsfnOnTextChange;
+        Napi::ThreadSafeFunction m_tsfnOnComboChange;
+        Napi::ThreadSafeFunction m_tsfnOnNumericValueChange;
+        Napi::ThreadSafeFunction m_tsfnOnBooleanValueChange;
+        Napi::ThreadSafeFunction m_tsfnOnMultipleNumericValuesChange;
+        Napi::ThreadSafeFunction m_tsfnOnClick;
+
         static Runner * instance;
 
-        Runner() = default;
+        Runner() {}
+
+        // Runner(Napi::Function onInit) : m_onInit(Napi::Persistent(onInit)) {}
     public:
         static Runner* getInstance() {
             if (nullptr == instance) {
@@ -81,77 +91,191 @@ class Runner {
         ~Runner() = default;
 
         static void OnInit() {
-            // EM_ASM(
-            //     { Module.eventHandlers.onInit(); }
-            // );
-        }
+            auto pRunner = getInstance();
+            auto callback = [](Napi::Env env, Napi::Function jsCallback) {
+                // Transform native data into JS data, passing it to the provided
+                // `jsCallback` -- the TSFN's JavaScript function.
+                jsCallback.Call({});
+            };
 
-        static void OnTextChanged(const int id, const std::string& value) {
-            // EM_ASM_ARGS(
-            //     { Module.eventHandlers.onTextChange($0, UTF8ToString($1)); },
-            //     id,
-            //     value.c_str()
-            // );
-        }
+            napi_status status = pRunner->m_tsfnOnInit.BlockingCall(callback);
 
-        static void OnComboChanged(const int id, const int value) {
-            // EM_ASM_ARGS(
-            //     { Module.eventHandlers.onComboChange($0, $1); },
-            //     id,
-            //     value
-            // );
-        }
-
-        static void OnNumericValueChanged(const int id, const float value) {
-            // EM_ASM_ARGS(
-            //     { Module.eventHandlers.onNumericValueChange($0, $1); },
-            //     id,
-            //     value
-            // );
-        }
-
-        static void OnBooleanValueChanged(const int id, const bool value) {
-            // EM_ASM_ARGS(
-            //     { Module.eventHandlers.onBooleanValueChange($0, $1); },
-            //     id,
-            //     value
-            // );
-        }
-
-        // todo: improve
-        static void OnMultipleNumericValuesChanged(const int id, const float* values, const int numValues) {
-            if (numValues == 2) {
-                // EM_ASM_ARGS(
-                //     {
-                //         Module.eventHandlers.onMultiValueChange($0, [getValue($1+0, 'float'), getValue($1+4, 'float')]);
-                //     },
-                //     id,
-                //     values
-                // );
-            } else if (numValues == 3) {
-                // EM_ASM_ARGS(
-                //     {
-                //         Module.eventHandlers.onMultiValueChange($0, [getValue($1+0, 'float'), getValue($1+4, 'float'), getValue($1+8, 'float')]);
-                //     },
-                //     id,
-                //     values
-                // );
-            } else if (numValues == 4) {
-                // EM_ASM_ARGS(
-                //     {
-                //         Module.eventHandlers.onMultiValueChange($0, [getValue($1+0, 'float'), getValue($1+4, 'float'), getValue($1+8, 'float'), getValue($1+12, 'float')]);
-                //     },
-                //     id,
-                //     values
-                // );
+            if (status != napi_ok) {
+                // Handle error
             }
         }
 
-        static void OnClick(int const id) {
-            // EM_ASM_ARGS(
-            //     { Module.eventHandlers.onClick($0); },
-            //     id
-            // );
+        static void OnTextChange(const int id, const std::string& value) {
+            auto pRunner = getInstance();
+            auto callback = [id, value](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::String::New(env, value)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnTextChange.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
+        static void OnComboChange(const int id, const int value) {
+            auto pRunner = getInstance();
+            auto callback = [id, value](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, value)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnComboChange.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
+        static void OnNumericValueChange(const int id, const float value) {
+            auto pRunner = getInstance();
+            auto callback = [id, value](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, value)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnNumericValueChange.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
+        static void OnBooleanValueChange(const int id, const bool value) {
+            auto pRunner = getInstance();
+            auto callback = [id, value](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Boolean::New(env, value)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnBooleanValueChange.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
+        // todo: improve
+        static void OnMultipleNumericValuesChange(const int id, const float* values, const int numValues) {
+            auto pRunner = getInstance();
+            napi_status status;
+
+            if (numValues == 2) {
+                auto callback = [id, values](Napi::Env env, Napi::Function jsCallback) {
+                    jsCallback.Call({
+                        Napi::Number::New(env, id),
+                        Napi::Number::New(env, values[0]),
+                        Napi::Number::New(env, values[1])
+                    });
+                };
+
+                status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
+            } else if (numValues == 3) {
+                auto callback = [id, values](Napi::Env env, Napi::Function jsCallback) {
+                    jsCallback.Call({
+                        Napi::Number::New(env, id),
+                        Napi::Number::New(env, values[0]),
+                        Napi::Number::New(env, values[1]),
+                        Napi::Number::New(env, values[2])
+                    });
+                };
+
+                status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
+            } else if (numValues == 4) {
+                auto callback = [id, values](Napi::Env env, Napi::Function jsCallback) {
+                    jsCallback.Call({
+                        Napi::Number::New(env, id),
+                        Napi::Number::New(env, values[0]),
+                        Napi::Number::New(env, values[1]),
+                        Napi::Number::New(env, values[2]),
+                        Napi::Number::New(env, values[3])
+                    });
+                };
+
+                status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
+            }
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
+        static void OnClick(int id) {
+            auto pRunner = getInstance();
+            auto callback = [id](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnClick.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
+        // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
+        void SetHandlers(
+            const Napi::CallbackInfo& info,
+            Napi::Function onInit,
+            Napi::Function onTextChanged,
+            Napi::Function onComboChanged,
+            Napi::Function onNumericValueChanged,
+            Napi::Function onBooleanValueChanged,
+            Napi::Function onMultipleNumericValuesChanged,
+            Napi::Function onClick
+            ) {
+            Napi::Env env = info.Env();
+
+            m_tsfnOnInit = Napi::ThreadSafeFunction::New(
+                    env,
+                    onInit,
+                    "onInit",
+                    0,
+                    1);
+
+            m_tsfnOnTextChange = Napi::ThreadSafeFunction::New(
+                    env,
+                    onTextChanged,
+                    "onTextChanged",
+                    0,
+                    1);
+
+            m_tsfnOnComboChange = Napi::ThreadSafeFunction::New(
+                    env,
+                    onComboChanged,
+                    "onComboChanged",
+                    0,
+                    1);
+
+            m_tsfnOnNumericValueChange = Napi::ThreadSafeFunction::New(
+                    env,
+                    onNumericValueChanged,
+                    "onNumericValueChanged",
+                    0,
+                    1);
+
+            m_tsfnOnBooleanValueChange = Napi::ThreadSafeFunction::New(
+                    env,
+                    onBooleanValueChanged,
+                    "onBooleanValueChanged",
+                    0,
+                    1);
+
+            m_tsfnOnMultipleNumericValuesChange = Napi::ThreadSafeFunction::New(
+                    env,
+                    onMultipleNumericValuesChanged,
+                    "onMultipleNumericValuesChanged",
+                    0,
+                    1);
+
+            m_tsfnOnClick = Napi::ThreadSafeFunction::New(
+                    env,
+                    onClick,
+                    "onClick",
+                    0,
+                    1);
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -180,11 +304,11 @@ class Runner {
 
             m_xframes->SetEventHandlers(
                 OnInit,
-                OnTextChanged,
-                OnComboChanged,
-                OnNumericValueChanged,
-                OnMultipleNumericValuesChanged,
-                OnBooleanValueChanged,
+                OnTextChange,
+                OnComboChange,
+                OnNumericValueChange,
+                OnMultipleNumericValuesChange,
+                OnBooleanValueChange,
                 OnClick
             );
         }
@@ -337,8 +461,21 @@ void setElement(const Napi::CallbackInfo& info) {
     pRunner->setElement(elementJson);
 }
 
-void patchElement(const int id, std::string elementJson) {
+void patchElement(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 2) {
+        throw Napi::TypeError::New(env, "Expected two arguments");
+    } else if (!info[0].IsNumber()) {
+        throw Napi::TypeError::New(env, "Expected first arg to be number");
+    } else if (!info[1].IsString()) {
+        throw Napi::TypeError::New(env, "Expected first arg to be string");
+    }
+
+    auto id = info[0].As<Napi::Number>().Int32Value();
+    auto elementJson = info[1].As<Napi::String>().Utf8Value();
+
     pRunner->patchElement(id, elementJson);
 }
 
@@ -352,7 +489,7 @@ void setChildren(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
-        throw Napi::TypeError::New(env, "Expected one argument");
+        throw Napi::TypeError::New(env, "Expected two arguments");
     } else if (!info[0].IsNumber()) {
         throw Napi::TypeError::New(env, "Expected first arg to be number");
     } else if (!info[1].IsString()) {
@@ -371,7 +508,7 @@ void appendChild(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
-        throw Napi::TypeError::New(env, "Expected one argument");
+        throw Napi::TypeError::New(env, "Expected two arguments");
     } else if (!info[0].IsNumber()) {
         throw Napi::TypeError::New(env, "Expected first arg to be number");
     } else if (!info[1].IsNumber()) {
@@ -439,24 +576,61 @@ int run()
 
 std::thread uiThread;
 
+
+std::thread nativeThread;
+Napi::ThreadSafeFunction tsfn;
+
+/**
+ * [0] assets base path
+ * [1] raw font definitions (stringified JSON)
+ * [2] raw style override definitions (stringified JSON)
+ * [3] onInit function
+ * [4] onTextChanged function
+ * [5] onComboChanged function
+ * [6] onNumericValueChanged function
+ * [7] OnBooleanValueChanged function
+ * [8] OnMultipleNumericValuesChanged function
+ * [8] OnClick function
+ */
 static Napi::Value init(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
 
     Napi::Env env = info.Env();
 
-    if (info.Length() < 3) {
-        throw Napi::TypeError::New(env, "Expected one argument");
+    if (info.Length() < 10) {
+        throw Napi::TypeError::New(env, "Expected ten arguments");
     } else if (!info[0].IsString()) {
         throw Napi::TypeError::New(env, "Expected first arg to be string");
     } else if (!info[1].IsString()) {
         throw Napi::TypeError::New(env, "Expected second arg to be string");
     } else if (!info[2].IsString()) {
         throw Napi::TypeError::New(env, "Expected third arg to be string");
+    } else if (!info[3].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected fourth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
     pRunner->SetRawFontDefs(info[1].As<Napi::String>().Utf8Value());
     pRunner->SetRawStyleOverridesDefs(info[2].As<Napi::String>().Utf8Value());
+
+    Napi::Function onInit = info[3].As<Napi::Function>();
+    Napi::Function onTextChanged = info[4].As<Napi::Function>();
+    Napi::Function onComboChanged = info[5].As<Napi::Function>();
+    Napi::Function onNumericValueChanged = info[6].As<Napi::Function>();
+    Napi::Function onBooleanValueChanged = info[7].As<Napi::Function>();
+    Napi::Function onMultipleNumericValuesChanged = info[8].As<Napi::Function>();
+    Napi::Function onClick = info[9].As<Napi::Function>();
+
+    pRunner->SetHandlers(
+        info,
+        onInit,
+        onTextChanged,
+        onComboChanged,
+        onNumericValueChanged,
+        onBooleanValueChanged,
+        onMultipleNumericValuesChanged,
+        onClick
+    );
 
     pRunner->init();
 
@@ -471,6 +645,7 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
 static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports["init"] = Napi::Function::New(env, init);
     exports["setElement"] = Napi::Function::New(env, setElement);
+    exports["patchElement"] = Napi::Function::New(env, patchElement);
     exports["setChildren"] = Napi::Function::New(env, setChildren);
     exports["appendChild"] = Napi::Function::New(env, appendChild);
     exports["showDebugWindow"] = Napi::Function::New(env, showDebugWindow);
@@ -479,4 +654,4 @@ static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     return exports;
 }
 
-NODE_API_MODULE(hello, Init)
+NODE_API_MODULE(xframes, Init)
