@@ -75,7 +75,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnMultipleNumericValuesChange;
         Napi::ThreadSafeFunction m_tsfnOnClick;
 
-        static Runner * instance;
+        static Runner* instance;
 
         Runner() {}
 
@@ -160,42 +160,17 @@ class Runner {
         // todo: improve
         static void OnMultipleNumericValuesChange(const int id, const float* values, const int numValues) {
             auto pRunner = getInstance();
-            napi_status status;
 
-            if (numValues == 2) {
-                auto callback = [id, values](Napi::Env env, Napi::Function jsCallback) {
-                    jsCallback.Call({
-                        Napi::Number::New(env, id),
-                        Napi::Number::New(env, values[0]),
-                        Napi::Number::New(env, values[1])
-                    });
-                };
+            auto callback = [id, values, numValues](Napi::Env env, Napi::Function jsCallback) {
+                std::vector<napi_value> args;
+                args.push_back(Napi::Number::New(env, id));
+                for (int i = 0; i < numValues; ++i) {
+                    args.push_back(Napi::Number::New(env, values[i]));
+                }
+                jsCallback.Call(args);
+            };
 
-                status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
-            } else if (numValues == 3) {
-                auto callback = [id, values](Napi::Env env, Napi::Function jsCallback) {
-                    jsCallback.Call({
-                        Napi::Number::New(env, id),
-                        Napi::Number::New(env, values[0]),
-                        Napi::Number::New(env, values[1]),
-                        Napi::Number::New(env, values[2])
-                    });
-                };
-
-                status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
-            } else if (numValues == 4) {
-                auto callback = [id, values](Napi::Env env, Napi::Function jsCallback) {
-                    jsCallback.Call({
-                        Napi::Number::New(env, id),
-                        Napi::Number::New(env, values[0]),
-                        Napi::Number::New(env, values[1]),
-                        Napi::Number::New(env, values[2]),
-                        Napi::Number::New(env, values[3])
-                    });
-                };
-
-                status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
-            }
+            napi_status status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -470,7 +445,7 @@ void patchElement(const Napi::CallbackInfo& info) {
     } else if (!info[0].IsNumber()) {
         throw Napi::TypeError::New(env, "Expected first arg to be number");
     } else if (!info[1].IsString()) {
-        throw Napi::TypeError::New(env, "Expected first arg to be string");
+        throw Napi::TypeError::New(env, "Expected second arg to be string");
     }
 
     auto id = info[0].As<Napi::Number>().Int32Value();
@@ -493,7 +468,7 @@ void setChildren(const Napi::CallbackInfo& info) {
     } else if (!info[0].IsNumber()) {
         throw Napi::TypeError::New(env, "Expected first arg to be number");
     } else if (!info[1].IsString()) {
-        throw Napi::TypeError::New(env, "Expected first arg to be string");
+        throw Napi::TypeError::New(env, "Expected second arg to be string");
     }
 
     auto id = info[0].As<Napi::Number>().Int32Value();
@@ -512,7 +487,7 @@ void appendChild(const Napi::CallbackInfo& info) {
     } else if (!info[0].IsNumber()) {
         throw Napi::TypeError::New(env, "Expected first arg to be number");
     } else if (!info[1].IsNumber()) {
-        throw Napi::TypeError::New(env, "Expected first arg to be number");
+        throw Napi::TypeError::New(env, "Expected second arg to be number");
     }
 
     auto parentId = info[0].As<Napi::Number>().Int32Value();
