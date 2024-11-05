@@ -45,7 +45,7 @@ xframes is actively maintained with planned features and enhancements. The focus
 | x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
 | x64-linux         | WSL2 Ubuntu 24.02.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
 | x64-linux         | Fedora 41               | gcc 14             | WIP                                             |
-| x64-linux         | Debian Trixie           | gcc 14             | WIP                                             |
+| x64-linux         | Debian Trixie           | gcc 14             | Works                                             |
 
 ## Accessibility
 
