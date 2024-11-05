@@ -88,7 +88,15 @@ class Runner {
             return instance;
         };
 
-        ~Runner() = default;
+        ~Runner() {
+            m_tsfnOnInit.Release();
+            m_tsfnOnTextChange.Release();
+            m_tsfnOnComboChange.Release();
+            m_tsfnOnNumericValueChange.Release();
+            m_tsfnOnBooleanValueChange.Release();
+            m_tsfnOnMultipleNumericValuesChange.Release();
+            m_tsfnOnClick.Release();
+        }
 
         static void OnInit() {
             auto pRunner = getInstance();
@@ -565,7 +573,7 @@ Napi::ThreadSafeFunction tsfn;
  * [6] onNumericValueChanged function
  * [7] OnBooleanValueChanged function
  * [8] OnMultipleNumericValuesChanged function
- * [8] OnClick function
+ * [9] OnClick function
  */
 static Napi::Value init(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
