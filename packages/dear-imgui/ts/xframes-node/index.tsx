@@ -1,12 +1,14 @@
 import * as React from "react";
 
-import { ReactFabricProd } from "./ReactNativeWrapper";
 import { WidgetRegistrationServiceContext } from "../src/lib/contexts/widgetRegistrationServiceContext";
 import { WidgetRegistrationService } from "../src/lib/widgetRegistrationService";
 import ReactNativePrivateInterface from "../src/lib/react-native/ReactNativePrivateInterface";
 import { App } from "./App";
 import { theme2 } from "../src/lib/stylesheet/themes";
 import { Primitive } from "../src/lib/components/XFrames/types";
+import ReactFabricProdInitialiser from "../src/lib/react-native/ReactFabric-prod";
+
+export const ReactFabricProd = ReactFabricProdInitialiser(ReactNativePrivateInterface);
 
 const xframes = require("../../cpp/node/xframes");
 

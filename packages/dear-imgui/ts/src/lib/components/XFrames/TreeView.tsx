@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetFunctionComponent, WidgetPropsMap } from "./types";
-import { XFrames } from "../XFrames";
+import { TreeNode } from "./TreeNode";
 
 export type TreeViewItem = {
     itemId: string;
@@ -27,7 +27,7 @@ const TreeViewItemRenderer = ({
     }, [onToggleItemSelection, item, selectedItemIds]);
 
     return (
-        <XFrames.TreeNode
+        <TreeNode
             key={item.itemId}
             itemId={item.itemId}
             label={item.label}
@@ -44,7 +44,7 @@ const TreeViewItemRenderer = ({
                     onToggleItemSelection={onToggleItemSelection}
                 />
             ))}
-        </XFrames.TreeNode>
+        </TreeNode>
     );
 };
 

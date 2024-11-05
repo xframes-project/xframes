@@ -1,5 +1,4 @@
 import { FunctionComponent, JSXElementConstructor, ReactElement, SyntheticEvent } from "react";
-import { MainComponentProps, XFrames } from "../XFrames";
 import { StyleRules } from "src/lib/stylesheet/stylesheet";
 import { ImPlotMarker, ImPlotScale, ImVec2 } from "src/lib/wasm/wasm-app-types";
 import { YogaStyle } from "src/lib/stylesheet/yoga-style";
@@ -187,8 +186,6 @@ export type WidgetPropsMap = {
 
 export type WidgetKeys = keyof WidgetPropsMap;
 
-type XFramesType = typeof XFrames;
-
 export type WidgetsRequiringId =
     | "Button"
     | "Checkbox"
@@ -222,11 +219,6 @@ type WidgetReactElements = {
     [K in WidgetKeys]: WidgetReactElement<K>;
 };
 type WidgetReactElementsFlat = WidgetReactElements[keyof WidgetReactElements];
-
-export type XFramesTypeKeys = Exclude<
-    keyof XFramesType,
-    keyof React.FunctionComponent<MainComponentProps>
->;
 
 export type ReactElementWidget<
     K extends WidgetKeys,
