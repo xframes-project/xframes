@@ -59,13 +59,14 @@ Accessibility is a key priority for the future of **xframes**. While the current
 
 <video src='https://github.com/user-attachments/assets/61fbc418-a419-4bdc-8202-50ff16c5ee56' style="width:90%"></video>
 
-![React Dear Imgui screenshot](https://github.com/user-attachments/assets/1512b95f-640d-4555-8a4b-57ad08119876)
+![React Dear Imgui screenshot 1](https://github.com/user-attachments/assets/1512b95f-640d-4555-8a4b-57ad08119876)
 
-![React Dear Imgui screenshot](https://github.com/user-attachments/assets/1a9b8ae9-d529-45af-ab7b-7e173799136f)
+![React Dear Imgui screenshot 2](https://github.com/user-attachments/assets/1a9b8ae9-d529-45af-ab7b-7e173799136f)
 
-![React Dear Imgui screenshot 4](/screenshots/dear-imgui/screenshot-react-wasm-dear-imgui-sample-code.png?raw=true)
+![React Dear Imgui screenshot 3](/screenshots/dear-imgui/screenshot-react-wasm-dear-imgui-sample-code.png?raw=true)
 
-![React Dear Imgui Electron demo](/screenshots/dear-imgui/electron-demo.png?raw=true)
+![React Dear Imgui screenshot 4](https://github.com/user-attachments/assets/0859f067-304b-4078-a6d3-cf17a51386f7)
+
 
 ## Contributing
 
