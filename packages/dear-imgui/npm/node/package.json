@@ -6,14 +6,18 @@
     "files": [
         "dist/*"
     ],
-    "homepage": "https://github.com/andreamancuso/xframes#readme",
+    "repository": {
+        "type": "https",
+        "url": "https://github.com/andreamancuso/xframes.git"
+    },
+    "homepage": "https://github.com/andreamancuso/xframes",
     "license": "MIT",
     "author": {
         "name": "Andrea Mancuso",
         "url": "https://github.com/andreamancuso"
     },
     "scripts": {
-        "install": "prebuild-install -r napi || cmake-js compile",
+        "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node@ || cmake-js compile",
         "start": "tsx ./src/index.tsx",
         "build:library": "rimraf ./dist && yarn tsup && yarn copy-artifacts-to-dist-folder && yarn remove-extra-file",
         "tsc": "tsc --project ./tsconfig-build.json",
@@ -22,8 +26,13 @@
         "remove-extra-file": "rimraf ./dist/xframes-*.node",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "cpp:compile": "cmake-js compile",
-        "cpp:generate-module": "prebuild --backend cmake-js --strip",
+        "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node@ --verbose",
         "cpp:_prebuild-all": "prebuild --all --backend cmake-js --strip"
+    },
+    "binary": {
+        "napi_versions": [
+            9
+        ]
     },
     "tsup": {
         "entry": [
