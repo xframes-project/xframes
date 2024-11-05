@@ -89,7 +89,7 @@ add_library(${PROJECT_NAME} SHARED
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
 
-        hello.cpp
+        xframes-node.cpp
 
         ${SOURCE_FILES}
         ${CMAKE_JS_SRC}

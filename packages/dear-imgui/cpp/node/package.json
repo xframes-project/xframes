@@ -2,7 +2,10 @@
   "name": "@xframes/node",
   "version": "0.0.1",
   "description": "DOM-less, GPU-accelerated GUI development for Node.js",
-  "main": "xframes.js",
+  "files": [
+    "xframes.js",
+    "xframes.d.ts"
+  ],
   "dependencies": {
     "react": "18.2.0"
   },
@@ -14,8 +17,7 @@
     "compile": "cmake-js compile",
     "install": "prebuild-install -r napi || cmake-js compile",
     "generate-module": "prebuild --backend cmake-js --strip",
-    "_prebuild-all": "prebuild --all --backend cmake-js --strip",
-    "test": "node hello.js"
+    "_prebuild-all": "prebuild --all --backend cmake-js --strip"
   },
   "binary": {
     "napi_versions": [
