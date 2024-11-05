@@ -4,19 +4,20 @@ import { SimpleOptions } from 'types';
 import { css, cx } from '@emotion/css';
 import { useStyles2 } from '@grafana/ui';
 import { PanelDataErrorView } from '@grafana/runtime';
+import { XFrames } from '@xframes/wasm';
 import {
-  XFrames,
-  ImGuiCol,
   XFramesStyleForPatching,
-  RWStyleSheet,
+  ImGuiCol,
   PlotLineImperativeHandle,
+  RWStyleSheet,
   ImPlotScale,
   ImPlotMarker,
-} from '@xframes/wasm';
-// @ts-ignore
-import getWasmModule from '@react-wasm/dear-imgui/dist/reactDearImgui.mjs';
-// @ts-ignore
-import wasmDataPackage from '@react-wasm/dear-imgui/dist/reactDearImgui.data';
+} from '@xframes/common';
+
+// @ts-ignore abc
+import getWasmModule from '@xframes/wasm/dist/xframes.mjs';
+// @ts-ignore aer
+import wasmDataPackage from '@xframes/wasm/dist/xframes.data';
 
 export const theme2Colors = {
   darkestGrey: '#141f2c',
