@@ -6,6 +6,7 @@ import { WidgetRegistrationService } from "../src/lib/widgetRegistrationService"
 import ReactNativePrivateInterface from "../src/lib/react-native/ReactNativePrivateInterface";
 import { App } from "./App";
 import { theme2 } from "../src/lib/stylesheet/themes";
+import { Primitive } from "../src/lib/components/XFrames/types";
 
 const xframes = require("../../cpp/node/xframes");
 
@@ -22,13 +23,7 @@ const fontDefs: any = {
 
 const assetsBasePath = "../assets";
 
-xframes.init(assetsBasePath, JSON.stringify(fontDefs), JSON.stringify(theme2));
-
-const widgetRegistrationService = new WidgetRegistrationService(xframes);
-
-ReactNativePrivateInterface.nativeFabricUIManager.init(xframes, widgetRegistrationService);
-
-setTimeout(() => {
+const onInit = () => {
     ReactFabricProd.render(
         <WidgetRegistrationServiceContext.Provider value={widgetRegistrationService}>
             <App />
@@ -39,9 +34,95 @@ setTimeout(() => {
         },
         1,
     );
+};
 
-    xframes.showDebugWindow();
-}, 500);
+const onTextChange = (id: number, value: string) => {
+    const rootNodeID = id;
+    const topLevelType = "onChange";
+    const nativeEventParam = { value };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        rootNodeID,
+        topLevelType,
+        nativeEventParam,
+    );
+};
+
+const onComboChange = (id: number, value: number) => {
+    const rootNodeID = id;
+    const topLevelType = "onChange";
+    const nativeEventParam = { value };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        rootNodeID,
+        topLevelType,
+        nativeEventParam,
+    );
+};
+
+const onNumericValueChange = (id: number, value: number) => {
+    const rootNodeID = id;
+    const topLevelType = "onChange";
+    const nativeEventParam = { value };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        rootNodeID,
+        topLevelType,
+        nativeEventParam,
+    );
+};
+
+const onMultiValueChange = (id: number, values: Primitive[]) => {
+    const rootNodeID = id;
+    const topLevelType = "onChange";
+    const nativeEventParam = { values };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        rootNodeID,
+        topLevelType,
+        nativeEventParam,
+    );
+};
+
+const onBooleanValueChange = (id: number, value: boolean) => {
+    const rootNodeID = id;
+    const topLevelType = "onChange";
+    const nativeEventParam = { value };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        rootNodeID,
+        topLevelType,
+        nativeEventParam,
+    );
+};
+
+const onClick = (id: number) => {
+    const rootNodeID = id;
+    const topLevelType = "onClick";
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(rootNodeID, topLevelType, {
+        value: "clicked",
+    });
+};
+
+xframes.init(
+    assetsBasePath,
+    JSON.stringify(fontDefs),
+    JSON.stringify(theme2),
+    onInit,
+    onTextChange,
+    onComboChange,
+    onNumericValueChange,
+    onBooleanValueChange,
+    onMultiValueChange,
+    onClick,
+);
+
+const widgetRegistrationService = new WidgetRegistrationService(xframes);
+
+ReactNativePrivateInterface.nativeFabricUIManager.init(xframes, widgetRegistrationService);
+
+// xframes.showDebugWindow();
 
 let flag = true;
 (function keepProcessRunning() {

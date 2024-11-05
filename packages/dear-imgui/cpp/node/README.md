@@ -12,3 +12,9 @@ Open a developer terminal then run the following:
 - `msbuild /p:Platform=x64 /p:Configuration=Release /p:PlatformToolset=v142 ..\deps\glfw\ALL_BUILD.vcxproj`
 - `copy /y ..\deps\glfw\src\Release\glfw3.dll .\`
 - `copy /y ..\deps\glfw\src\Release\glfw3dll.lib .\`
+
+### WSL2
+
+Run `export GALLIUM_DRIVER=d3d12` before starting the application to enable Direct3D 12 rendering support.
+This setting is required for proper GPU acceleration in WSL2 and needs to be set in each new terminal session.
+You can add this line to your ~/.bashrc to make it permanent.

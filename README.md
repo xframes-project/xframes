@@ -8,6 +8,17 @@ I invested quite a bit of time and effort into figuring out how [WebAssembly](ht
 
 As I write these paragraphs, I realise that, despite accomplishing a few small initial goals, there is still lot to do. I hope you find these libraries useful, if anything just to get yourself acquainted with WebAssembly, C/C++, GLFW, OpenGL.
 
+## Supported platforms
+
+| Architecture      | OS                      | Compiler           | Notes                                           |  
+| ----------------- | ----------------------- | ------------------ | ----------------------------------------------- |
+| wasm32-emscripten | N/A                     | emsdk 3.1.64       | Works in browsers that support WebGPU rendering |
+| x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
+| x64-linux         | WSL2 Ubuntu 24.02.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
+| x64-linux         | Fedora 41               | gcc 14             | WIP                                             |
+| x64-linux         | Debian Trixie           | gcc 14             | WIP                                             |
+
+
 ## Caveats
 
 ### Overall quality

@@ -24,6 +24,7 @@ import RWStyleSheet from "../../src/lib/stylesheet/stylesheet";
 import { ImGuiCol, ImGuiStyleVar } from "../../src/lib/wasm/wasm-app-types";
 import { theme2Colors } from "../../src/lib/stylesheet/themes";
 import faIconMap from "../../src/lib/fa-icons";
+import { InputTextChangeEvent } from "../../src/lib";
 
 const componentMap = {
     cryptoAssetPanels: CryptoAssetPanels,
@@ -323,6 +324,10 @@ export const TradingGuiDemo = () => {
         });
     }, []);
 
+    const onMarketSearchTextChange = useCallback((evt: InputTextChangeEvent) => {
+        console.log(evt.nativeEvent.value);
+    }, []);
+
     // useEffect(() => {
     // connect();
     // setTimeout(() => {
@@ -402,6 +407,7 @@ export const TradingGuiDemo = () => {
 
                         <XFrames.Node style={styleSheet.tabContent}>
                             <XFrames.InputText
+                                onChange={onMarketSearchTextChange}
                                 hint={`${faIconMap["magnifying-glass"]} SEARCH MARKETS`}
                                 style={styleSheet.marketSearchInput}
                                 hoverStyle={styleSheet.marketSearchInputHover}
