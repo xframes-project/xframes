@@ -62,7 +62,8 @@
     },
     "license": "MIT",
     "dependencies": {
-        "@xframes/wasm": "0.0.1",
+        "@xframes/common": "^0.0.12",
+        "@xframes/wasm": "0.0.3",
         "electron-squirrel-startup": "^1.0.0",
         "react": "18.2.0",
         "react-dom": "18.2.0"

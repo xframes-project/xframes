@@ -1,10 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  XFrames,
-  XFramesDemo,
-  ImGuiCol,
-  XFramesStyleForPatching,
-} from "@xframes/wasm";
+import { XFrames, XFramesDemo } from "@xframes/wasm";
+import { ImGuiCol, XFramesStyleForPatching } from "@xframes/common";
 // @ts-ignore
 import getWasmModule from "@xframes/wasm/dist/xframes.mjs";
 // @ts-ignore

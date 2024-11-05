@@ -70,7 +70,8 @@
     "@grafana/runtime": "^11.2.2",
     "@grafana/schema": "^11.2.2",
     "@grafana/ui": "^11.2.2",
-    "@xframes/wasm": "0.0.1",
+    "@xframes/common": "^0.0.12",
+    "@xframes/wasm": "0.0.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tslib": "2.5.3"
