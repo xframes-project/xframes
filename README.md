@@ -1,12 +1,41 @@
-# XFrames - DOM-free GUI development
+# XFrames - DOM-free GUI development for Node.js and the browser
 
-## Motivation
+**xframes** is a high-performance library that empowers developers to build native desktop applications using familiar web technologies, specifically Node.js and React, without the overhead of the DOM. xframes serves as a streamlined alternative to Electron, designed for developers looking to maximize performance and efficiency. 
 
-I've always found DOM-free GUI development very interesting conceptually but I never really needed to use it - until relatively recently.
+## Key Features
 
-I invested quite a bit of time and effort into figuring out how [WebAssembly](https://webassembly.org/) and [Emscripten](https://emscripten.org/index.html) work. I eventually managed to compile the [Dear ImGui](https://github.com/ocornut/imgui) emscripten example and modified it to suit my requirements. Given my lack of experience with C/C++, I can tell you that this has been far from being a straightforward process. I have eventually realized that someone else out there might benefit from this experience of mine.
+- **DOM-Free Rendering**: Bypasses the traditional DOM, providing a faster, more lightweight environment for GUI development.
+- **React Integration**: Enables a component-driven development approach, fully compatible with the React ecosystem.
+- **Node.js Compatibility**: Develop GUI applications directly with Node.js, simplifying the tech stack and setup.
+- **Fabric Renderer**: Utilizes React Native’s Fabric Renderer for efficient, high-performance UI updates.
+- **Cross-Platform Support**: Easily create applications for multiple platforms, including the browser through WebAssembly, while maintaining a native feel.
 
-As I write these paragraphs, I realise that, despite accomplishing a few small initial goals, there is still lot to do. I hope you find these libraries useful, if anything just to get yourself acquainted with WebAssembly, C/C++, GLFW, OpenGL.
+## Why Choose xframes?
+
+While Electron and similar frameworks are powerful, they bring with them the weight of the DOM and CSS, often limiting performance for certain types of applications. **xframes** was designed to avoid these limitations by offering a DOM-free, lightweight solution optimized for performance-critical applications. 
+
+xframes lets you:
+
+- **Enhance Application Performance**: By removing the DOM, xframes can render faster, making it an ideal choice for applications where speed and responsiveness are key.
+- **Use Familiar Tools**: xframes retains compatibility with React, enabling you to use the React API for efficient, component-based development.
+- **Develop Flexibly with Node.js**: By integrating directly with Node.js, xframes allows for efficient desktop app development without the need for Chromium or IPC.
+- **Leverage Fabric Renderer**: Achieve smooth, performant UI rendering using the Fabric Renderer from React Native, optimized for direct manipulation of native UI elements.
+
+## Core Technologies
+
+xframes combines several technologies to deliver high-performance desktop applications:
+
+- **GLFW3**: Provides cross-platform windowing and OpenGL support.
+- **OpenGL (targeting OpenGL 3.0)**: Renders advanced graphics for visually compelling applications.
+- **React**: Enables a flexible, component-based UI architecture.
+- **Yoga Layout Engine**: Uses Facebook’s Yoga library for Flexbox-based layouts.
+- **Fabric Renderer**: Utilizes React Native’s advanced rendering system for efficient, high-performance UI updates. 
+- **Dear ImGui**: Allows for responsive, customizable user interfaces through an immediate-mode GUI system.
+
+## Roadmap
+
+xframes is actively maintained with planned features and enhancements. The focus at the moment is to add support for more Dear Imgui widgets.
+
 
 ## Supported platforms
 
@@ -18,31 +47,9 @@ As I write these paragraphs, I realise that, despite accomplishing a few small i
 | x64-linux         | Fedora 41               | gcc 14             | WIP                                             |
 | x64-linux         | Debian Trixie           | gcc 14             | WIP                                             |
 
+## Accessibility
 
-## Caveats
-
-### Overall quality
-
-I work on this project during my spare time so the overall quality is ... suboptimal. Please bear with me while I make the necessary improvements.
-
-Due of my limited expertise with C/C++, you might come across bugs - and the code may not be particularly performant.
-
-On the plus side, although still lacking, I added some unit tests for the C++ layer.
-
-### Performance
-
-As the rendering is delegated to the GPU, the overall performance should be at the very least half-decent. That said, I am still getting familiar with the more advanced data structures available in C++. 
-
-I still need to benchmark/compare the differences in terms performance between WASM and the native Node module.
-
-### Accessibility
-
-GUI libraries such as [egui](https://github.com/emilk/egui) are a very good example of accessible non-DOM based GUIs. The overall impression I get is that DOM-based GUIs are more accessible. Perhaps this project will foster interest in the topic and motivate people and/or companies to invest more in this area.
-
-### Support for other frameworks
-
-At the moment I am focusing on bindings for React only. The renderer is actually adapted from react-native's Fabric renderer.
-Perhaps there are other options I could/should have considered. Feel free to let me know your thoughts.
+Accessibility is a key priority for the future of **xframes**. While the current version lacks comprehensive accessibility support, we are committed to making xframes an inclusive framework that provides equitable access for all users. Upcoming development will focus on implementing accessibility features and adhering to industry standards, ensuring xframes applications can be used effectively by people with disabilities. Our goal is to create a robust, accessible platform that enables developers to build applications for diverse audiences with confidence.
 
 ## Basic online demo
 
@@ -59,6 +66,10 @@ Perhaps there are other options I could/should have considered. Feel free to let
 ![React Dear Imgui screenshot 4](/screenshots/dear-imgui/screenshot-react-wasm-dear-imgui-sample-code.png?raw=true)
 
 ![React Dear Imgui Electron demo](/screenshots/dear-imgui/electron-demo.png?raw=true)
+
+## Contributing
+
+We welcome contributions! If you’re interested in helping develop xframes, please get in touch and I'll help you get started.
 
 ## Contributors ✨
 
