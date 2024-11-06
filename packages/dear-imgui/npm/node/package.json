@@ -1,6 +1,6 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.3",
+    "version": "0.0.5",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
@@ -19,7 +19,7 @@
         "url": "https://github.com/andreamancuso"
     },
     "scripts": {
-        "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node@ || cmake-js compile",
+        "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node-",
         "start": "tsx ./src/index.tsx",
         "build:library": "rimraf ./dist && yarn tsup && yarn copy-artifacts-to-dist-folder && yarn remove-extra-file",
         "tsc": "tsc --project ./tsconfig-build.json",
@@ -28,7 +28,7 @@
         "remove-extra-file": "rimraf ./dist/xframes-*.node",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "cpp:compile": "cmake-js compile",
-        "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node@ --verbose",
+        "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node- --verbose",
         "cpp:_prebuild-all": "prebuild --all --backend cmake-js --strip"
     },
     "binary": {
