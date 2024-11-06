@@ -1,10 +1,12 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
-        "dist/*"
+        "dist/*",
+        "CMakeLists.txt",
+        "vcpkg.json"
     ],
     "repository": {
         "type": "https",
