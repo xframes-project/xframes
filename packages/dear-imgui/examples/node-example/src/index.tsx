@@ -1,19 +1,20 @@
 import * as React from "react";
-import { App } from "./App";
 import { theme2 } from "./themes";
-import { render } from "./lib/render";
+import { render } from '@xframes/node/dist/lib/render';
+import { XFrames } from '@xframes/node/dist/lib/XFrames';
 
 const fontDefs: any = {
   defs: [
-    { name: "roboto-regular", sizes: [16, 18, 20, 24, 28, 32, 36, 48] },
-    { name: "roboto-bold", sizes: [16, 18, 20, 24, 28, 32, 36, 48] },
-    // { name: "roboto-light", sizes: [12, 14, 16, 18, 20, 24, 28, 32, 36, 48] },
-    { name: "roboto-mono-regular", sizes: [14, 16] },
+    { name: "roboto-regular", sizes: [16, 18, 20, 24] }
   ]
     .map(({ name, sizes }) => sizes.map((size) => ({ name, size })))
     .flat(),
 };
 
-const assetsBasePath = "../../assets";
+const assetsBasePath = "../assets";
+
+const App = () => <XFrames.Node root style={{height: "100%"}}>
+    <XFrames.UnformattedText text="Hello, world"/>
+</XFrames.Node>;
 
 render(App, assetsBasePath, fontDefs, theme2);

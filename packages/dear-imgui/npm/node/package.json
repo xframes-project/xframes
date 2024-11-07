@@ -1,10 +1,10 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.7",
+    "version": "0.0.15",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
-        "dist/*",
+        "dist/lib/*.*",
         "CMakeLists.txt",
         "vcpkg.json"
     ],
@@ -21,13 +21,13 @@
     "scripts": {
         "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node-",
         "start": "tsx ./src/index.tsx",
-        "build:library": "rimraf ./dist && yarn tsup && yarn copy-artifacts-to-dist-folder && yarn remove-extra-file",
-        "tsc": "tsc --project ./tsconfig-build.json",
+        "build:library": "rimraf ./dist && yarn tsup",
+        "tsc": "rimraf ./dist && tsc --project ./tsconfig-build.json && yarn copy-artifacts-to-dist-folder",
         "tsup": "tsup --format cjs --external react",
-        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.dll dist/",
-        "remove-extra-file": "rimraf ./dist/xframes-*.node",
+        "copy-artifacts-to-lib-folder": "cpy --flat ./build/Release/*.* ./src/lib",
+        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.* ./dist/lib",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-        "cpp:compile": "cmake-js compile",
+        "cpp:compile": "cmake-js compile && yarn copy-artifacts-to-lib-folder",
         "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node- --verbose",
         "cpp:_prebuild-all": "prebuild --all --backend cmake-js --strip"
     },
@@ -65,8 +65,7 @@
     },
     "peerDependencies": {
         "@xframes/common": "^0.0.13",
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0"
+        "react": "^18.2.0"
     },
     "devDependencies": {
         "@alpacahq/alpaca-trade-api": "^3.1.2",
