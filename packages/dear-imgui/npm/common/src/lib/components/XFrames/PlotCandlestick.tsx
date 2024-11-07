@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { PlotCandlestickDataItem, WidgetPropsMap } from "./types";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotCandlestickImperativeHandle = {
     setData: (data: PlotCandlestickDataItem[]) => void;

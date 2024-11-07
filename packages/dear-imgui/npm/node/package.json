@@ -1,6 +1,6 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.5",
+    "version": "0.0.7",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
@@ -47,7 +47,6 @@
         "dts": true
     },
     "dependencies": {
-        "@xframes/common": "0.0.12",
         "base64-js": "^1.5.1",
         "date-fns": "^4.1.0",
         "deep-object-diff": "1.1.9",
@@ -65,6 +64,7 @@
         "whatwg-fetch": "^3.6.20"
     },
     "peerDependencies": {
+        "@xframes/common": "^0.0.13",
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
     },

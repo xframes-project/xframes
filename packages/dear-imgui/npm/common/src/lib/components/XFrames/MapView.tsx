@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { WidgetPropsMap } from "./types";
-import { useWidgetRegistrationService } from "../../hooks";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type MapImperativeHandle = {
     render: (centerX: number, centerY: number, zoom: number) => void;

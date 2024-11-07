@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetFunctionComponent, PropsWithChildren, WidgetPropsMap } from "./types";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export const TreeNode: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap["TreeNode"]> = ({
     children,

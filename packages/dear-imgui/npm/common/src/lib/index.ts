@@ -1,10 +1,3 @@
-import {
-    useWidgetEventManagement,
-    useWidgetRegistrationService,
-    useXFramesWasm,
-    useXFramesFonts,
-} from "./hooks";
-import { WidgetRegistrationServiceContext } from "./contexts";
 import faIconMap, { faIconKeys } from "./fa-icons";
 import { XFramesStyleForPatching, XFramesStyle, StyleVarValue } from "./stylesheet/xframes-style";
 import { HEXA, StyleColValue } from "./stylesheet/types";
@@ -42,6 +35,11 @@ import ReactNativePrivateInterface from "./react-native/ReactNativePrivateInterf
 import { TreeViewItem } from "./components/XFrames/TreeView";
 import { MapImperativeHandle } from "./components/XFrames/MapView";
 import { ImageImperativeHandle } from "./components/XFrames/Image";
+import { WidgetRegistrationServiceContext } from "./contexts/widgetRegistrationServiceContext";
+import { useWidgetEventManagement } from "./hooks/useWidgetEventManagement";
+import { useWidgetRegistrationService } from "./hooks/useWidgetRegistrationService";
+import { useXFramesFonts } from "./hooks/useXFramesFonts";
+import { useXFramesWasm } from "./hooks/useXFramesWasm";
 
 export {
     WidgetReactElement,

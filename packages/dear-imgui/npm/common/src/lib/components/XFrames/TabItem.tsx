@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { PropsWithChildren, WidgetFunctionComponent, WidgetPropsMap } from "./types";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type TabItemProps = PropsWithChildren & {
     label: string;

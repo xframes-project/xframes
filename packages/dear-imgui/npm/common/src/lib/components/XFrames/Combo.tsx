@@ -1,6 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type ComboImperativeHandle = {
     setSelectedIndex: (index: number) => void;

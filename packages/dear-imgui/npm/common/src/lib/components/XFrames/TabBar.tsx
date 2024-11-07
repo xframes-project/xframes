@@ -1,5 +1,4 @@
 import { useMemo, useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import {
     PropsWithChildren,
     WidgetFunctionComponent,
@@ -7,6 +6,7 @@ import {
     WidgetReactElement,
 } from "./types";
 import { TabItem } from "./TabItem";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export const TabBar: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap["TabBar"]> = ({
     children,

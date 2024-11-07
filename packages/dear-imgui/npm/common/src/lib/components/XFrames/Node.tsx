@@ -1,6 +1,6 @@
 import { FunctionComponent, useRef } from "react";
 import { NodeProps, PropsWithChildren } from "./types";
-import { useWidgetRegistrationService } from "src/lib/hooks";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export const Node: FunctionComponent<PropsWithChildren & NodeProps> = ({
     root,

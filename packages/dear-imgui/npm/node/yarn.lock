@@ -3742,32 +3742,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@xframes/common@npm:0.0.12":
-  version: 0.0.12
-  resolution: "@xframes/common@npm:0.0.12"
-  dependencies:
-    base64-js: "npm:^1.5.1"
-    date-fns: "npm:^4.1.0"
-    deep-object-diff: "npm:1.1.9"
-    event-target-shim: "npm:^6.0.2"
-    invariant: "npm:^2.2.4"
-    lodash.debounce: "npm:4.0.8"
-    memoize-one: "npm:^6.0.0"
-    nullthrows: "npm:^1.1.1"
-    prettier: "npm:3.2.5"
-    pretty-format: "npm:^29.7.0"
-    promise: "npm:^8.3.0"
-    rxjs: "npm:^7.8.1"
-    stacktrace-parser: "npm:^0.1.10"
-    uuid: "npm:^9.0.1"
-    whatwg-fetch: "npm:^3.6.20"
-  peerDependencies:
-    react: ^18.2.0
-    react-dom: ^18.2.0
-  checksum: 10c0/02a5a268aca59a8cd9711d915f16ad4f46c19b55c836da43821c8741097df0405f9bd07b1ad7ddf0ed80a7553f8661b06a224e83662d2a55059012594059b8fa
-  languageName: node
-  linkType: hard
-
 "@xframes/node@workspace:.":
   version: 0.0.0-use.local
   resolution: "@xframes/node@workspace:."
@@ -3798,7 +3772,6 @@ __metadata:
     "@types/webpack-dev-server": "npm:^4.7.2"
     "@typescript-eslint/eslint-plugin": "npm:^7.2.0"
     "@typescript-eslint/parser": "npm:^7.2.0"
-    "@xframes/common": "npm:0.0.12"
     babel-loader: "npm:^9.1.3"
     babel-plugin-syntax-hermes-parser: "npm:0.21.0"
     base64-js: "npm:^1.5.1"
@@ -3845,6 +3818,7 @@ __metadata:
     yaml: "npm:^2.4.3"
     zustand: "npm:^5.0.0-rc.2"
   peerDependencies:
+    "@xframes/common": ^0.0.13
     react: ^18.2.0
     react-dom: ^18.2.0
   languageName: unknown

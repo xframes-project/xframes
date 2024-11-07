@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type ClippedMultiLineTextRendererImperativeHandle = {
     appendTextToClippedMultiLineTextRenderer: (data: string) => void;

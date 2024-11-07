@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetFunctionComponent, WidgetPropsMap } from "./types";
 import { TreeNode } from "./TreeNode";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type TreeViewItem = {
     itemId: string;

@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { useWidgetRegistrationService } from "../../hooks";
 import { WidgetFunctionComponent, WidgetPropsMap } from "./types";
+import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export const Slider: WidgetFunctionComponent<WidgetPropsMap["Slider"]> = ({
     min,
