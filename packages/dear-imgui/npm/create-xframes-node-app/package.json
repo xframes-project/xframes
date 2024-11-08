@@ -1,0 +1,27 @@
+{
+    "name": "create-xframes-node-app",
+    "type": "module",
+    "version": "0.0.1",
+    "description": "Boilerplate generator for @xframes/node",
+    "files": [
+        "./generate-app.js",
+        "index.js"
+    ],
+    "bin": {
+        "create-xframes-node-app": "./generate-app.js"
+    },
+    "repository": {
+        "type": "https",
+        "url": "https://github.com/andreamancuso/xframes.git"
+    },
+    "homepage": "https://github.com/andreamancuso/xframes",
+    "license": "MIT",
+    "author": {
+        "name": "Andrea Mancuso",
+        "url": "https://github.com/andreamancuso"
+    },
+    "scripts": {},
+    "dependencies": {
+        "@inquirer/prompts": "^7.0.1"
+    }
+}
