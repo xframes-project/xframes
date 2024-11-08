@@ -7,8 +7,7 @@ import {
   WidgetRegistrationServiceContext,
 } from "@xframes/common";
 
-// @ts-ignore
-import * as xframes from "./xframes.node";
+const xframes = require("./xframes.node");
 
 export const ReactFabricProd = ReactFabricProdInitialiser(
   ReactNativePrivateInterface

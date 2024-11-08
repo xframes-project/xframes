@@ -1,10 +1,10 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.15",
+    "version": "0.0.18",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
-        "dist/lib/*.*",
+        "dist/*.*",
         "CMakeLists.txt",
         "vcpkg.json"
     ],
@@ -19,15 +19,15 @@
         "url": "https://github.com/andreamancuso"
     },
     "scripts": {
-        "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node-",
+        "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node- && npm run copy-artifacts-to-dist-folder",
         "start": "tsx ./src/index.tsx",
-        "build:library": "rimraf ./dist && yarn tsup",
-        "tsc": "rimraf ./dist && tsc --project ./tsconfig-build.json && yarn copy-artifacts-to-dist-folder",
+        "build:library": "rimraf ./dist && npm run tsc && npm run copy-artifacts-to-dist-folder",
+        "tsc": "rimraf ./dist && tsc --project ./tsconfig-build.json",
         "tsup": "tsup --format cjs --external react",
         "copy-artifacts-to-lib-folder": "cpy --flat ./build/Release/*.* ./src/lib",
-        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.* ./dist/lib",
+        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.* ./dist",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-        "cpp:compile": "cmake-js compile && yarn copy-artifacts-to-lib-folder",
+        "cpp:compile": "cmake-js compile && npm run copy-artifacts-to-lib-folder",
         "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node- --verbose",
         "cpp:_prebuild-all": "prebuild --all --backend cmake-js --strip"
     },
@@ -48,6 +48,7 @@
     },
     "dependencies": {
         "base64-js": "^1.5.1",
+        "cpy-cli": "^5.0.0",
         "date-fns": "^4.1.0",
         "deep-object-diff": "1.1.9",
         "event-target-shim": "^6.0.2",
@@ -55,6 +56,7 @@
         "lodash.debounce": "4.0.8",
         "memoize-one": "^6.0.0",
         "nullthrows": "^1.1.1",
+        "prebuild-install": "^7.1.2",
         "prettier": "3.2.5",
         "pretty-format": "^29.7.0",
         "promise": "^8.3.0",
@@ -99,7 +101,6 @@
         "bindings": "^1.5.0",
         "clean-webpack-plugin": "^4.0.0",
         "cmake-js": "^7.3.0",
-        "cpy-cli": "^5.0.0",
         "css-loader": "^7.1.1",
         "eslint": "^8.57.0",
         "eslint-plugin-react-hooks": "^4.6.0",
@@ -110,7 +111,6 @@
         "mini-css-extract-plugin": "^2.9.0",
         "node-addon-api": "^8.2.1",
         "prebuild": "^13.0.1",
-        "prebuild-install": "^7.1.2",
         "react-native": "^0.74.1",
         "rimraf": "^5.0.6",
         "ts-loader": "^9.5.1",
@@ -124,6 +124,5 @@
         "webpack-dev-server": "^5.0.4",
         "yaml": "^2.4.3",
         "zustand": "^5.0.0-rc.2"
-    },
-    "packageManager": "yarn@4.1.1"
+    }
 }
