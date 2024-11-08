@@ -18,7 +18,12 @@ if (projectName === "") {
 const currentPath = process.cwd();
 const projectPath = path.join(currentPath, projectName);
 const srcPath = path.join(projectPath, "src");
-const indexJsPath = path.join(srcPath, "index.js");
+const assetsPath = path.join(projectPath, "assets");
+const fontsPath = path.join(assetsPath, "fonts");
+
+const indexTsxPath = path.join(srcPath, "index.tsx");
+const tsConfigPath = path.join(projectPath, "tsconfig.json");
+const robotoRegularPath = path.join(fontsPath, "roboto-regular.ttf");
 
 try {
   fs.mkdirSync(projectPath);
@@ -40,6 +45,13 @@ try {
   process.exit(1);
 }
 
+try {
+  fs.mkdirSync(fontsPath, { recursive: true });
+} catch (err) {
+  console.log(`Unable create src path: ${error}`);
+  process.exit(1);
+}
+
 const packageJson = {
   name: projectName,
   version: "0.1.0",
@@ -48,9 +60,10 @@ const packageJson = {
     "@xframes/common": "0.0.13",
     "@xframes/node": "0.0.18",
     react: "18.3.1",
+    tsx: "4.19.2",
   },
   scripts: {
-    start: "node ./src/index.js",
+    start: "tsx ./src/index.tsx",
   },
 };
 fs.writeFileSync(
@@ -58,14 +71,30 @@ fs.writeFileSync(
   JSON.stringify(packageJson, null, 2) + os.EOL
 );
 
-const indexJsUrl =
-  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/index.js";
+const indexTsxUrl =
+  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/index.tsx";
+const tsConfigUrl =
+  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/tsconfig.json";
+const robotoRegularUrl =
+  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/roboto-regular.ttf";
 
 console.log("Downloading source file...");
 
-execFileSync("curl", ["-o", indexJsPath, "--silent", "-L", indexJsUrl], {
+execFileSync("curl", ["-o", indexTsxPath, "--silent", "-L", indexTsxUrl], {
   encoding: "utf8",
 });
+
+execFileSync("curl", ["-o", tsConfigPath, "--silent", "-L", tsConfigUrl], {
+  encoding: "utf8",
+});
+
+execFileSync(
+  "curl",
+  ["-o", robotoRegularPath, "--silent", "-L", robotoRegularUrl],
+  {
+    encoding: "utf8",
+  }
+);
 
 process.chdir(projectPath);
 
