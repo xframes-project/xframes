@@ -1,11 +1,12 @@
 {
     "name": "create-xframes-node-app",
     "type": "module",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "description": "Boilerplate generator for @xframes/node",
     "files": [
         "./generate-app.js",
         "index.tsx",
+        "themes.ts",
         "roboto-regular.ttf",
         "tsconfig.json"
     ],

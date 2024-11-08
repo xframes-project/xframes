@@ -22,6 +22,8 @@ const assetsPath = path.join(projectPath, "assets");
 const fontsPath = path.join(assetsPath, "fonts");
 
 const indexTsxPath = path.join(srcPath, "index.tsx");
+const themesTsPath = path.join(srcPath, "themes.ts");
+
 const tsConfigPath = path.join(projectPath, "tsconfig.json");
 const robotoRegularPath = path.join(fontsPath, "roboto-regular.ttf");
 
@@ -73,6 +75,8 @@ fs.writeFileSync(
 
 const indexTsxUrl =
   "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/index.tsx";
+const themesTsUrl =
+  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/themes.ts";
 const tsConfigUrl =
   "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/tsconfig.json";
 const robotoRegularUrl =
@@ -81,6 +85,10 @@ const robotoRegularUrl =
 console.log("Downloading source file...");
 
 execFileSync("curl", ["-o", indexTsxPath, "--silent", "-L", indexTsxUrl], {
+  encoding: "utf8",
+});
+
+execFileSync("curl", ["-o", themesTsPath, "--silent", "-L", themesTsUrl], {
   encoding: "utf8",
 });
 
