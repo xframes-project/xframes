@@ -59,7 +59,7 @@ fs.writeFileSync(
 );
 
 const indexJsUrl =
-  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/src/index.js";
+  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/index.js";
 
 console.log("Downloading source file...");
 
