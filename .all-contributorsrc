@@ -22,6 +22,15 @@
         "tool",
         "infra"
       ]
+    },
+    {
+      "login": "radlinskii",
+      "name": "Radliński Ignacy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26116041?v=4",
+      "profile": "https://github.com/radlinskii",
+      "contributions": [
+        "userTesting"
+      ]
     }
   ],
   "contributorsPerLine": 7,

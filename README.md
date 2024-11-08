@@ -37,15 +37,33 @@ xframes combines several technologies to deliver high-performance desktop applic
 xframes is actively maintained with planned features and enhancements. The focus at the moment is to add support for more Dear Imgui widgets.
 
 
-## Supported platforms
+## Supported platforms - Node-API v9
 
-| Architecture      | OS                      | Compiler           | Notes                                           |  
-| ----------------- | ----------------------- | ------------------ | ----------------------------------------------- |
-| wasm32-emscripten | N/A                     | emsdk 3.1.64       | Works in browsers that support WebGPU rendering |
-| x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
-| x64-linux         | WSL2 Ubuntu 24.02.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
-| x64-linux         | Fedora 41               | gcc 14             | WIP                                             |
-| x64-linux         | Debian Trixie           | gcc 14             | Works                                             |
+| Architecture      | OS                        |  Notes                                           |  
+| ----------------- | ------------------------- |  ----------------------------------------------- |
+| wasm32-emscripten | N/A                       |  Works in browsers that support WebGPU rendering |
+| x64-windows       | Windows 11 Home           |  Works                                           |
+| x64-linux         | WSL2 (Ubuntu) 24.04.1 LTS |  Works by setting `export GALLIUM_DRIVER=d3d12`  |
+| x64-linux         | Debian Trixie             |  Works                                           |
+
+## Getting started
+
+At the moment the easiest way to get started is to run
+
+```
+npx create-xframes-node-app
+```
+
+Enter a name for your project then wait until source files and dependencies are installed, then
+
+```
+cd <project-name>
+npm start
+```
+
+You should see the following: 
+
+![alt text](screenshots/dear-imgui/create-xframes-node-hello-world.png)
 
 ## Accessibility
 
@@ -67,6 +85,17 @@ Accessibility is a key priority for the future of **xframes**. While the current
 
 ![React Dear Imgui screenshot 4](https://github.com/user-attachments/assets/0859f067-304b-4078-a6d3-cf17a51386f7)
 
+## Building
+
+### Supported platforms
+
+| Architecture      | OS                      | Compiler           | Notes                                           |  
+| ----------------- | ----------------------- | ------------------ | ----------------------------------------------- |
+| wasm32-emscripten | N/A                     | emsdk 3.1.64       | Works in browsers that support WebGPU rendering |
+| x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
+| x64-linux         | WSL2 Ubuntu 24.04.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
+| x64-linux         | Debian Trixie           | gcc 14             | Works                                           |
+
 
 ## Contributing
 
@@ -83,6 +112,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/genautz"><img src="https://avatars.githubusercontent.com/u/89743955?v=4?s=100" width="100px;" alt="genautz"/><br /><sub><b>genautz</b></sub></a><br /><a href="https://github.com/andreamancuso/react-wasm/commits?author=genautz" title="Code">💻</a> <a href="https://github.com/andreamancuso/react-wasm/commits?author=genautz" title="Documentation">📖</a> <a href="#platform-genautz" title="Packaging/porting to new platform">📦</a> <a href="#tool-genautz" title="Tools">🔧</a> <a href="#infra-genautz" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/radlinskii"><img src="https://avatars.githubusercontent.com/u/26116041?v=4?s=100" width="100px;" alt="Radliński Ignacy"/><br /><sub><b>Radliński Ignacy</b></sub></a><br /><a href="#userTesting-radlinskii" title="User Testing">📓</a></td>
     </tr>
   </tbody>
 </table>
