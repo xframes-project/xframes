@@ -1,1 +1,1 @@
-module.exports = require("./build/Release/xframes.node")
+module.exports = require("./xframes.node")

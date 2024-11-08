@@ -8,6 +8,9 @@ imgui.ini
 
 glfw3.dll
 glfw3dll.lib
+xframes.exp
+xframes.lib
+xframes.node
 
 node.lib
 
