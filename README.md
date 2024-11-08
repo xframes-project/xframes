@@ -1,4 +1,4 @@
-# XFrames - DOM-free GUI development for Node.js and the browser
+# XFrames - cross-platform DOM-free GUI development for Node.js and the browser
 
 **xframes** is a high-performance library that empowers developers to build native desktop applications using familiar web technologies, specifically Node.js and React, without the overhead of the DOM. xframes serves as a streamlined alternative to Electron, designed for developers looking to maximize performance and efficiency. 
 
@@ -9,6 +9,25 @@
 - **Node.js Compatibility**: Develop GUI applications directly with Node.js, simplifying the tech stack and setup.
 - **Fabric Renderer**: Utilizes React Native’s Fabric Renderer for efficient, high-performance UI updates.
 - **Cross-Platform Support**: Easily create applications for multiple platforms, including the browser through WebAssembly, while maintaining a native feel.
+
+## Getting started
+
+At the moment the easiest way to get started is to run
+
+```
+npx create-xframes-node-app
+```
+
+Enter a name for your project then wait until source files and dependencies are installed, then
+
+```
+cd <project-name>
+npm start
+```
+
+You should see the following: 
+
+![alt text](screenshots/dear-imgui/create-xframes-node-hello-world.png)
 
 ## Why Choose xframes?
 
@@ -45,25 +64,6 @@ xframes is actively maintained with planned features and enhancements. The focus
 | x64-windows       | Windows 11 Home           |  Works                                           |
 | x64-linux         | WSL2 (Ubuntu) 24.04.1 LTS |  Works by setting `export GALLIUM_DRIVER=d3d12`  |
 | x64-linux         | Debian Trixie             |  Works                                           |
-
-## Getting started
-
-At the moment the easiest way to get started is to run
-
-```
-npx create-xframes-node-app
-```
-
-Enter a name for your project then wait until source files and dependencies are installed, then
-
-```
-cd <project-name>
-npm start
-```
-
-You should see the following: 
-
-![alt text](screenshots/dear-imgui/create-xframes-node-hello-world.png)
 
 ## Accessibility
 
