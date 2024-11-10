@@ -64,6 +64,7 @@ xframes is actively maintained with planned features and enhancements. The focus
 | x64-windows       | Windows 11 Home           |  Works                                           |
 | x64-linux         | WSL2 (Ubuntu) 24.04.1 LTS |  Works by setting `export GALLIUM_DRIVER=d3d12`  |
 | x64-linux         | Debian Trixie             |  Works                                           |
+| x64-linux         | Ubuntu 24.04 LTS          |  Works                                           |
 
 ## Accessibility
 
@@ -95,6 +96,7 @@ Accessibility is a key priority for the future of **xframes**. While the current
 | x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
 | x64-linux         | WSL2 Ubuntu 24.04.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
 | x64-linux         | Debian Trixie           | gcc 14             | Works                                           |
+| x64-linux         | Ubuntu 24.04 LTS        | gcc 13.2           | Works                                           |
 
 
 ## Contributing

@@ -14,8 +14,12 @@ You can add this line to your ~/.bashrc to make it permanent.
 
 ### Linux
 
-If a prebuilt module isn't found then you will need gcc 13+
+If a prebuilt module isn't found then you will need gcc 13+ to build the project locally.
 
 Ubuntu 24.04 dependencies:
 
-`sudo apt install libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+`sudo apt install build-essential cmake libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+
+Fedora 41 dependencies:
+
+`sudo dnf install @development-tools gcc-c++ cmake glfw-devel`
