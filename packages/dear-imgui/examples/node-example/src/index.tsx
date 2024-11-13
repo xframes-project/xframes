@@ -1,7 +1,8 @@
-import { resolve } from "path";
 import * as React from "react";
-import { theme2 } from "./themes";
+import { resolve } from "path";
+import { faIconMap } from "@xframes/common";
 import { render, XFrames } from "@xframes/node";
+import { theme2 } from "./themes";
 
 const fontDefs: any = {
   defs: [{ name: "roboto-regular", sizes: [16, 18, 20, 24] }]
@@ -13,7 +14,7 @@ const assetsBasePath = resolve("./assets");
 
 const App = () => (
   <XFrames.Node root style={{ height: "100%" }}>
-    <XFrames.UnformattedText text="Hello, world" />
+    <XFrames.UnformattedText text={`Hello, world ${faIconMap["arrow-down"]}`} />
   </XFrames.Node>
 );
 

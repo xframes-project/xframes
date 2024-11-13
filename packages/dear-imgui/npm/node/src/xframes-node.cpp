@@ -266,7 +266,7 @@ class Runner {
         }
 
         void SetAssetsBasePath(std::string basePath) {
-            m_assetsBasePath = std::move(basePath);
+            m_assetsBasePath = basePath;
         }
 
         void SetRawStyleOverridesDefs(const std::string& rawStyleOverridesDefs) {
@@ -509,9 +509,23 @@ std::string getChildren(const int id) {
     return IntVectorToJson(pRunner->getChildren(id)).dump();
 }
 
-void appendTextToClippedMultiLineTextRenderer(const int id, std::string data) {
+void appendTextToClippedMultiLineTextRenderer(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
-    pRunner->appendTextToClippedMultiLineTextRenderer(id, data);
+
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 2) {
+        throw Napi::TypeError::New(env, "Expected two arguments");
+    } else if (!info[0].IsNumber()) {
+        throw Napi::TypeError::New(env, "Expected first arg to be number");
+    } else if (!info[1].IsString()) {
+        throw Napi::TypeError::New(env, "Expected first arg to be string");
+    }
+
+    auto id = info[0].As<Napi::Number>().Int32Value();
+    auto data = info[1].As<Napi::String>().Utf8Value();
+
+    return pRunner->appendTextToClippedMultiLineTextRenderer(id, data);
 }
 
 std::string getStyle() {
@@ -629,8 +643,6 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
 
     pRunner->init();
 
-    printf("Starting UI thread\n");
-
     uiThread = std::thread(run);
     uiThread.detach();
 
@@ -645,6 +657,7 @@ static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports["appendChild"] = Napi::Function::New(env, appendChild);
     exports["showDebugWindow"] = Napi::Function::New(env, showDebugWindow);
     exports["patchStyle"] = Napi::Function::New(env, patchStyle);
+    exports["appendTextToClippedMultiLineTextRenderer"] = Napi::Function::New(env, appendTextToClippedMultiLineTextRenderer);
 
     return exports;
 }
