@@ -4,6 +4,7 @@
   "dependencies": [
     "stb",
     "ada-url",
+    "fmt",
     "opengl-registry",
     "glfw3"
   ]

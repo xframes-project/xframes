@@ -58,13 +58,15 @@ xframes is actively maintained with planned features and enhancements. The focus
 
 ## Supported platforms - Node-API v9
 
-| Architecture      | OS                        |  Notes                                           |  
-| ----------------- | ------------------------- |  ----------------------------------------------- |
-| wasm32-emscripten | N/A                       |  Works in browsers that support WebGPU rendering |
-| x64-windows       | Windows 11 Home           |  Works                                           |
-| x64-linux         | WSL2 (Ubuntu) 24.04.1 LTS |  Works by setting `export GALLIUM_DRIVER=d3d12`  |
-| x64-linux         | Debian Trixie             |  Works                                           |
-| x64-linux         | Ubuntu 24.04 LTS          |  Works                                           |
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| wasm32-emscripten | N/A                                          |  Works in browsers that support WebGPU rendering                   |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+| x64-linux         | WSL2 (Ubuntu) 24.04.1 LTS                    |  Works by setting `export GALLIUM_DRIVER=d3d12`                    |
+| x64-linux         | Debian Trixie                                |  Works                                                             |
+| x64-linux         | Ubuntu 22.04 LTS                             |  Works                                                             |
+| x64-linux         | Ubuntu 24.04 LTS                             |  Works                                                             |
+| arm64-linux       | Raspberry Pi OS (Debian bookworm) Oct 2024   |  Works, though there are stricter limits with custom fonts loading |
 
 ## Accessibility
 
@@ -90,13 +92,15 @@ Accessibility is a key priority for the future of **xframes**. While the current
 
 ### Supported platforms
 
-| Architecture      | OS                      | Compiler           | Notes                                           |  
-| ----------------- | ----------------------- | ------------------ | ----------------------------------------------- |
-| wasm32-emscripten | N/A                     | emsdk 3.1.64       | Works in browsers that support WebGPU rendering |
-| x64-windows       | Windows 11 Home         | Visual Studio 2022 | Works                                           |
-| x64-linux         | WSL2 Ubuntu 24.04.1 LTS | gcc 13.2.0         | Works by setting `export GALLIUM_DRIVER=d3d12`  |
-| x64-linux         | Debian Trixie           | gcc 14             | Works                                           |
-| x64-linux         | Ubuntu 24.04 LTS        | gcc 13.2           | Works                                           |
+| Architecture      | OS                                           | Compiler           | Notes |  
+| ----------------- | -------------------------------------------- | ------------------ | ----- |
+| wasm32-emscripten | N/A                                          | emsdk 3.1.64       | Works |
+| x64-windows       | Windows 11 Home                              | Visual Studio 2022 | Works |
+| x64-linux         | WSL2 Ubuntu 24.04.1 LTS                      | gcc 13.2.0         | Works |
+| x64-linux         | Debian Trixie                                | gcc 14             | Works |
+| x64-linux         | Ubuntu 22.04 LTS                             | gcc 12.2           | Works |
+| x64-linux         | Ubuntu 24.04 LTS                             | gcc 13.2           | Works |
+| arm64-linux       | Raspberry Pi OS (Debian bookworm) Oct 2024   | gcc 12.2           | Works |
 
 
 ## Contributing

@@ -6,6 +6,7 @@ prebuilds
 
 imgui.ini
 
+fmt.dll
 glfw3.dll
 glfw3dll.lib
 xframes.exp
