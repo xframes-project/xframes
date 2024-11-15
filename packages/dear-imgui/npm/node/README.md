@@ -23,3 +23,11 @@ Ubuntu 24.04 dependencies:
 Fedora 41 dependencies:
 
 `sudo dnf install @development-tools gcc-c++ cmake glfw-devel`
+
+Raspberry Pi OS
+
+You must set:
+
+`export VCPKG_FORCE_SYSTEM_BINARIES=1`
+
+It suppresses the downloading of CMake and Ninja and forces the use of the system binaries.
