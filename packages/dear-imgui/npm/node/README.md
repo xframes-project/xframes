@@ -30,6 +30,10 @@ Raspberry Pi OS
 
 You must set:
 
+`export ARM64_LINUX=1`
+
+We could not work out how to detect the correct architecture so, for convenience, in CMakeLists.txt we check for this ENV variable to be set.
+
 `export VCPKG_FORCE_SYSTEM_BINARIES=1`
 
 It suppresses the downloading of CMake and Ninja and forces the use of the system binaries.
