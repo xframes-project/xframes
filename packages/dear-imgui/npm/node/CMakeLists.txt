@@ -14,7 +14,7 @@ if(NOT VCPKG_TARGET_TRIPLET)
     elseif(APPLE)
         set(VCPKG_TARGET_TRIPLET "x64-osx")
     else()
-        set(VCPKG_TARGET_TRIPLET "x64-linux")
+        set(VCPKG_TARGET_TRIPLET "arm64-linux")
     endif()
 endif()
 
@@ -29,6 +29,7 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(Stb REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 include_directories(${CMAKE_JS_INC})
 
@@ -100,6 +101,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME}
         ${CMAKE_JS_LIB}
         ada::ada
+        fmt::fmt
 
         glfw
         OpenGL::GL

@@ -88,7 +88,7 @@ void ImGuiRenderer::LoadFontsFromDefs() {
             if (item.is_object()) {
                 if (item.contains("name") && item.contains("size") && item["name"].is_string() && item["size"].is_number()) {
                     auto fontName = item["name"].template get<std::string>();
-                    auto pathToFont = std::format("{}/fonts/{}.ttf", m_assetsBasePath, fontName);
+                    auto pathToFont = fmt::format("{}/fonts/{}.ttf", m_assetsBasePath, fontName);
                     auto fontSize = item["size"].template get<int>();
 
                     if (!m_fontDefMap.contains(fontName)) {
@@ -111,7 +111,7 @@ void ImGuiRenderer::LoadFontsFromDefs() {
                     icons_config.MergeMode = true;
                     icons_config.PixelSnapH = true;
                     icons_config.GlyphMinAdvanceX = iconFontSize;
-                    auto pathToFaFontFile = std::format("{}/fonts/{}", m_assetsBasePath, FONT_ICON_FILE_NAME_FAS);
+                    auto pathToFaFontFile = fmt::format("{}/fonts/{}", m_assetsBasePath, FONT_ICON_FILE_NAME_FAS);
                     // auto pathToMdiFontFile = std::format("assets/fonts/{}", FONT_ICON_FILE_NAME_MDI);
 
                     io.Fonts->AddFontFromFileTTF(pathToFaFontFile.c_str(), iconFontSize, &icons_config, icons_ranges);
@@ -150,7 +150,7 @@ void ImGuiRenderer::LoadFontsFromDefs() {
         icons_config.MergeMode = true;
         icons_config.PixelSnapH = true;
         icons_config.GlyphMinAdvanceX = iconFontSize;
-        auto pathToFaFontFile = std::format("assets/fonts/{}", FONT_ICON_FILE_NAME_FAS);
+        auto pathToFaFontFile = fmt::format("assets/fonts/{}", FONT_ICON_FILE_NAME_FAS);
 
         m_loadedFonts.push_back(
             io.Fonts->AddFontFromFileTTF(pathToFaFontFile.c_str(), iconFontSize, &icons_config, icons_ranges)
@@ -203,11 +203,12 @@ void ImGuiRenderer::InitGlfw() {
     // This needs to be done explicitly later.
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #else
-    const char* glsl_version = "#version 150";
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    // GL 3.0 + GLSL 130
+    const char* glsl_version = "#version 130";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
     m_glfwWindow = glfwCreateWindow(m_window_width, m_window_height, m_glWindowTitle, nullptr, nullptr);
@@ -390,7 +391,7 @@ void ImGuiRenderer::SetCurrentContext() {
 void ImGuiRenderer::HandleNextImageJob() {
     auto& [widgetId, url] = m_xframes->m_imageJobs.front();
 
-    auto pathToFile = std::format("{}/{}", m_assetsBasePath, url);
+    auto pathToFile = fmt::format("{}/{}", m_assetsBasePath, url);
 
     FILE* f = fopen(pathToFile.c_str(), "rb");
     if (f == NULL) {
