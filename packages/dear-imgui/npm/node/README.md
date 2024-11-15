@@ -18,13 +18,15 @@ If a prebuilt module isn't found then you will need gcc 13+ to build the project
 
 Ubuntu 24.04 dependencies:
 
-`sudo apt install build-essential cmake libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+`sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
 
 Fedora 41 dependencies:
 
 `sudo dnf install @development-tools gcc-c++ cmake glfw-devel`
 
 Raspberry Pi OS
+
+`sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
 
 You must set:
 
