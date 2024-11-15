@@ -19,6 +19,7 @@
         "nlohmann-json",
         "opengl-registry",
         "stb",
-        "ada-url"
+        "ada-url",
+        "fmt"
     ]
 }

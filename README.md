@@ -102,6 +102,9 @@ Accessibility is a key priority for the future of **xframes**. While the current
 | x64-linux         | Ubuntu 24.04 LTS                             | gcc 13.2           | Works |
 | arm64-linux       | Raspberry Pi OS (Debian bookworm) Oct 2024   | gcc 12.2           | Works |
 
+#### General considerations for Ubuntu
+
+This may seem obvious, particularly if you are an experienced Linux user/developer, so this is for the avoidance of the doubt: building xframes on Ubuntu 24.04 means that the generated binary extension will run on Ubuntu 24.04 but not on Ubuntu 22.04 (or older). As part of doing our tests, the binary extension generated using Ubuntu 22.04 did work fine on Ubuntu 24.04. Moving forward, we'll try to build it on even earlier versions of Ubuntu, i.e. 20.04
 
 ## Contributing
 

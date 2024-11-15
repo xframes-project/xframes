@@ -25,6 +25,7 @@ find_package(imgui REQUIRED)
 find_package(implot REQUIRED)
 find_package(Stb REQUIRED)
 find_package(ada CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 # find_package(RPP REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
@@ -128,4 +129,4 @@ target_include_directories(
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
 )
 
-target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada)
+target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt)
