@@ -110,6 +110,8 @@ This may seem obvious, particularly if you are an experienced Linux user/develop
 
 We welcome contributions! If you’re interested in helping develop xframes, please get in touch and I'll help you get started.
 
+[![Join the Xframes Discord Community](https://img.shields.io/badge/Join%20the%20Community-Discord-7289DA)](https://discord.gg/Cbgcajdq)
+
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
