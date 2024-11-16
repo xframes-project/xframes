@@ -1,16 +1,17 @@
 {
   "files": {
-    "main.css": "/react-wasm/dear-imgui/static/css/main.6933c6d5.css",
-    "main.js": "/react-wasm/dear-imgui/static/js/main.38ca117a.js",
-    "static/js/453.6b80a84f.chunk.js": "/react-wasm/dear-imgui/static/js/453.6b80a84f.chunk.js",
-    "static/media/reactDearImgui.data": "/react-wasm/dear-imgui/static/media/reactDearImgui.939d4eb872dd70a3414f.data",
-    "index.html": "/react-wasm/dear-imgui/index.html",
-    "main.6933c6d5.css.map": "/react-wasm/dear-imgui/static/css/main.6933c6d5.css.map",
-    "main.38ca117a.js.map": "/react-wasm/dear-imgui/static/js/main.38ca117a.js.map",
-    "453.6b80a84f.chunk.js.map": "/react-wasm/dear-imgui/static/js/453.6b80a84f.chunk.js.map"
+    "main.css": "/andreamancuso/xframes/static/css/main.6933c6d5.css",
+    "main.js": "/andreamancuso/xframes/static/js/main.c90c0654.js",
+    "static/js/453.f86b0abd.chunk.js": "/andreamancuso/xframes/static/js/453.f86b0abd.chunk.js",
+    "static/media/xframes.data": "/andreamancuso/xframes/static/media/xframes.e3d787e07e08aa76f7eb.data",
+    "static/media/index.cjs": "/andreamancuso/xframes/static/media/index.a02930182e698c6507fb.cjs",
+    "index.html": "/andreamancuso/xframes/index.html",
+    "main.6933c6d5.css.map": "/andreamancuso/xframes/static/css/main.6933c6d5.css.map",
+    "main.c90c0654.js.map": "/andreamancuso/xframes/static/js/main.c90c0654.js.map",
+    "453.f86b0abd.chunk.js.map": "/andreamancuso/xframes/static/js/453.f86b0abd.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.6933c6d5.css",
-    "static/js/main.38ca117a.js"
+    "static/js/main.c90c0654.js"
   ]
 }
