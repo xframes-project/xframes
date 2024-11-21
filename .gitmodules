@@ -46,3 +46,6 @@
 [submodule "packages/dear-imgui/cpp/deps/node-api-headers"]
 	path = packages/dear-imgui/cpp/deps/node-api-headers
 	url = https://github.com/nodejs/node-api-headers.git
+[submodule "packages/dear-imgui/cpp/deps/node"]
+	path = packages/dear-imgui/cpp/deps/node
+	url = https://github.com/nodejs/node.git

@@ -1,23 +1,40 @@
 {
-    "name": "@xframes/common",
-    "version": "0.0.13",
-    "description": "Common components for xframes WASM and Node modules",
+    "name": "@xframes/node-launcher",
+    "version": "0.0.20",
+    "description": "Launcher for Node.js",
     "main": "dist/index.js",
     "files": [
-        "dist/*"
+        "dist/*.*",
+        "CMakeLists.txt",
+        "vcpkg.json"
     ],
-    "homepage": "https://github.com/xframes-project/xframes#readme",
+    "repository": {
+        "type": "https",
+        "url": "https://github.com/xframes-project/xframes.git"
+    },
+    "homepage": "https://github.com/xframes-project/xframes",
     "license": "MIT",
     "author": {
         "name": "Andrea Mancuso",
         "url": "https://github.com/andreamancuso"
     },
     "scripts": {
-        "convert-fa-yaml-to-json": "tsx ./scripts/convert-fa-yaml-to-json.ts",
-        "extract-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts",
-        "tsup": "tsup --format cjs --external react,react-dom",
-        "build:library": "rimraf ./dist && yarn tsup",
-        "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+        "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node-launcher- && npm run copy-artifacts-to-dist-folder",
+        "start": "tsx ./src/index.tsx",
+        "build:library": "rimraf ./dist && npm run tsc && npm run copy-artifacts-to-dist-folder",
+        "tsc": "rimraf ./dist && tsc --project ./tsconfig-build.json",
+        "tsup": "tsup --format cjs --external react",
+        "copy-artifacts-to-lib-folder": "cpy --flat ./build/Release/*.* ./src/lib",
+        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.dll ./dist",
+        "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+        "cpp:compile": "cmake-js compile",
+        "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node-launcher- --verbose",
+        "cpp:_prebuild-all": "prebuild --all --backend cmake-js --strip"
+    },
+    "binary": {
+        "napi_versions": [
+            9
+        ]
     },
     "tsup": {
         "entry": [
@@ -31,6 +48,7 @@
     },
     "dependencies": {
         "base64-js": "^1.5.1",
+        "cpy-cli": "^5.0.0",
         "date-fns": "^4.1.0",
         "deep-object-diff": "1.1.9",
         "event-target-shim": "^6.0.2",
@@ -38,6 +56,7 @@
         "lodash.debounce": "4.0.8",
         "memoize-one": "^6.0.0",
         "nullthrows": "^1.1.1",
+        "prebuild-install": "^7.1.2",
         "prettier": "3.2.5",
         "pretty-format": "^29.7.0",
         "promise": "^8.3.0",
@@ -46,48 +65,27 @@
         "uuid": "^9.0.1",
         "whatwg-fetch": "^3.6.20"
     },
-    "peerDependencies": {
-        "react": "^18.2.0"
-    },
     "devDependencies": {
-        "@babel/core": "^7.24.5",
-        "@babel/plugin-proposal-class-properties": "^7.18.6",
-        "@babel/plugin-transform-flow-strip-types": "^7.20.0",
-        "@babel/plugin-transform-modules-commonjs": "^7.0.0",
-        "@babel/plugin-transform-react-jsx": "^7.23.4",
-        "@babel/preset-env": "^7.24.5",
-        "@babel/preset-react": "^7.24.1",
-        "@babel/preset-typescript": "^7.24.1",
-        "@fortawesome/fontawesome-free": "^6.5.2",
-        "@microsoft/api-extractor": "^7.43.4",
-        "@react-rxjs/core": "^0.10.7",
-        "@react-rxjs/utils": "^0.9.7",
-        "@types/babel__core": "^7",
-        "@types/babel__preset-env": "^7",
         "@types/invariant": "^2",
         "@types/lodash.debounce": "4.0.9",
         "@types/node": "^20.11.1",
         "@types/react": "^18.2.66",
-        "@types/react-dom": "^18.2.22",
-        "@types/scheduler": "^0.23.0",
-        "@types/uuid": "^9",
         "@types/webpack": "^5.28.5",
         "@types/webpack-dev-server": "^4.7.2",
         "@typescript-eslint/eslint-plugin": "^7.2.0",
         "@typescript-eslint/parser": "^7.2.0",
         "babel-loader": "^9.1.3",
         "babel-plugin-syntax-hermes-parser": "0.21.0",
+        "bindings": "^1.5.0",
         "clean-webpack-plugin": "^4.0.0",
-        "cpy-cli": "^5.0.0",
-        "css-loader": "^7.1.1",
+        "cmake-js": "^7.3.0",
         "eslint": "^8.57.0",
         "eslint-plugin-react-hooks": "^4.6.0",
         "eslint-plugin-react-refresh": "^0.4.6",
-        "file-loader": "^6.2.0",
-        "html-webpack-plugin": "^5.6.0",
         "inline-source-map": "^0.6.3",
         "mini-css-extract-plugin": "^2.9.0",
-        "react-native": "^0.74.1",
+        "node-addon-api": "^8.2.1",
+        "prebuild": "^13.0.1",
         "rimraf": "^5.0.6",
         "ts-loader": "^9.5.1",
         "ts-node": "^10.9.2",
@@ -99,6 +97,5 @@
         "webpack-cli": "^5.1.4",
         "webpack-dev-server": "^5.0.4",
         "yaml": "^2.4.3"
-    },
-    "packageManager": "yarn@4.1.1"
+    }
 }

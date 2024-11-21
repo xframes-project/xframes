@@ -9,7 +9,7 @@
     "homepage": "https://github.com/andreamancuso/xframes",
     "dependencies": {
         "@xframes/common": "0.0.13",
-        "@xframes/node": "0.0.19",
+        "@xframes/node": "0.0.20",
         "react": "18.2.0",
         "tsx": "^4.19.2",
         "typescript": "5.6.3",
@@ -19,7 +19,7 @@
         "start": "tsx ./src/index.tsx",
         "build": "rimraf dist && npm run generate-bundle && copy-folder ./node_modules/@xframes/node ./dist/node_modules/@xframes/node && copy-folder ./node_modules/react ./dist/node_modules/react && copy-folder ./assets ./dist/assets",
         "generate-bundle": "esbuild src/index.tsx --bundle --platform=node --external:@xframes/node --outdir=dist/",
-        "generate-executable": "nexe -b index.js"
+        "generate-executable": "nexe -c nexe.config.json -b index.js"
     },
     "devDependencies": {
         "@types/jest": "^27.5.2",

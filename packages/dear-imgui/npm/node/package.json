@@ -10,9 +10,9 @@
     ],
     "repository": {
         "type": "https",
-        "url": "https://github.com/andreamancuso/xframes.git"
+        "url": "https://github.com/xframes-project/xframes.git"
     },
-    "homepage": "https://github.com/andreamancuso/xframes",
+    "homepage": "https://github.com/xframes-project/xframes",
     "license": "MIT",
     "author": {
         "name": "Andrea Mancuso",
