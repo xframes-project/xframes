@@ -1,6 +1,6 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.20",
+    "version": "0.0.21",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
