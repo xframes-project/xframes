@@ -1,6 +1,6 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.21",
+    "version": "0.0.22",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
@@ -25,7 +25,7 @@
         "tsc": "rimraf ./dist && tsc --project ./tsconfig-build.json",
         "tsup": "tsup --format cjs --external react",
         "copy-artifacts-to-lib-folder": "cpy --flat ./build/Release/*.* ./src/lib",
-        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.dll ./dist",
+        "copy-artifacts-to-dist-folder": "cpy --flat ./build/Release/*.* ./dist",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "cpp:compile": "cmake-js compile && npm run copy-artifacts-to-lib-folder",
         "cpp:generate-module": "prebuild --strip --backend cmake-js -t 9 -r napi --include-regex \"\\.(node|dll|o)$\" --tag-prefix xframes-node- --verbose",

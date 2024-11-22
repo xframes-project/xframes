@@ -4,7 +4,6 @@
 #include <uv.h>
 #include <libplatform/libplatform.h>
 
-// std::vector<std::string> args = {"node", "app.js"};
 std::vector<std::string> args;
 std::vector<std::string> exec_args;
 
