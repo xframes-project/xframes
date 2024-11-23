@@ -14,7 +14,7 @@ PYBIND11_MODULE(xframes, m) {
         Pybind11 example plugin
         -----------------------
 
-        .. currentmodule:: cmake_example
+        .. currentmodule:: xframes
 
         .. autosummary::
            :toctree: _generate

@@ -126,11 +126,22 @@
 
 
 cmake_minimum_required(VERSION 3.15...3.26)
+
+if(NOT DEFINED SKBUILD_PROJECT_NAME)
+    message(FATAL_ERROR "SKBUILD_PROJECT_NAME is not defined. Are you using scikit-build?")
+endif()
+
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
 set(PYBIND11_NEWPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
 
-pybind11_add_module(xframes src/xframes.cpp)
+pybind11_add_module(${SKBUILD_PROJECT_NAME} src/xframes.cpp)
 
-install(TARGETS xframes LIBRARY DESTINATION .)
+set_target_properties(${SKBUILD_PROJECT_NAME} PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+)
+
+install(TARGETS ${SKBUILD_PROJECT_NAME} LIBRARY DESTINATION .)
