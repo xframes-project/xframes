@@ -1,0 +1,11 @@
+{
+    "name": "xframepythonmodule",
+    "version-string": "1.0.0",
+    "dependencies": [
+      "stb",
+      "ada-url",
+      "fmt",
+      "opengl-registry",
+      "glfw3"
+    ]
+  }
