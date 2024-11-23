@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(NodeEmbeddingExample)
+project(NodeEmbeddingExample C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -24,37 +24,23 @@ endif()
 # Paths
 set(NODEJS_PATH "../../cpp/deps/node")
 set(V8_INCLUDE_DIR "${NODEJS_PATH}/deps/v8/include")
-set(V8_RELEASE_DIR "C:/dev/v8/v8/out/Release")
-set(V8_LIB_DIR "${NODEJS_PATH}/out/Release/lib")
+set(NODE_LIB_DIR "${NODEJS_PATH}/out/Release/lib")
 set(LIBUV_INCLUDE_DIR "${NODEJS_PATH}/deps/uv/include")
-
-set(NODE_LIB_DIR "C:/dev/react-imgui/packages/dear-imgui/cpp/deps/node/out/Release/lib")
 
 # Include directories
 include_directories(
         "${V8_INCLUDE_DIR}"
-#        "C:/dev/v8/v8/include"
         "${LIBUV_INCLUDE_DIR}"
         "${NODEJS_PATH}/src"
         "${NODEJS_PATH}/tools"
 )
 
 # Add source files
-add_executable(node_embed src/main.cpp)
-
-# "C:\dev\react-imgui\packages\dear-imgui\cpp\deps\node\out\Release\lib\libnode.lib"
+add_executable(node_embed "${NODEJS_PATH}/test/embedding/embedtest.cc")
 
 # Link libraries
 target_link_libraries(node_embed PRIVATE
-#        "${V8_RELEASE_DIR}/d8.lib"
-#        "${V8_RELEASE_DIR}/v8_sample_process.lib"
-#        "${V8_RELEASE_DIR}/v8_shell.lib"
-#        "${V8_RELEASE_DIR}/wami.lib"
-#        "${V8_RELEASE_DIR}/obj/v8_monolith.lib"
-#        "${V8_RELEASE_DIR}/obj/wee8.lib"
-
         $<$<CXX_COMPILER_ID:GNU>:-Wl,--start-group>
-
 
         "${NODE_LIB_DIR}/ada.lib"
         "${NODE_LIB_DIR}/brotli.lib"
