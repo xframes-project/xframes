@@ -6,22 +6,30 @@
         "name": "Andrea Mancuso",
         "url": "https://github.com/andreamancuso"
     },
-    "homepage": "https://github.com/andreamancuso/xframes",
+    "homepage": "https://github.com/xframes-project/xframes",
     "dependencies": {
         "@xframes/common": "0.0.13",
-        "@xframes/node": "0.0.19",
+        "@xframes/node": "0.0.22",
         "react": "18.2.0",
         "tsx": "^4.19.2",
         "typescript": "5.6.3",
         "zustand": "^5.0.1"
     },
     "scripts": {
-        "start": "tsx ./src/index.tsx"
+        "start": "tsx ./src/index.tsx",
+        "build": "rimraf dist && npm run generate-bundle && copy-folder ./node_modules/@xframes/node ./dist/node_modules/@xframes/node && copy-folder ./node_modules/react ./dist/node_modules/react && copy-folder ./assets ./dist/assets",
+        "generate-bundle": "esbuild src/index.tsx --bundle --platform=node --external:@xframes/node --outdir=dist/",
+        "generate-executable": "nexe -c nexe.config.json -b index.js"
     },
     "devDependencies": {
         "@types/jest": "^27.5.2",
         "@types/node": "^16.18.97",
         "@types/react": "^18.2.0",
-        "prettier": "^3.3.3"
+        "copy-folder-util": "^1.1.4",
+        "esbuild": "^0.24.0",
+        "nexe": "^4.0.0-rc.6",
+        "prebuild-install": "^7.1.2",
+        "prettier": "^3.3.3",
+        "rimraf": "^6.0.1"
     }
 }

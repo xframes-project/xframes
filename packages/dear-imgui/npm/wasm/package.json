@@ -6,7 +6,7 @@
     "files": [
         "dist/*"
     ],
-    "homepage": "https://github.com/andreamancuso/xframes#readme",
+    "homepage": "https://github.com/xframes-project/xframes#readme",
     "license": "MIT",
     "author": {
         "name": "Andrea Mancuso",
