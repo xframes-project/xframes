@@ -1,39 +1,23 @@
-# xframes for Node.js
+# embedded Node.js wrapper
 
-## Building
+## Notes
 
-### Windows
+Investigate how https://github.com/jet2jet/pe-library-js might help ensure the application runs without opening a terminal first.
+"win32metadata": {"Subsystem": "windows"}
 
-If a prebuilt module isn't found then you will need Visual Studio 2022
+vcbuild.bat nosign release x64 static
 
-### WSL2 - Ubuntu 24.04
+https://learn.microsoft.com/en-gb/windows-hardware/drivers/download-the-wdk
 
-You may need to run `export GALLIUM_DRIVER=d3d12` before starting the application to enable Direct3D 12 rendering support.
-This setting is required for proper GPU acceleration in WSL2 and needs to be set in each new terminal session.
-You can add this line to your ~/.bashrc to make it permanent.
+https://v8.dev/docs/build-gn
 
-### Linux
+gclient config https://chromium.googlesource.com/v8/v8.git
 
-If a prebuilt module isn't found then you will need gcc 13+ to build the project locally.
+set DEPOT_TOOLS_WIN_TOOLCHAIN=0
 
-Ubuntu 24.04 dependencies:
+set PATH=%PATH%;C:\u-blox\gallery\ubx\ulogr\nasm;C:\u-blox\gallery\ubx\ulogr\gn;C:\u-blox\gallery\ubx\ulogr\depot_tools
 
-`sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+export PATH=$PATH:"/c/u-blox/gallery/ubx/ulogr/nasm":"/c/u-blox/gallery/ubx/ulogr/gn":"/c/u-blox/gallery/ubx/ulogr/depot_tools"
 
-Fedora 41 dependencies:
-
-`sudo dnf install @development-tools gcc-c++ cmake glfw-devel`
-
-Raspberry Pi OS
-
-`sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
-
-You must set:
-
-`export ARM64_LINUX=1`
-
-We could not work out how to detect the correct architecture so, for convenience, in CMakeLists.txt we check for this ENV variable to be set.
-
-`export VCPKG_FORCE_SYSTEM_BINARIES=1`
-
-It suppresses the downloading of CMake and Ninja and forces the use of the system binaries.
+gn gen out/Release --args="is_component_build=false is_debug=false v8_monolithic=true v8_use_external_startup_data=false target_cpu=\"x64\""
+ninja -C out/Release
