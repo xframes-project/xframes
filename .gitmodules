@@ -31,9 +31,6 @@
 [submodule "packages/dear-imgui/cpp/deps/stb"]
 	path = packages/dear-imgui/cpp/deps/stb
 	url = https://github.com/nothings/stb.git
-[submodule "packages/dear-imgui/cpp/deps/EGL-Registry"]
-	path = packages/dear-imgui/cpp/deps/EGL-Registry
-	url = https://github.com/KhronosGroup/EGL-Registry.git
 [submodule "packages/dear-imgui/cpp/deps/imgui"]
 	path = packages/dear-imgui/cpp/deps/imgui
 	url = https://github.com/ocornut/imgui.git
@@ -46,6 +43,3 @@
 [submodule "packages/dear-imgui/cpp/deps/node-api-headers"]
 	path = packages/dear-imgui/cpp/deps/node-api-headers
 	url = https://github.com/nodejs/node-api-headers.git
-[submodule "packages/dear-imgui/cpp/deps/node"]
-	path = packages/dear-imgui/cpp/deps/node
-	url = https://github.com/nodejs/node.git
