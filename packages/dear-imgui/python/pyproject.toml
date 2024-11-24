@@ -5,10 +5,3 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "xframes"
 version = "0.0.1"
-
-#[tool.scikit-build]
-#cmake.args = ["-GNinja", "-DCMAKE_TOOLCHAIN_FILE=C:/dev/react-imgui/packages/dear-imgui/cpp/deps/vcpkg/scripts/buildsystems/vcpkg.cmake"]
-
-#[tool.scikit-build]
-#cmake.args = ["--preset=base"]
-#wheel.cmake = true

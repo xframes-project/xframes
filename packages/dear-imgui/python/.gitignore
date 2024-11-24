@@ -1,1 +1,5 @@
 venv
+vcpkg_installed
+build
+dist
+cmake-build-release-visual-studio
