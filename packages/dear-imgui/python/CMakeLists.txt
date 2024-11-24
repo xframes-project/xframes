@@ -9,14 +9,8 @@ endif()
 
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
-if(NOT CMAKE_GENERATOR)
-    set(CMAKE_GENERATOR "Ninja")
-endif()
-
 set(VCPKG_ROOT "${PROJECT_SOURCE_DIR}/../cpp/deps/vcpkg")
 set(CMAKE_TOOLCHAIN_FILE "${PROJECT_SOURCE_DIR}/../cpp/deps/vcpkg/scripts/buildsystems/vcpkg.cmake")
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX-")
 
 if(NOT VCPKG_TARGET_TRIPLET)
     if(WIN32)
@@ -29,8 +23,6 @@ if(NOT VCPKG_TARGET_TRIPLET)
         set(VCPKG_TARGET_TRIPLET "x64-linux")
     endif()
 endif()
-
-add_compile_options(/WX-)
 
 set(DEPS C:/dev/react-imgui/packages/dear-imgui/cpp/deps)
 set(APP C:/dev/react-imgui/packages/dear-imgui/cpp/app)
@@ -136,7 +128,5 @@ target_link_libraries(
         glfw
         OpenGL::GL
 )
-
-target_compile_options(${SKBUILD_PROJECT_NAME} PRIVATE /WX-)
 
 install(TARGETS ${SKBUILD_PROJECT_NAME} LIBRARY DESTINATION .)
