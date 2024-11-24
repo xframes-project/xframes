@@ -6,6 +6,7 @@ Investigate how https://github.com/jet2jet/pe-library-js might help ensure the a
 "win32metadata": {"Subsystem": "windows"}
 
 vcbuild.bat nosign release x64 static
+./configure --fully-static --enable-static
 
 https://learn.microsoft.com/en-gb/windows-hardware/drivers/download-the-wdk
 
