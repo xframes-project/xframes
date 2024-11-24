@@ -6,6 +6,8 @@
       "ada-url",
       "fmt",
       "opengl-registry",
-      "glfw3"
-    ]
+      "glfw3",
+      "pybind11"
+    ],
+    "builtin-baseline": "64a47e8ede2e72e0242a3ff71f2fd2bf77d2491c"
   }

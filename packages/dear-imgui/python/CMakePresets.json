@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_GENERATOR_INSTANCE": "C:/Program Files/Microsoft Visual Studio/2022/Community",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../cpp/deps/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON"
+      }
+    }
+  ]
+}
