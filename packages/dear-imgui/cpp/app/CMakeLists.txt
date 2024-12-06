@@ -3,13 +3,26 @@ cmake_minimum_required(VERSION 3.8)
 set(CMAKE_GENERATOR "Ninja")
 set(CMAKE_TOOLCHAIN_FILE ../deps/vcpkg/scripts/buildsystems/vcpkg.cmake)
 
-set(VCPKG_TARGET_TRIPLET "x64-windows")
+if(NOT VCPKG_TARGET_TRIPLET)
+    if(WIN32)
+        set(VCPKG_TARGET_TRIPLET "x64-windows")
+    elseif(APPLE)
+        set(VCPKG_TARGET_TRIPLET "x64-osx")
+    elseif(DEFINED ENV{ARM64_LINUX})
+        set(VCPKG_TARGET_TRIPLET "arm64-linux")
+    elseif(DEFINED ENV{RISCV64_LINUX})
+        set(VCPKG_TARGET_TRIPLET "riscv64-linux")
+    else()
+        set(VCPKG_TARGET_TRIPLET "x64-linux")
+    endif()
+endif()
 
 project(xframes LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
 find_package(OpenGL REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(imgui REQUIRED)
 find_package(implot REQUIRED)
@@ -18,6 +31,7 @@ find_package(ada CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 # find_package(RPP REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
@@ -106,6 +120,7 @@ target_link_libraries(xframes PRIVATE
         JPEG::JPEG
         PNG::PNG
         TIFF::TIFF
-        ${CMAKE_CURRENT_SOURCE_DIR}/../glfw3dll.lib
-        ${CMAKE_CURRENT_SOURCE_DIR}/../opengl32.lib
+        fmt::fmt
+        glfw
+        OpenGL::GL
 )
