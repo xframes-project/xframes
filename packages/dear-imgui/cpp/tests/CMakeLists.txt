@@ -8,7 +8,7 @@ set(VCPKG_TARGET_ARCHITECTURE "x64")
 if (WIN32)
     set(VCPKG_TARGET_TRIPLET "x64-windows")
 else()
-    set(VCPKG_TARGET_TRIPLET "x64-linux")
+    set(VCPKG_TARGET_TRIPLET "riscv64-linux")
 endif()
 
 project(Google_tests)
@@ -22,6 +22,7 @@ find_package(implot REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(Stb REQUIRED)
 find_package(ada CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -118,4 +119,5 @@ target_link_libraries(Google_Tests_run
         ada::ada
         glfw
         OpenGL::GL
+        fmt::fmt
 )
