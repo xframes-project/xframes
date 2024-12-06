@@ -16,6 +16,8 @@
     "ada-url",
     "libjpeg-turbo",
     "libpng",
-    "tiff"
+    "tiff",
+    "fmt",
+    "glfw3"
   ]
 }
