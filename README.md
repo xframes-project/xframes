@@ -66,7 +66,8 @@ xframes is actively maintained with planned features and enhancements. The focus
 | x64-linux         | Debian Trixie                                |  Works                                                             |
 | x64-linux         | Ubuntu 22.04 LTS                             |  Works                                                             |
 | x64-linux         | Ubuntu 24.04 LTS                             |  Works                                                             |
-| arm64-linux       | Raspberry Pi OS (Debian bookworm) Oct 2024   |  Works, though there are stricter limits with custom fonts loading |
+| arm64-linux       | Raspberry Pi OS (Debian bookworm) Oct 2024   |  Works, though there are stricter limits with custom fonts loading |
+| riscv64-linux     | Debian Trixie on Docker (emulated)           |  Compiles successfully, yet to be tested on real hardware          |
 
 ## Accessibility
 
