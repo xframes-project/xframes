@@ -59,11 +59,15 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 ### Java
 
+[XFrames for Java](https://github.com/xframes-project/xframes-java)
+
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 
 ### Kotlin
+
+[XFrames for Kotlin](https://github.com/xframes-project/xframes-kotlin)
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
@@ -71,11 +75,15 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 ### Scala
 
+[XFrames for Scala](https://github.com/xframes-project/xframes-scala)
+
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 
 ### F#
+
+[XFrames for F#](https://github.com/xframes-project/xframes-fsharp)
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
@@ -84,6 +92,8 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 ### C#
 
+[XFrames for C#](https://github.com/xframes-project/xframes-csharp)
+
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
@@ -91,17 +101,55 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 ### Python
 
+[XFrames for Python](https://github.com/xframes-project/xframes-python)
+
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 
 ### Ada
 
+[XFrames for Ada](https://github.com/xframes-project/xframes-ada)
+
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 
 ### Lua
+
+[XFrames for Lua](https://github.com/xframes-project/xframes-lua)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+
+### Fortran
+
+[XFrames for Fortran](https://github.com/xframes-project/xframes-fortran)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+
+### OCaml
+
+[XFrames for OCaml](https://github.com/xframes-project/xframes-ocaml)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+
+### Crystal
+
+[XFrames for Crystal](https://github.com/xframes-project/xframes-crystal)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+
+### D
+
+[XFrames for D](https://github.com/xframes-project/xframes-dlang)
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
