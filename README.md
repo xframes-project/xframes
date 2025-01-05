@@ -196,6 +196,14 @@ XFrames is actively maintained with planned features and enhancements. The focus
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 
+### Delphi
+
+[XFrames for Delphi](https://github.com/xframes-project/xframes-delphi)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+
 ## Accessibility
 
 Accessibility is a key priority for the future of **XFrames**. While the current version lacks comprehensive accessibility support, we are committed to making XFrames an inclusive framework that provides equitable access for all users. Upcoming development will focus on implementing accessibility features and adhering to industry standards, ensuring XFrames applications can be used effectively by people with disabilities. Our goal is to create a robust, accessible platform that enables developers to build applications for diverse audiences with confidence.
