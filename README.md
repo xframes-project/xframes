@@ -182,7 +182,7 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 ### Haskell
 
-[XFrames for Haskell](https://github.com/xframes-project/xframes-racket)
+[XFrames for Haskell](https://github.com/xframes-project/xframes-haskell)
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
