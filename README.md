@@ -186,7 +186,7 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
-| x64-windows       | Windows 11 Home                              |  Works, but sometimes the program exits early (WIP)                |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
 
 ## Accessibility
 
