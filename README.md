@@ -172,6 +172,14 @@ XFrames is actively maintained with planned features and enhancements. The focus
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 
+### Zig
+
+[XFrames for Zig](https://github.com/xframes-project/xframes-zig)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
+
 ### Racket
 
 [XFrames for Racket](https://github.com/xframes-project/xframes-racket)
