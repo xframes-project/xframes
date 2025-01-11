@@ -178,6 +178,7 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-windows       | Windows 11 Home                              |  Works                                                             |
 | x64-linux         | Ubuntu 24.04                                 |  Works                                                             |
 
 ### Julia
