@@ -164,6 +164,30 @@ XFrames is actively maintained with planned features and enhancements. The focus
 | x64-windows       | Windows 11                                   |  Works                                                             |
 | x64-linux         | Ubuntu 24.04.1                               |  Works                                                             |
 
+### Gnu Step
+
+[XFrames for Gnu Step](https://github.com/xframes-project/xframes-gnustep-objective-c)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-linux         | Ubuntu 24.04                                 |  Works                                                             |
+
+### Swift
+
+[XFrames for Swift](https://github.com/xframes-project/swift)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-linux         | Ubuntu 24.04                                 |  Works                                                             |
+
+### Julia
+
+[XFrames for Julia](https://github.com/xframes-project/xframes-julia)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-linux         | Ubuntu 24.04                                 |  Works                                                             |
+
 ### Nim
 
 [XFrames for Nim](https://github.com/xframes-project/xframes-nim)
