@@ -176,7 +176,7 @@ XFrames is actively maintained with planned features and enhancements. The focus
 
 ### Swift
 
-[XFrames for Swift](https://github.com/xframes-project/swift)
+[XFrames for Swift](https://github.com/xframes-project/xframes-swift)
 
 | Architecture      | OS                                           |  Notes                                                             |  
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
