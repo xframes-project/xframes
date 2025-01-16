@@ -248,6 +248,7 @@ XFrames is actively maintained with planned features and enhancements. The focus
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-windows       | Windows 11 Home                              |  Works                                                             |
 | x64-linux         | Ubuntu 24.04.1                               |  Works, but please refer to the README                             |
+| arm64-linux       | Raspberry Pi OS (Debian bookworm) Oct 2024   |  Works                                                             |
 
 ### Delphi
 
