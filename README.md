@@ -107,6 +107,14 @@ XFrames is actively maintained with planned features and enhancements. The focus
 | ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
 | x64-linux         | Ubuntu 24.04.1                               |  Works                                                             |
 
+### Rust
+
+[XFrames for Rust](https://github.com/xframes-project/xframes-rust)
+
+| Architecture      | OS                                           |  Notes                                                             |  
+| ----------------- | -------------------------------------------- |  ----------------------------------------------------------------- |
+| x64-linux         | Ubuntu 24.04.1                               |  Works, but please refer to the README                             |
+
 ### Ada
 
 [XFrames for Ada](https://github.com/xframes-project/xframes-ada)
