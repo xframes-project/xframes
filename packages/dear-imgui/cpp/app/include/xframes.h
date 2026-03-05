@@ -94,6 +94,7 @@ class XFrames {
         OnMultipleNumericValuesChangedCallback m_onMultiValueChange;
         OnBooleanValueChangedCallback m_onBooleanValueChange;
         OnClickCallback m_onClick;
+        OnTableSortCallback m_onTableSort;
 
         XFrames(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
 
@@ -114,7 +115,8 @@ class XFrames {
             OnNumericValueChangedCallback onNumericValueChangeFn,
             OnMultipleNumericValuesChangedCallback onMultiValueChangeFn,
             OnBooleanValueChangedCallback onBooleanValueChangeFn,
-            OnClickCallback onClickFn
+            OnClickCallback onClickFn,
+            OnTableSortCallback onTableSortFn
         );
 
         void PrepareForRender();

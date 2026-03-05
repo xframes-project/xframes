@@ -71,6 +71,18 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         });
     }, []);
 
+    const onTableSort = useCallback((id: number, columnIndex: number, sortDirection: number) => {
+        const rootNodeID = id;
+        const topLevelType = "onSort";
+        const nativeEventParam = { columnIndex, sortDirection };
+
+        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+            rootNodeID,
+            topLevelType,
+            nativeEventParam,
+        );
+    }, []);
+
     return {
         eventHandlers: {
             onTextChange,
@@ -79,6 +91,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
             onMultiValueChange,
             onBooleanValueChange,
             onClick,
+            onTableSort,
         },
     };
 };

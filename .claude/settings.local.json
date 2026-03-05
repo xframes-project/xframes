@@ -3,7 +3,14 @@
     "allow": [
       "Bash(head:*)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(ls:*)",
+      "Bash(tail:*)",
+      "Bash(which npm:*)",
+      "Bash(npx.cmd npm-packlist:*)",
+      "Bash(export:*)",
+      "Bash(source:*)",
+      "Bash(tar:*)"
     ]
   }
 }

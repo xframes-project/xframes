@@ -107,6 +107,18 @@ export const render = (
     );
   };
 
+  const onTableSort = (id: number, columnIndex: number, sortDirection: number) => {
+    const rootNodeID = id;
+    const topLevelType = "onSort";
+    const nativeEventParam = { columnIndex, sortDirection };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+      rootNodeID,
+      topLevelType,
+      nativeEventParam
+    );
+  };
+
   xframes.init(
     assetsBasePath,
     JSON.stringify(fontDefs),
@@ -117,7 +129,8 @@ export const render = (
     onNumericValueChange,
     onBooleanValueChange,
     onMultiValueChange,
-    onClick
+    onClick,
+    onTableSort
   );
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);

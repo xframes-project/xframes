@@ -12,6 +12,7 @@ export type ModuleEventHandlers = {
     onMultiValueChange: (id: number, values: Primitive[]) => void;
     onBooleanValueChange: (id: number, value: boolean) => void;
     onClick: (id: number) => void;
+    onTableSort: (id: number, columnIndex: number, sortDirection: number) => void;
     onInit?: () => void;
 };
 
@@ -72,6 +73,11 @@ export type MultiSliderChangeEvent<T extends Primitive = Primitive> = SyntheticE
 export type CheckboxChangeEvent = SyntheticEvent<
     WidgetReactElement<"Checkbox">,
     { value: boolean }
+>;
+
+export type TableSortEvent = SyntheticEvent<
+    WidgetReactElement<"Table">,
+    { columnIndex: number; sortDirection: number }
 >;
 
 export type WidgetPropsMap = {
@@ -159,6 +165,7 @@ export type WidgetPropsMap = {
         columns: { heading: string; fieldId?: string }[];
         initialData?: string;
         clipRows?: number;
+        onSort?: (event: TableSortEvent) => void;
     };
     TextWrap: WidgetStyleProps & { width: number };
     TreeNode: WidgetStyleProps & {

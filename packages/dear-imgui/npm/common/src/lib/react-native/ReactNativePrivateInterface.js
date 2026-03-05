@@ -45,7 +45,7 @@ const attributesForElements = {
     slider: ["sliderType", "label", "defaultValue", "min", "max", "onChange"],
     "tab-bar": ["label"],
     "tab-item": ["label", "onOpenChange"],
-    "di-table": ["columns", "initialData", "clipRows"],
+    "di-table": ["columns", "initialData", "clipRows", "onSort"],
     "text-wrap": ["width"],
     "tree-node": [
         "itemId",
@@ -100,6 +100,7 @@ export default {
             customDirectEventTypes: {
                 onChange: { registrationName: "onChange" },
                 onClick: { registrationName: "onClick" },
+                onSort: { registrationName: "onSort" },
             },
             get(elementType, ...unknownArgs) {
                 if (attributesForElementsMap[elementType] === undefined) {
