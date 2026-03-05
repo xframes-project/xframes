@@ -141,5 +141,6 @@
     "editor.wordWrap": "on",
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
-    "editor.detectIndentation": false
+    "editor.detectIndentation": false,
+    "sarif-viewer.connectToGithubCodeScanning": "off"
 }
