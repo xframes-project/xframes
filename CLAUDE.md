@@ -1,0 +1,94 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+XFrames is a DOM-free GUI framework that renders native desktop and browser UIs using Dear ImGui. Developers write React/TypeScript components that drive an ImGui widget tree through a custom React Native Fabric renderer. The C++ core is exposed via Node-API (NAPI v9) for desktop and WebAssembly (Emscripten/WebGPU) for browsers.
+
+## Build Commands
+
+### Node.js Native Addon (desktop)
+```bash
+cd packages/dear-imgui/npm/node
+npm run cpp:compile         # cmake-js compile + copy .node to src/lib
+npm run build:library       # tsc + copy artifacts to dist
+npm run start               # tsx ./src/index.tsx (runs demo)
+```
+
+### WASM Module (browser)
+```bash
+# Requires emsdk installed and sourced
+cd packages/dear-imgui/cpp/wasm
+cmake -S . -B build -GNinja
+cmake --build ./build --target xframes
+```
+
+### Unit Tests (C++ / Google Test)
+```bash
+# Linux
+cd packages/dear-imgui/cpp/tests
+cmake -S . -B build && cd build && make && ./Google_Tests_run
+
+# Windows
+cd packages/dear-imgui/cpp/tests
+cmake -S . -B build
+cmake --build ./build --target Google_tests_run
+build/Debug/Google_Tests_run.exe
+```
+
+### Quick Start (end user)
+```bash
+npx create-xframes-node-app
+cd <project-name>
+npm start
+```
+
+## Architecture
+
+### C++ Core (`packages/dear-imgui/cpp/app/`)
+
+The shared C++ library is not a standalone CMake target — it is compiled as source files included by each build target (Node addon, WASM, tests).
+
+**Class hierarchy:**
+```
+Element → Widget → StyledWidget → (Button, Checkbox, InputText, Table, Window, ...)
+```
+
+**Key classes:**
+- **`XFrames`** (`xframes.h/.cpp`) — Main orchestrator. Owns element registry (`unordered_map<int, unique_ptr<Element>>`), element hierarchy, and the RPP reactive subject for queuing UI operations (`CreateElement`, `PatchElement`, `SetChildren`, `AppendChild`). Drives the render loop.
+- **`ImGuiRenderer`** (`imgui_renderer.h/.cpp`) — Initializes GLFW window + OpenGL3 (desktop) or WebGPU (WASM) backend. Manages font loading and the main render loop.
+- **`LayoutNode`** (`element/layout_node.h/.cpp`) — Wraps a Yoga `YGNodeRef`. Translates JSON style definitions into Yoga flexbox API calls.
+
+**Key patterns:**
+- **Reactive event queue**: JS-thread operations are pushed onto an RPP `serialized_replay_subject<ElementOpDef>` and consumed on the render thread for thread safety.
+- **JSON as API contract**: All element definitions, patches, styles, and font configs cross the C++/JS boundary as JSON strings (nlohmann/json).
+- **Per-state styling**: Widgets support base/hover/active/disabled style variants for both Yoga layout and ImGui color/stylevar overrides.
+
+### TypeScript/JavaScript Layer (`packages/dear-imgui/npm/`)
+
+Uses a **vendored React Native Fabric renderer** (`ReactFabric-prod.js`) — not React DOM. The custom `nativeFabricUiManager` intercepts `createNode`, `appendChild`, etc. and calls the native module (NAPI or WASM).
+
+**Packages:**
+- **`@xframes/common`** (`npm/common/`) — Platform-agnostic React components, types, stylesheet system (`RWStyleSheet`, `XFramesStyle`, `YogaStyle`), `WidgetRegistrationService`, hooks
+- **`@xframes/node`** (`npm/node/`) — Node.js native addon wrapper + render entry point
+- **`@xframes/wasm`** (`npm/wasm/`) — WASM wrapper for browser (Webpack bundled)
+
+### Native Bindings
+
+- **Node.js** (`npm/node/src/xframes-node.cpp`): Uses `node-addon-api` (NAPI v9). `Napi::ThreadSafeFunction` for C++ → JS callbacks.
+- **WASM** (`cpp/wasm/src/main.cpp`): Uses Emscripten `embind`. `EM_ASM_ARGS` for C++ → JS callbacks via `Module.eventHandlers`.
+
+## Dependencies
+
+- **vcpkg** (submodule at `cpp/deps/vcpkg`) manages most C++ deps. Per-target `vcpkg.json` files in `cpp/app/`, `cpp/wasm/`, `cpp/tests/`.
+- **Git submodules** (15 total in `cpp/deps/`): imgui, implot, glfw, yoga, ReactivePlusPlus, googletest, nlohmann/json, stb, IconFontCppHeaders, css-color-parser-cpp, node-addon-api, node-api-headers, and others.
+- **C++ standard**: C++23 (tests/addon), C++20 (Python binding).
+- **cmake-js** compiles the Node.js native addon from npm scripts.
+
+## Platform Notes
+
+- Desktop rendering: GLFW + OpenGL 3
+- WASM rendering: WebGPU only (Chrome, Edge, Firefox Nightly)
+- WSL2 requires `export GALLIUM_DRIVER=d3d12`
+- WASM output is a single `.mjs` file with embedded WASM (`-s SINGLE_FILE=1`)
