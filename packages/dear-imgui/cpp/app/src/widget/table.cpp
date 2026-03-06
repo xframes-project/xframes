@@ -7,17 +7,30 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     ImGui::BeginGroup();
 
-    // ImGui::Text("Table data length: %d", (int) m_data.size());
-
     ImVec2 outerSize = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
     if (m_clipRows > 0) {
         if (ImGui::BeginTable("t", (int)m_columns.size(), m_flags | ImGuiTableFlags_ScrollY, outerSize)) {
-            ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
+            int frozenRows = m_filterable ? 2 : 1;
+            ImGui::TableSetupScrollFreeze(0, frozenRows);
             for (const auto& columnSpec : m_columns) {
                 ImGui::TableSetupColumn(columnSpec.heading.c_str(), ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_WidthStretch);
             }
             ImGui::TableHeadersRow();
+
+            // Filter row
+            if (m_filterable) {
+                ImGui::TableNextRow();
+                for (int i = 0; i < (int)m_columns.size(); i++) {
+                    ImGui::TableSetColumnIndex(i);
+                    ImGui::PushID(i);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (m_filters[i].Draw("##filter")) {
+                        view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
+                    }
+                    ImGui::PopID();
+                }
+            }
 
             if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
                 if (sort_specs->SpecsDirty && sort_specs->SpecsCount > 0) {
@@ -40,20 +53,46 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
             const auto numColumns = m_columns.size();
 
-            ImGuiListClipper clipper;
-            clipper.Begin((int)m_data.size());
-            while (clipper.Step())
-            {
-                for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
-                {
-                    ImGui::TableNextRow();
-                    for (int i = 0; i < numColumns; i++) {
-                        ImGui::TableSetColumnIndex(i);
-                        if (m_columns[i].fieldId.has_value()) {
-                            auto& fieldId = m_columns[i].fieldId.value();
+            if (m_filterable && AnyFilterActive()) {
+                // Build filtered index list, then clip over that
+                std::vector<int> filteredIndices;
+                filteredIndices.reserve(m_data.size());
+                for (int r = 0; r < (int)m_data.size(); r++) {
+                    if (RowPassesAllFilters(m_data[r])) {
+                        filteredIndices.push_back(r);
+                    }
+                }
 
-                            if (m_data[row].contains(fieldId)) {
-                                ImGui::TextUnformatted(m_data[row][fieldId].c_str());
+                ImGuiListClipper clipper;
+                clipper.Begin((int)filteredIndices.size());
+                while (clipper.Step()) {
+                    for (int fi = clipper.DisplayStart; fi < clipper.DisplayEnd; fi++) {
+                        int row = filteredIndices[fi];
+                        ImGui::TableNextRow();
+                        for (int i = 0; i < (int)numColumns; i++) {
+                            ImGui::TableSetColumnIndex(i);
+                            if (m_columns[i].fieldId.has_value()) {
+                                auto& fieldId = m_columns[i].fieldId.value();
+                                if (m_data[row].contains(fieldId)) {
+                                    ImGui::TextUnformatted(m_data[row][fieldId].c_str());
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                ImGuiListClipper clipper;
+                clipper.Begin((int)m_data.size());
+                while (clipper.Step()) {
+                    for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+                        ImGui::TableNextRow();
+                        for (int i = 0; i < (int)numColumns; i++) {
+                            ImGui::TableSetColumnIndex(i);
+                            if (m_columns[i].fieldId.has_value()) {
+                                auto& fieldId = m_columns[i].fieldId.value();
+                                if (m_data[row].contains(fieldId)) {
+                                    ImGui::TextUnformatted(m_data[row][fieldId].c_str());
+                                }
                             }
                         }
                     }
@@ -67,6 +106,20 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
 
         ImGui::TableHeadersRow();
+
+        // Filter row
+        if (m_filterable) {
+            ImGui::TableNextRow();
+            for (int i = 0; i < (int)m_columns.size(); i++) {
+                ImGui::TableSetColumnIndex(i);
+                ImGui::PushID(i);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (m_filters[i].Draw("##filter")) {
+                    view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
+                }
+                ImGui::PopID();
+            }
+        }
 
         if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
             if (sort_specs->SpecsDirty && sort_specs->SpecsCount > 0) {
@@ -90,8 +143,10 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         const auto numColumns = m_columns.size();
 
         for (auto& dataRow : m_data) {
+            if (m_filterable && !RowPassesAllFilters(dataRow)) continue;
+
             ImGui::TableNextRow();
-            for (int i = 0; i < numColumns; i++) {
+            for (int i = 0; i < (int)numColumns; i++) {
                 ImGui::TableSetColumnIndex(i);
                 if (m_columns[i].fieldId.has_value()) {
                     auto& fieldId = m_columns[i].fieldId.value();
@@ -116,6 +171,13 @@ void Table::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("columns") && widgetPatchDef["columns"].is_array()) {
         SetColumns(widgetPatchDef["columns"]);
     }
+
+    if (widgetPatchDef.contains("filterable") && widgetPatchDef["filterable"].is_boolean()) {
+        m_filterable = widgetPatchDef["filterable"].template get<bool>();
+        if (m_filterable && m_filters.size() != m_columns.size()) {
+            m_filters.resize(m_columns.size());
+        }
+    }
 };
 
 bool Table::HasInternalOps() {
@@ -134,6 +196,12 @@ void Table::HandleInternalOp(const json& opDef) {
             auto tableData = parseTableData(opDef["data"]);
 
             SetData(tableData);
+        } else if (op == "setColumnFilter" && opDef.contains("columnIndex") && opDef.contains("filterText")) {
+            int columnIndex = opDef["columnIndex"].template get<int>();
+            auto filterText = opDef["filterText"].template get<std::string>();
+            SetColumnFilter(columnIndex, filterText);
+        } else if (op == "clearFilters") {
+            ClearFilters();
         }
     }
 };

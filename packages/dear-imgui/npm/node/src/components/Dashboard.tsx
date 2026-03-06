@@ -193,11 +193,12 @@ export const Dashboard = () => {
       {/* Top row: Table + Plot */}
       <XFrames.Node style={styles.row}>
         <XFrames.Node style={styles.leftColumn}>
-          <XFrames.UnformattedText text="World Cities (click headers to sort)" />
+          <XFrames.UnformattedText text="World Cities (sort & filter)" />
           <XFrames.Table
             ref={tableRef}
             columns={tableColumns}
             clipRows={20}
+            filterable
             style={styles.tableArea}
           />
         </XFrames.Node>

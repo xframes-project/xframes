@@ -119,6 +119,18 @@ export const render = (
     );
   };
 
+  const onTableFilter = (id: number, columnIndex: number, filterText: string) => {
+    const rootNodeID = id;
+    const topLevelType = "onFilter";
+    const nativeEventParam = { columnIndex, filterText };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+      rootNodeID,
+      topLevelType,
+      nativeEventParam
+    );
+  };
+
   xframes.init(
     assetsBasePath,
     JSON.stringify(fontDefs),
@@ -130,7 +142,8 @@ export const render = (
     onBooleanValueChange,
     onMultiValueChange,
     onClick,
-    onTableSort
+    onTableSort,
+    onTableFilter
   );
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);

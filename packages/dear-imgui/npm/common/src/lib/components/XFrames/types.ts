@@ -13,6 +13,7 @@ export type ModuleEventHandlers = {
     onBooleanValueChange: (id: number, value: boolean) => void;
     onClick: (id: number) => void;
     onTableSort: (id: number, columnIndex: number, sortDirection: number) => void;
+    onTableFilter: (id: number, columnIndex: number, filterText: string) => void;
     onInit?: () => void;
 };
 
@@ -78,6 +79,11 @@ export type CheckboxChangeEvent = SyntheticEvent<
 export type TableSortEvent = SyntheticEvent<
     WidgetReactElement<"Table">,
     { columnIndex: number; sortDirection: number }
+>;
+
+export type TableFilterEvent = SyntheticEvent<
+    WidgetReactElement<"Table">,
+    { columnIndex: number; filterText: string }
 >;
 
 export type WidgetPropsMap = {
@@ -165,7 +171,9 @@ export type WidgetPropsMap = {
         columns: { heading: string; fieldId?: string }[];
         initialData?: string;
         clipRows?: number;
+        filterable?: boolean;
         onSort?: (event: TableSortEvent) => void;
+        onFilter?: (event: TableFilterEvent) => void;
     };
     TextWrap: WidgetStyleProps & { width: number };
     TreeNode: WidgetStyleProps & {

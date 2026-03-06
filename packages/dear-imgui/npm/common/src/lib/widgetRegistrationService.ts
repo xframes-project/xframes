@@ -239,6 +239,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    setColumnFilter(id: string, columnIndex: number, filterText: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setColumnFilter", columnIndex, filterText }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    clearTableFilters(id: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "clearFilters" }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setComboSelectedIndex(id: string, index: number) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

@@ -23,7 +23,7 @@
         "entry": [
             "src/lib/index.ts"
         ],
-        "splitting": true,
+        "splitting": false,
         "sourcemap": true,
         "clean": true,
         "target": "es2022",

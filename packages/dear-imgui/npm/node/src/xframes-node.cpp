@@ -75,6 +75,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnMultipleNumericValuesChange;
         Napi::ThreadSafeFunction m_tsfnOnClick;
         Napi::ThreadSafeFunction m_tsfnOnTableSort;
+        Napi::ThreadSafeFunction m_tsfnOnTableFilter;
 
         static Runner* instance;
 
@@ -98,6 +99,7 @@ class Runner {
             m_tsfnOnMultipleNumericValuesChange.Release();
             m_tsfnOnClick.Release();
             m_tsfnOnTableSort.Release();
+            m_tsfnOnTableFilter.Release();
         }
 
         static void OnInit() {
@@ -213,6 +215,19 @@ class Runner {
             }
         }
 
+        static void OnTableFilter(int id, int columnIndex, const std::string& filterText) {
+            auto pRunner = getInstance();
+            auto callback = [id, columnIndex, filterText](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, columnIndex), Napi::String::New(env, filterText)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnTableFilter.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
         // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
         void SetHandlers(
             const Napi::CallbackInfo& info,
@@ -223,7 +238,8 @@ class Runner {
             Napi::Function onBooleanValueChanged,
             Napi::Function onMultipleNumericValuesChanged,
             Napi::Function onClick,
-            Napi::Function onTableSort
+            Napi::Function onTableSort,
+            Napi::Function onTableFilter
             ) {
             Napi::Env env = info.Env();
 
@@ -282,6 +298,13 @@ class Runner {
                     "onTableSort",
                     0,
                     1);
+
+            m_tsfnOnTableFilter = Napi::ThreadSafeFunction::New(
+                    env,
+                    onTableFilter,
+                    "onTableFilter",
+                    0,
+                    1);
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -316,7 +339,8 @@ class Runner {
                 OnMultipleNumericValuesChange,
                 OnBooleanValueChange,
                 OnClick,
-                OnTableSort
+                OnTableSort,
+                OnTableFilter
             );
         }
 
@@ -626,14 +650,15 @@ Napi::ThreadSafeFunction tsfn;
  * [8] OnMultipleNumericValuesChanged function
  * [9] OnClick function
  * [10] OnTableSort function
+ * [11] OnTableFilter function
  */
 static Napi::Value init(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
 
     Napi::Env env = info.Env();
 
-    if (info.Length() < 11) {
-        throw Napi::TypeError::New(env, "Expected eleven arguments");
+    if (info.Length() < 12) {
+        throw Napi::TypeError::New(env, "Expected twelve arguments");
     } else if (!info[0].IsString()) {
         throw Napi::TypeError::New(env, "Expected first arg to be string");
     } else if (!info[1].IsString()) {
@@ -656,6 +681,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected tenth arg to be function");
     } else if (!info[10].IsFunction()) {
         throw Napi::TypeError::New(env, "Expected eleventh arg to be function");
+    } else if (!info[11].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected twelfth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
@@ -670,6 +697,7 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     const auto onMultipleNumericValuesChanged = info[8].As<Napi::Function>();
     const auto onClick = info[9].As<Napi::Function>();
     const auto onTableSort = info[10].As<Napi::Function>();
+    const auto onTableFilter = info[11].As<Napi::Function>();
 
     pRunner->SetHandlers(
         info,
@@ -680,7 +708,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         onBooleanValueChanged,
         onMultipleNumericValuesChanged,
         onClick,
-        onTableSort
+        onTableSort,
+        onTableFilter
     );
 
     pRunner->init();

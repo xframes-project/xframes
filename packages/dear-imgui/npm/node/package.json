@@ -20,6 +20,8 @@
     },
     "scripts": {
         "install": "prebuild-install -t 9 -r napi --tag-prefix xframes-node- && npm run copy-artifacts-to-dist-folder",
+        "build:common": "cd ../common && npx tsup --format cjs --external react,react-dom",
+        "prestart": "npm run build:common && cpy --flat ../common/dist/*.* node_modules/@xframes/common/dist/",
         "start": "tsx ./src/index.tsx",
         "build:library": "rimraf ./dist && npm run tsc && npm run copy-artifacts-to-dist-folder",
         "tsc": "rimraf ./dist && tsc --project ./tsconfig-build.json",

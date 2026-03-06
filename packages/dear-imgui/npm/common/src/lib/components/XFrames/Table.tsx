@@ -5,6 +5,8 @@ import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistratio
 export type TableImperativeHandle = {
     setTableData: (data: any[]) => void;
     appendDataToTable: (data: any[]) => void;
+    setColumnFilter: (columnIndex: number, filterText: string) => void;
+    clearFilters: () => void;
 };
 
 export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
@@ -13,7 +15,9 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
             columns,
             clipRows,
             initialData,
+            filterable,
             onSort,
+            onFilter,
             style,
             hoverStyle,
             activeStyle,
@@ -38,6 +42,12 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
                     appendDataToTable(data: any[]) {
                         widgetRegistratonService.appendDataToTable(idRef.current, data);
                     },
+                    setColumnFilter(columnIndex: number, filterText: string) {
+                        widgetRegistratonService.setColumnFilter(idRef.current, columnIndex, filterText);
+                    },
+                    clearFilters() {
+                        widgetRegistratonService.clearTableFilters(idRef.current);
+                    },
                 };
             },
             [],
@@ -48,7 +58,9 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
                 id={idRef.current}
                 columns={columns}
                 clipRows={clipRows}
+                filterable={filterable}
                 onSort={onSort}
+                onFilter={onFilter}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

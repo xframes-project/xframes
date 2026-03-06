@@ -30,6 +30,7 @@ using OnBooleanValueChangedCallback = void (*)(int id, bool value);
 using OnMultipleNumericValuesChangedCallback = void (*)(int id, const float* values, int size);
 using OnClickCallback = void (*)(int id);
 using OnTableSortCallback = void (*)(int id, int columnIndex, int sortDirection);
+using OnTableFilterCallback = void (*)(int id, int columnIndex, const std::string& filterText);
 
 std::optional<float> charPercentageToFloat(const char* input);
 

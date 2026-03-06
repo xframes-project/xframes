@@ -21,6 +21,7 @@ EMSCRIPTEN_DECLARE_VAL_TYPE(OnMultiValueChangeType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnBooleanValueChangeType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnClickType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableSortType);
+EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableFilterType);
 
 template <typename T>
 std::vector<T> JsonToVector(std::string& data) {
@@ -149,6 +150,15 @@ class WasmRunner {
             );
         }
 
+        static void OnTableFilter(int const id, int const columnIndex, const std::string& filterText) {
+            EM_ASM_ARGS(
+                { Module.eventHandlers.onTableFilter($0, $1, UTF8ToString($2)); },
+                id,
+                columnIndex,
+                filterText.c_str()
+            );
+        }
+
         void run(std::string& canvasSelector, std::string& rawFontDefs, std::optional<std::string>& rawStyleOverridesDefs) {
             m_xframes = new XFrames("XFrames", rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
@@ -166,7 +176,8 @@ class WasmRunner {
                 OnMultipleNumericValuesChanged,
                 OnBooleanValueChanged,
                 OnClick,
-                OnTableSort);
+                OnTableSort,
+                OnTableFilter);
             m_renderer->Init(canvasSelector);
         }
 
