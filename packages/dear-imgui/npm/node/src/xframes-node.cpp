@@ -76,6 +76,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnClick;
         Napi::ThreadSafeFunction m_tsfnOnTableSort;
         Napi::ThreadSafeFunction m_tsfnOnTableFilter;
+        Napi::ThreadSafeFunction m_tsfnOnTableRowClick;
 
         static Runner* instance;
 
@@ -100,6 +101,7 @@ class Runner {
             m_tsfnOnClick.Release();
             m_tsfnOnTableSort.Release();
             m_tsfnOnTableFilter.Release();
+            m_tsfnOnTableRowClick.Release();
         }
 
         static void OnInit() {
@@ -228,6 +230,19 @@ class Runner {
             }
         }
 
+        static void OnTableRowClick(int id, int rowIndex) {
+            auto pRunner = getInstance();
+            auto callback = [id, rowIndex](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, rowIndex)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnTableRowClick.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
         // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
         void SetHandlers(
             const Napi::CallbackInfo& info,
@@ -239,7 +254,8 @@ class Runner {
             Napi::Function onMultipleNumericValuesChanged,
             Napi::Function onClick,
             Napi::Function onTableSort,
-            Napi::Function onTableFilter
+            Napi::Function onTableFilter,
+            Napi::Function onTableRowClick
             ) {
             Napi::Env env = info.Env();
 
@@ -305,6 +321,13 @@ class Runner {
                     "onTableFilter",
                     0,
                     1);
+
+            m_tsfnOnTableRowClick = Napi::ThreadSafeFunction::New(
+                    env,
+                    onTableRowClick,
+                    "onTableRowClick",
+                    0,
+                    1);
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -340,7 +363,8 @@ class Runner {
                 OnBooleanValueChange,
                 OnClick,
                 OnTableSort,
-                OnTableFilter
+                OnTableFilter,
+                OnTableRowClick
             );
         }
 
@@ -683,6 +707,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected eleventh arg to be function");
     } else if (!info[11].IsFunction()) {
         throw Napi::TypeError::New(env, "Expected twelfth arg to be function");
+    } else if (!info[12].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected thirteenth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
@@ -698,6 +724,7 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     const auto onClick = info[9].As<Napi::Function>();
     const auto onTableSort = info[10].As<Napi::Function>();
     const auto onTableFilter = info[11].As<Napi::Function>();
+    const auto onTableRowClick = info[12].As<Napi::Function>();
 
     pRunner->SetHandlers(
         info,
@@ -709,7 +736,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         onMultipleNumericValuesChanged,
         onClick,
         onTableSort,
-        onTableFilter
+        onTableFilter,
+        onTableRowClick
     );
 
     pRunner->init();

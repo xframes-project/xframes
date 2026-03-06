@@ -10,7 +10,9 @@
       "Bash(npx.cmd npm-packlist:*)",
       "Bash(export:*)",
       "Bash(source:*)",
-      "Bash(tar:*)"
+      "Bash(tar:*)",
+      "Bash(powershell:*)",
+      "Bash(grep:*)"
     ]
   }
 }

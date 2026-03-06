@@ -95,6 +95,18 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         );
     }, []);
 
+    const onTableRowClick = useCallback((id: number, rowIndex: number) => {
+        const rootNodeID = id;
+        const topLevelType = "onRowClick";
+        const nativeEventParam = { rowIndex };
+
+        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+            rootNodeID,
+            topLevelType,
+            nativeEventParam,
+        );
+    }, []);
+
     return {
         eventHandlers: {
             onTextChange,
@@ -105,6 +117,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
             onClick,
             onTableSort,
             onTableFilter,
+            onTableRowClick,
         },
     };
 };

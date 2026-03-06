@@ -33,6 +33,7 @@ class Table final : public StyledWidget {
         std::vector<TableColumn> m_columns;
         int m_clipRows; // todo: potentially redundant?
         bool m_filterable = false;
+        int m_selectedRowIndex = -1;
         std::vector<ImGuiTextFilter> m_filters;
 
         static std::vector<TableColumn> extractColumns(const json& columnsDef) {

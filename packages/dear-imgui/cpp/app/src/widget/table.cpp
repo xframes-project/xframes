@@ -71,6 +71,16 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                         ImGui::TableNextRow();
                         for (int i = 0; i < (int)numColumns; i++) {
                             ImGui::TableSetColumnIndex(i);
+                            if (i == 0) {
+                                bool isSelected = (m_selectedRowIndex == row);
+                                char label[32];
+                                snprintf(label, sizeof(label), "##row%d", row);
+                                if (ImGui::Selectable(label, isSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
+                                    m_selectedRowIndex = row;
+                                    view->m_onTableRowClick(m_id, row);
+                                }
+                                ImGui::SameLine();
+                            }
                             if (m_columns[i].fieldId.has_value()) {
                                 auto& fieldId = m_columns[i].fieldId.value();
                                 if (m_data[row].contains(fieldId)) {
@@ -88,6 +98,16 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                         ImGui::TableNextRow();
                         for (int i = 0; i < (int)numColumns; i++) {
                             ImGui::TableSetColumnIndex(i);
+                            if (i == 0) {
+                                bool isSelected = (m_selectedRowIndex == row);
+                                char label[32];
+                                snprintf(label, sizeof(label), "##row%d", row);
+                                if (ImGui::Selectable(label, isSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
+                                    m_selectedRowIndex = row;
+                                    view->m_onTableRowClick(m_id, row);
+                                }
+                                ImGui::SameLine();
+                            }
                             if (m_columns[i].fieldId.has_value()) {
                                 auto& fieldId = m_columns[i].fieldId.value();
                                 if (m_data[row].contains(fieldId)) {
@@ -142,12 +162,23 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         const auto numColumns = m_columns.size();
 
-        for (auto& dataRow : m_data) {
+        for (int row = 0; row < (int)m_data.size(); row++) {
+            auto& dataRow = m_data[row];
             if (m_filterable && !RowPassesAllFilters(dataRow)) continue;
 
             ImGui::TableNextRow();
             for (int i = 0; i < (int)numColumns; i++) {
                 ImGui::TableSetColumnIndex(i);
+                if (i == 0) {
+                    bool isSelected = (m_selectedRowIndex == row);
+                    char label[32];
+                    snprintf(label, sizeof(label), "##row%d", row);
+                    if (ImGui::Selectable(label, isSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
+                        m_selectedRowIndex = row;
+                        view->m_onTableRowClick(m_id, row);
+                    }
+                    ImGui::SameLine();
+                }
                 if (m_columns[i].fieldId.has_value()) {
                     auto& fieldId = m_columns[i].fieldId.value();
 

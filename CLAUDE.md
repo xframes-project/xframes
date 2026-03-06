@@ -86,6 +86,12 @@ Uses a **vendored React Native Fabric renderer** (`ReactFabric-prod.js`) — not
 - **C++ standard**: C++23 (tests/addon), C++20 (Python binding).
 - **cmake-js** compiles the Node.js native addon from npm scripts.
 
+## Local Development
+
+`npm run start` in `npm/node/` auto-rebuilds `@xframes/common` from source via `prestart` (tsup build + cpy copy into `node_modules`). No manual patching needed when editing common's source files.
+
+**Important:** Do not use esbuild directly to bundle `@xframes/common` on Windows — it truncates output at 128KB. Use tsup (which works correctly with `splitting: false`).
+
 ## Platform Notes
 
 - Desktop rendering: GLFW + OpenGL 3

@@ -9,6 +9,7 @@ import {
   ComboChangeEvent,
   SliderChangeEvent,
   CheckboxChangeEvent,
+  TableRowClickEvent,
   useWidgetRegistrationService,
 } from "@xframes/common";
 import { theme1, theme2 } from "../themes";
@@ -177,6 +178,10 @@ export const Dashboard = () => {
     setFeatureEnabled(event.nativeEvent.value);
   }, []);
 
+  const handleRowClick = useCallback((event: TableRowClickEvent) => {
+    console.log(`Row clicked: index=${event.nativeEvent.rowIndex}`);
+  }, []);
+
   const handleResetForm = useCallback(() => {
     setInputValue("");
     setSelectedCategory("All");
@@ -193,12 +198,13 @@ export const Dashboard = () => {
       {/* Top row: Table + Plot */}
       <XFrames.Node style={styles.row}>
         <XFrames.Node style={styles.leftColumn}>
-          <XFrames.UnformattedText text="World Cities (sort & filter)" />
+          <XFrames.UnformattedText text="World Cities (sort, filter & select)" />
           <XFrames.Table
             ref={tableRef}
             columns={tableColumns}
             clipRows={20}
             filterable
+            onRowClick={handleRowClick}
             style={styles.tableArea}
           />
         </XFrames.Node>

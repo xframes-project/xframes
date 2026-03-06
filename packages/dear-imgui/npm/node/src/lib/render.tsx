@@ -131,6 +131,18 @@ export const render = (
     );
   };
 
+  const onTableRowClick = (id: number, rowIndex: number) => {
+    const rootNodeID = id;
+    const topLevelType = "onRowClick";
+    const nativeEventParam = { rowIndex };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+      rootNodeID,
+      topLevelType,
+      nativeEventParam
+    );
+  };
+
   xframes.init(
     assetsBasePath,
     JSON.stringify(fontDefs),
@@ -143,7 +155,8 @@ export const render = (
     onMultiValueChange,
     onClick,
     onTableSort,
-    onTableFilter
+    onTableFilter,
+    onTableRowClick
   );
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);

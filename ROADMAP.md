@@ -15,8 +15,8 @@ The current widget set needs to mature before it can support a real application.
 The Table widget today renders string-only cells with no interactivity beyond virtual scrolling. It needs:
 
 - [x] Column sorting (ascending/descending toggle, sort callback to JS)
-- [ ] Column filtering / search (per-column text filter)
-- [ ] Row selection with click event emitted to JS
+- [x] Column filtering / search (per-column text filter via `ImGuiTextFilter`, `filterable` prop)
+- [x] Row selection with click event emitted to JS
 - [ ] Typed cell values (numbers, booleans, icons — not just strings)
 - [ ] Column reordering (`ImGuiTableFlags_Reorderable`)
 - [ ] Column visibility toggles (`ImGuiTableFlags_Hideable`)

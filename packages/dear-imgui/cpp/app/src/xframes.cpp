@@ -266,7 +266,8 @@ void XFrames::SetEventHandlers(
     const OnBooleanValueChangedCallback onBooleanValueChangeFn,
     const OnClickCallback onClickFn,
     const OnTableSortCallback onTableSortFn,
-    const OnTableFilterCallback onTableFilterFn
+    const OnTableFilterCallback onTableFilterFn,
+    const OnTableRowClickCallback onTableRowClickFn
 ) {
     m_onInit = onInitFn;
     m_onInputTextChange = onInputTextChangeFn;
@@ -277,6 +278,7 @@ void XFrames::SetEventHandlers(
     m_onClick = onClickFn;
     m_onTableSort = onTableSortFn;
     m_onTableFilter = onTableFilterFn;
+    m_onTableRowClick = onTableRowClickFn;
 
     Widget::onInputTextChange_ = onInputTextChangeFn;
 };
