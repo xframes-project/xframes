@@ -13,6 +13,7 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
             columns,
             clipRows,
             initialData,
+            onSort,
             style,
             hoverStyle,
             activeStyle,
@@ -47,6 +48,7 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
                 id={idRef.current}
                 columns={columns}
                 clipRows={clipRows}
+                onSort={onSort}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

@@ -14,7 +14,7 @@ The current widget set needs to mature before it can support a real application.
 
 The Table widget today renders string-only cells with no interactivity beyond virtual scrolling. It needs:
 
-- [ ] Column sorting (ascending/descending toggle, sort callback to JS)
+- [x] Column sorting (ascending/descending toggle, sort callback to JS)
 - [ ] Column filtering / search (per-column text filter)
 - [ ] Row selection with click event emitted to JS
 - [ ] Typed cell values (numbers, booleans, icons — not just strings)
@@ -122,7 +122,7 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 
 ### create-xframes-node-app
 
-- [ ] Add a "demo" template option that scaffolds a meaningful example (table + plot + form)
+- [x] Add a "demo" template option that scaffolds a meaningful example (table + plot + form)
 - [ ] Pin and track latest package versions
 - [ ] Print `npm start` instruction after scaffold completes
 - [ ] Replace raw `curl` downloads with bundled templates for reliability
@@ -136,7 +136,7 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 ### Theming
 
 - [ ] Ship 2-3 polished built-in themes (dark, light, high-contrast)
-- [ ] Theme switching at runtime in the showcase app
+- [x] Theme switching at runtime in the showcase app
 
 ---
 

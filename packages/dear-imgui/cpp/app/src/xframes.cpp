@@ -264,7 +264,8 @@ void XFrames::SetEventHandlers(
     const OnNumericValueChangedCallback onNumericValueChangeFn,
     const OnMultipleNumericValuesChangedCallback onMultiValueChangeFn,
     const OnBooleanValueChangedCallback onBooleanValueChangeFn,
-    const OnClickCallback onClickFn
+    const OnClickCallback onClickFn,
+    const OnTableSortCallback onTableSortFn
 ) {
     m_onInit = onInitFn;
     m_onInputTextChange = onInputTextChangeFn;
@@ -273,6 +274,7 @@ void XFrames::SetEventHandlers(
     m_onMultiValueChange = onMultiValueChangeFn;
     m_onBooleanValueChange = onBooleanValueChangeFn;
     m_onClick = onClickFn;
+    m_onTableSort = onTableSortFn;
 
     Widget::onInputTextChange_ = onInputTextChangeFn;
 };

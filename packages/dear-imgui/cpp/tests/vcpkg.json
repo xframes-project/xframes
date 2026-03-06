@@ -19,6 +19,7 @@
         "opengl-registry",
         "glfw3",
         "stb",
-        "ada-url"
+        "ada-url",
+        "fmt"
     ]
 }

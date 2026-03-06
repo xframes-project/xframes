@@ -20,6 +20,7 @@ EMSCRIPTEN_DECLARE_VAL_TYPE(OnNumericValueChangeType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnMultiValueChangeType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnBooleanValueChangeType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnClickType);
+EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableSortType);
 
 template <typename T>
 std::vector<T> JsonToVector(std::string& data) {
@@ -139,6 +140,15 @@ class WasmRunner {
             );
         }
 
+        static void OnTableSort(int const id, int const columnIndex, int const sortDirection) {
+            EM_ASM_ARGS(
+                { Module.eventHandlers.onTableSort($0, $1, $2); },
+                id,
+                columnIndex,
+                sortDirection
+            );
+        }
+
         void run(std::string& canvasSelector, std::string& rawFontDefs, std::optional<std::string>& rawStyleOverridesDefs) {
             m_xframes = new XFrames("XFrames", rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
@@ -155,7 +165,8 @@ class WasmRunner {
                 OnNumericValueChanged,
                 OnMultipleNumericValuesChanged,
                 OnBooleanValueChanged,
-                OnClick);
+                OnClick,
+                OnTableSort);
             m_renderer->Init(canvasSelector);
         }
 
@@ -395,6 +406,7 @@ EMSCRIPTEN_BINDINGS(my_module) {
     emscripten::register_type<OnMultiValueChangeType>("(id: string, values: Primitive[]) => void");
     emscripten::register_type<OnBooleanValueChangeType>("(id: string, value: boolean) => void");
     emscripten::register_type<OnClickType>("(id: string) => void");
+    emscripten::register_type<OnTableSortType>("(id: string, columnIndex: number, sortDirection: number) => void");
 
     emscripten::enum_<ImGuiWindowFlags_>("ImGuiWindowFlags")
         .value("None", ImGuiWindowFlags_None)

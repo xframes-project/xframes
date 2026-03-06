@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "widget/table.h"
 #include "xframes.h"
 
@@ -11,11 +12,6 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImVec2 outerSize = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
     if (m_clipRows > 0) {
-        // static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-
-        // const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
-        // ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * (m_clipRows + 1)); // account for frozen table headings
-
         if (ImGui::BeginTable("t", (int)m_columns.size(), m_flags | ImGuiTableFlags_ScrollY, outerSize)) {
             ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
             for (const auto& columnSpec : m_columns) {
@@ -23,9 +19,27 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             }
             ImGui::TableHeadersRow();
 
+            if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
+                if (sort_specs->SpecsDirty && sort_specs->SpecsCount > 0) {
+                    const auto& spec = sort_specs->Specs[0];
+                    if (spec.ColumnIndex < (int)m_columns.size() && m_columns[spec.ColumnIndex].fieldId.has_value()) {
+                        const auto& fieldId = m_columns[spec.ColumnIndex].fieldId.value();
+                        bool ascending = spec.SortDirection == ImGuiSortDirection_Ascending;
+                        std::sort(m_data.begin(), m_data.end(), [&](const TableRow& a, const TableRow& b) {
+                            auto itA = a.find(fieldId);
+                            auto itB = b.find(fieldId);
+                            if (itA == a.end()) return false;
+                            if (itB == b.end()) return true;
+                            return ascending ? itA->second < itB->second : itA->second > itB->second;
+                        });
+                    }
+                    view->m_onTableSort(m_id, spec.ColumnIndex, (int)spec.SortDirection);
+                    sort_specs->SpecsDirty = false;
+                }
+            }
+
             const auto numColumns = m_columns.size();
 
-            // Demonstrate using clipper for large vertical lists
             ImGuiListClipper clipper;
             clipper.Begin((int)m_data.size());
             while (clipper.Step())
@@ -54,6 +68,25 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         ImGui::TableHeadersRow();
 
+        if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
+            if (sort_specs->SpecsDirty && sort_specs->SpecsCount > 0) {
+                const auto& spec = sort_specs->Specs[0];
+                if (spec.ColumnIndex < (int)m_columns.size() && m_columns[spec.ColumnIndex].fieldId.has_value()) {
+                    const auto& fieldId = m_columns[spec.ColumnIndex].fieldId.value();
+                    bool ascending = spec.SortDirection == ImGuiSortDirection_Ascending;
+                    std::sort(m_data.begin(), m_data.end(), [&](const TableRow& a, const TableRow& b) {
+                        auto itA = a.find(fieldId);
+                        auto itB = b.find(fieldId);
+                        if (itA == a.end()) return false;
+                        if (itB == b.end()) return true;
+                        return ascending ? itA->second < itB->second : itA->second > itB->second;
+                    });
+                }
+                view->m_onTableSort(m_id, spec.ColumnIndex, (int)spec.SortDirection);
+                sort_specs->SpecsDirty = false;
+            }
+        }
+
         const auto numColumns = m_columns.size();
 
         for (auto& dataRow : m_data) {
@@ -71,7 +104,6 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
 
         ImGui::EndTable();
-        
     }
 
     ImGui::EndGroup();
