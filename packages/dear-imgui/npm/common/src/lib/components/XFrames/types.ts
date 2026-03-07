@@ -132,6 +132,10 @@ export type WidgetPropsMap = {
     InputText: WidgetStyleProps & {
         defaultValue?: string;
         hint?: string;
+        multiline?: boolean;
+        password?: boolean;
+        readOnly?: boolean;
+        numericOnly?: boolean;
         onChange?: (event: InputTextChangeEvent) => void;
     };
     ItemTooltip: WidgetStyleProps;

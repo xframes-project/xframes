@@ -49,6 +49,7 @@ add_library(${PROJECT_NAME} SHARED
         ${DEPS}/imgui/imgui_draw.cpp
         ${DEPS}/imgui/imgui_widgets.cpp
         ${DEPS}/imgui/imgui_tables.cpp
+        ${DEPS}/imgui/misc/cpp/imgui_stdlib.cpp
         ${DEPS}/imgui/backends/imgui_impl_opengl3.cpp
         ${DEPS}/imgui/backends/imgui_impl_glfw.cpp
 
@@ -133,6 +134,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${DEPS}/css-color-parser-cpp
         ${DEPS}/imgui
         ${DEPS}/imgui/backends
+        ${DEPS}/imgui/misc/cpp
         ${DEPS}/implot
         ${DEPS}/json/include
         ${DEPS}/yoga

@@ -24,13 +24,11 @@ The Table widget today renders string-only cells with no interactivity beyond vi
 
 ### InputText
 
-Currently limited to single-line, 100-character buffer, no masking. Needs:
-
-- [ ] Configurable buffer size (expose from JS props)
-- [ ] Multiline input (`ImGui::InputTextMultiline`)
-- [ ] Password masking (`ImGuiInputTextFlags_Password`)
-- [ ] Read-only mode (`ImGuiInputTextFlags_ReadOnly`)
-- [ ] Numeric-only mode
+- [x] No buffer size limit (switched from `char[]` to `std::string` via `imgui_stdlib.h`)
+- [x] Multiline input (`ImGui::InputTextMultiline`)
+- [x] Password masking (`ImGuiInputTextFlags_Password`)
+- [x] Read-only mode (`ImGuiInputTextFlags_ReadOnly`)
+- [x] Numeric-only mode (`ImGuiInputTextFlags_CharsDecimal`)
 
 ### Plotting
 

@@ -7,9 +7,12 @@
 
 void InputText::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
-    // imgui_stdlib.cpp
-    // bool ImGui::InputText(const char* label, std::string* str, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, void* user_data)
-    ImGui::InputTextWithHint("", m_hint.c_str(), m_bufferPointer.get(), 100, inputTextFlags, InputTextCb, (void*)this);
+    if (m_multiline) {
+        ImVec2 size(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
+        ImGui::InputTextMultiline("", &m_value, size, m_inputTextFlags, InputTextCb, (void*)this);
+    } else {
+        ImGui::InputTextWithHint("", m_hint.c_str(), &m_value, m_inputTextFlags, InputTextCb, (void*)this);
+    }
     ImGui::PopID();
 };
 
@@ -18,6 +21,28 @@ void InputText::Patch(const json& widgetPatchDef, XFrames* view) {
 
     if (widgetPatchDef.contains("hint") && widgetPatchDef["hint"].is_string()) {
         m_hint = widgetPatchDef["hint"].template get<std::string>();
+    }
+
+    bool flagsChanged = false;
+
+    if (widgetPatchDef.contains("multiline") && widgetPatchDef["multiline"].is_boolean()) {
+        m_multiline = widgetPatchDef["multiline"].template get<bool>();
+    }
+    if (widgetPatchDef.contains("password") && widgetPatchDef["password"].is_boolean()) {
+        m_password = widgetPatchDef["password"].template get<bool>();
+        flagsChanged = true;
+    }
+    if (widgetPatchDef.contains("readOnly") && widgetPatchDef["readOnly"].is_boolean()) {
+        m_readOnly = widgetPatchDef["readOnly"].template get<bool>();
+        flagsChanged = true;
+    }
+    if (widgetPatchDef.contains("numericOnly") && widgetPatchDef["numericOnly"].is_boolean()) {
+        m_numericOnly = widgetPatchDef["numericOnly"].template get<bool>();
+        flagsChanged = true;
+    }
+
+    if (flagsChanged) {
+        ComputeFlags();
     }
 };
 

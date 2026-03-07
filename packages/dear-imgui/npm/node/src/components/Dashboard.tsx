@@ -243,6 +243,22 @@ export const Dashboard = () => {
           {inputValue ? (
             <XFrames.UnformattedText text={`You typed: ${inputValue}`} />
           ) : null}
+          <XFrames.InputText
+            hint="Password..."
+            password
+            onChange={handleInputChange}
+            style={styles.formField}
+          />
+          <XFrames.InputText
+            defaultValue="This is read-only"
+            readOnly
+            style={styles.formField}
+          />
+          <XFrames.InputText
+            hint="Numbers only..."
+            numericOnly
+            style={styles.formField}
+          />
           <XFrames.Combo
             options={comboOptions}
             initialSelectedIndex={0}
