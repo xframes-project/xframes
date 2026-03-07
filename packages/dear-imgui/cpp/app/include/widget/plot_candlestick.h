@@ -37,7 +37,8 @@ private:
 
     float m_widthPercent = 0.25f;
 
-
+    std::string m_xAxisLabel;
+    std::string m_yAxisLabel;
 
 public:
     static std::unique_ptr<PlotCandlestick> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
@@ -63,7 +64,15 @@ public:
             dataPointsLimit = widgetDef["dataPointsLimit"].template get<int>();
         }
 
-        return std::make_unique<PlotCandlestick>(view, id, bullCol, bearCol, axisAutoFit, dataPointsLimit, maybeStyle);
+        std::string xAxisLabel, yAxisLabel;
+        if (widgetDef.contains("xAxisLabel") && widgetDef["xAxisLabel"].is_string()) {
+            xAxisLabel = widgetDef["xAxisLabel"].template get<std::string>();
+        }
+        if (widgetDef.contains("yAxisLabel") && widgetDef["yAxisLabel"].is_string()) {
+            yAxisLabel = widgetDef["yAxisLabel"].template get<std::string>();
+        }
+
+        return std::make_unique<PlotCandlestick>(view, id, bullCol, bearCol, axisAutoFit, dataPointsLimit, xAxisLabel, yAxisLabel, maybeStyle);
     }
 
     static int axisValueFormatter(double value, char* buff, int size, void* decimalPlaces) {
@@ -78,13 +87,15 @@ public:
 
     bool HasCustomHeight() override;
 
-    PlotCandlestick(XFrames* view, const int id, const ImVec4& bullCol, const ImVec4& bearCol, const bool axisAutoFit, const int dataPointsLimit, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+    PlotCandlestick(XFrames* view, const int id, const ImVec4& bullCol, const ImVec4& bearCol, const bool axisAutoFit, const int dataPointsLimit, const std::string& xAxisLabel, const std::string& yAxisLabel, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
         m_type = "plot-candlestick";
         m_axisAutoFit = axisAutoFit;
         m_dataPointsLimit = dataPointsLimit;
 
         m_bullCol = bullCol;
         m_bearCol = bearCol;
+        m_xAxisLabel = xAxisLabel;
+        m_yAxisLabel = yAxisLabel;
 
         m_dates.reserve(m_dataPointsLimit);
         m_opens.reserve(m_dataPointsLimit);

@@ -15,6 +15,8 @@ export const PlotHeatmap = forwardRef<PlotHeatmapImperativeHandle, WidgetPropsMa
             scaleMin,
             scaleMax,
             colormap,
+            xAxisLabel,
+            yAxisLabel,
             style,
             hoverStyle,
             activeStyle,
@@ -62,6 +64,8 @@ export const PlotHeatmap = forwardRef<PlotHeatmapImperativeHandle, WidgetPropsMa
                 scaleMin={scaleMin}
                 scaleMax={scaleMax}
                 colormap={colormap}
+                xAxisLabel={xAxisLabel}
+                yAxisLabel={yAxisLabel}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

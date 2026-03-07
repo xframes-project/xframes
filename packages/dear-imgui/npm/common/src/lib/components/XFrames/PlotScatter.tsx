@@ -14,6 +14,8 @@ export const PlotScatter = forwardRef<PlotScatterImperativeHandle, WidgetPropsMa
         {
             axisAutoFit,
             dataPointsLimit,
+            xAxisLabel,
+            yAxisLabel,
             style,
             hoverStyle,
             activeStyle,
@@ -57,6 +59,8 @@ export const PlotScatter = forwardRef<PlotScatterImperativeHandle, WidgetPropsMa
                 id={idRef.current}
                 axisAutoFit={axisAutoFit}
                 dataPointsLimit={dataPointsLimit}
+                xAxisLabel={xAxisLabel}
+                yAxisLabel={yAxisLabel}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

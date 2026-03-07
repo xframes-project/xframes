@@ -155,18 +155,24 @@ export type WidgetPropsMap = {
     PlotBar: WidgetStyleProps & {
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
+        xAxisLabel?: string;
+        yAxisLabel?: string;
     };
     PlotCandlestick: WidgetStyleProps & {
         bullColor?: string;
         bearColor?: string;
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
+        xAxisLabel?: string;
+        yAxisLabel?: string;
     };
     PlotHeatmap: WidgetStyleProps & {
         axisAutoFit?: boolean;
         scaleMin?: number;
         scaleMax?: number;
         colormap?: number;
+        xAxisLabel?: string;
+        yAxisLabel?: string;
     };
     ProgressBar: WidgetStyleProps & {
         fraction: number;
@@ -175,6 +181,8 @@ export type WidgetPropsMap = {
     PlotScatter: WidgetStyleProps & {
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
+        xAxisLabel?: string;
+        yAxisLabel?: string;
     };
     PlotLine: WidgetStyleProps & {
         xAxisDecimalDigits?: number;
@@ -184,6 +192,8 @@ export type WidgetPropsMap = {
         yAxisScale?: ImPlotScale;
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
+        xAxisLabel?: string;
+        yAxisLabel?: string;
     };
     Separator: WidgetStyleProps;
     SeparatorText: WidgetStyleProps & {

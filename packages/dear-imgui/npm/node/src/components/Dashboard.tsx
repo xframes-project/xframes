@@ -324,6 +324,8 @@ export const Dashboard = () => {
             <XFrames.PlotLine
               ref={plotRef}
               axisAutoFit
+              xAxisLabel="Time"
+              yAxisLabel="Amplitude"
               style={styles.plotArea}
             />
             <XFrames.UnformattedText text={`Frequency: ${frequency}`} />
@@ -422,6 +424,8 @@ export const Dashboard = () => {
             <XFrames.PlotBar
               ref={barRef}
               axisAutoFit
+              xAxisLabel="Category"
+              yAxisLabel="Value"
               style={styles.plotArea}
             />
           </XFrames.Node>
@@ -431,6 +435,8 @@ export const Dashboard = () => {
             <XFrames.PlotScatter
               ref={scatterRef}
               axisAutoFit
+              xAxisLabel="X"
+              yAxisLabel="Y"
               style={styles.plotArea}
             />
           </XFrames.Node>

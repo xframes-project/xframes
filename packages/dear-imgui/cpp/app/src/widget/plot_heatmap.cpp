@@ -25,7 +25,9 @@ void PlotHeatmap::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         } else {
             axFlags |= ImPlotAxisFlags_Lock;
         }
-        ImPlot::SetupAxes(nullptr, nullptr, axFlags, axFlags);
+        const char* xLabel = m_xAxisLabel.empty() ? nullptr : m_xAxisLabel.c_str();
+        const char* yLabel = m_yAxisLabel.empty() ? nullptr : m_yAxisLabel.c_str();
+        ImPlot::SetupAxes(xLabel, yLabel, axFlags, axFlags);
 
         if (m_rows > 0 && m_cols > 0 && !m_values.empty()) {
             ImPlot::PlotHeatmap("heatmap", m_values.data(), m_rows, m_cols,
@@ -59,6 +61,13 @@ void PlotHeatmap::Patch(const json& widgetPatchDef, XFrames* view) {
 
     if (widgetPatchDef.contains("colormap")) {
         m_colormap = widgetPatchDef["colormap"].template get<int>();
+    }
+
+    if (widgetPatchDef.contains("xAxisLabel") && widgetPatchDef["xAxisLabel"].is_string()) {
+        m_xAxisLabel = widgetPatchDef["xAxisLabel"].template get<std::string>();
+    }
+    if (widgetPatchDef.contains("yAxisLabel") && widgetPatchDef["yAxisLabel"].is_string()) {
+        m_yAxisLabel = widgetPatchDef["yAxisLabel"].template get<std::string>();
     }
 };
 

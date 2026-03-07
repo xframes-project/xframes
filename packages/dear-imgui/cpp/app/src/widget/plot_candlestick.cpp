@@ -32,7 +32,9 @@ void PlotCandlestick::Render(XFrames* view, const std::optional<ImRect>& viewpor
 
     if (ImPlot::BeginPlot("Candlestick Chart",ImVec2(-1,0))) {
         // ImPlot::SetupAxes(nullptr,nullptr,0,ImPlotAxisFlags_AutoFit|ImPlotAxisFlags_RangeFit);
-        ImPlot::SetupAxes(nullptr,nullptr,0,ImPlotAxisFlags_AutoFit);
+        const char* xLabel = m_xAxisLabel.empty() ? nullptr : m_xAxisLabel.c_str();
+        const char* yLabel = m_yAxisLabel.empty() ? nullptr : m_yAxisLabel.c_str();
+        ImPlot::SetupAxes(xLabel, yLabel, 0, ImPlotAxisFlags_AutoFit);
         // ImPlot::SetupAxesLimits(1546300800, 1571961600, 1250, 1600);
         ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
         // ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 1546300800, 1571961600);
@@ -139,6 +141,13 @@ void PlotCandlestick::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("bearColor")) {
         auto maybeColor = extractColor(widgetPatchDef["bearColor"]);
         if (maybeColor.has_value()) m_bearCol = maybeColor.value();
+    }
+
+    if (widgetPatchDef.contains("xAxisLabel") && widgetPatchDef["xAxisLabel"].is_string()) {
+        m_xAxisLabel = widgetPatchDef["xAxisLabel"].template get<std::string>();
+    }
+    if (widgetPatchDef.contains("yAxisLabel") && widgetPatchDef["yAxisLabel"].is_string()) {
+        m_yAxisLabel = widgetPatchDef["yAxisLabel"].template get<std::string>();
     }
 };
 

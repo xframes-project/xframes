@@ -17,12 +17,13 @@ void PlotLine::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     auto size = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
     if (ImPlot::BeginPlot("plot_line", size, ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText | ImPlotFlags_NoLegend | ImPlotFlags_NoTitle)) {
+        const char* xLabel = m_xAxisLabel.empty() ? nullptr : m_xAxisLabel.c_str();
+        const char* yLabel = m_yAxisLabel.empty() ? nullptr : m_yAxisLabel.c_str();
+
         if (m_axisAutoFit) {
-            ImPlot::SetupAxes("x","y", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+            ImPlot::SetupAxes(xLabel, yLabel, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
         } else {
-            ImPlot::SetupAxes("x","y");
-            // TODO: compute axes limits?
-            // ImPlot::SetupAxesLimits(0,15000,0,1000);
+            ImPlot::SetupAxes(xLabel, yLabel);
         }
 
         ImPlot::SetupAxisScale(ImAxis_X1, m_xAxisScale);
@@ -61,6 +62,13 @@ void PlotLine::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("axisAutoFit")) {
         const auto axisAutoFit = widgetPatchDef["axisAutoFit"].template get<bool>();
         SetAxesAutoFit(axisAutoFit);
+    }
+
+    if (widgetPatchDef.contains("xAxisLabel") && widgetPatchDef["xAxisLabel"].is_string()) {
+        m_xAxisLabel = widgetPatchDef["xAxisLabel"].template get<std::string>();
+    }
+    if (widgetPatchDef.contains("yAxisLabel") && widgetPatchDef["yAxisLabel"].is_string()) {
+        m_yAxisLabel = widgetPatchDef["yAxisLabel"].template get<std::string>();
     }
 };
 

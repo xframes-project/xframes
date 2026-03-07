@@ -12,6 +12,9 @@ private:
 
     bool m_axisAutoFit;
 
+    std::string m_xAxisLabel;
+    std::string m_yAxisLabel;
+
 public:
     static std::unique_ptr<PlotBar> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
@@ -26,7 +29,15 @@ public:
             dataPointsLimit = widgetDef["dataPointsLimit"].template get<int>();
         }
 
-        return std::make_unique<PlotBar>(view, id, axisAutoFit, dataPointsLimit, maybeStyle);
+        std::string xAxisLabel, yAxisLabel;
+        if (widgetDef.contains("xAxisLabel") && widgetDef["xAxisLabel"].is_string()) {
+            xAxisLabel = widgetDef["xAxisLabel"].template get<std::string>();
+        }
+        if (widgetDef.contains("yAxisLabel") && widgetDef["yAxisLabel"].is_string()) {
+            yAxisLabel = widgetDef["yAxisLabel"].template get<std::string>();
+        }
+
+        return std::make_unique<PlotBar>(view, id, axisAutoFit, dataPointsLimit, xAxisLabel, yAxisLabel, maybeStyle);
     }
 
     bool HasCustomWidth() override;
@@ -38,11 +49,15 @@ public:
         const int id,
         const bool axisAutoFit,
         const int dataPointsLimit,
+        const std::string& xAxisLabel,
+        const std::string& yAxisLabel,
         std::optional<WidgetStyle>& style) : StyledWidget(view, id, style
             ) {
         m_type = "plot-bar";
         m_axisAutoFit = axisAutoFit;
         m_dataPointsLimit = dataPointsLimit;
+        m_xAxisLabel = xAxisLabel;
+        m_yAxisLabel = yAxisLabel;
 
         m_xValues.reserve(m_dataPointsLimit);
         m_yValues.reserve(m_dataPointsLimit);

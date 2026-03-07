@@ -16,6 +16,9 @@ private:
 
     bool m_axisAutoFit;
 
+    std::string m_xAxisLabel;
+    std::string m_yAxisLabel;
+
 public:
     static std::unique_ptr<PlotHeatmap> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
@@ -40,7 +43,15 @@ public:
             colormap = widgetDef["colormap"].template get<int>();
         }
 
-        return std::make_unique<PlotHeatmap>(view, id, axisAutoFit, scaleMin, scaleMax, colormap, maybeStyle);
+        std::string xAxisLabel, yAxisLabel;
+        if (widgetDef.contains("xAxisLabel") && widgetDef["xAxisLabel"].is_string()) {
+            xAxisLabel = widgetDef["xAxisLabel"].template get<std::string>();
+        }
+        if (widgetDef.contains("yAxisLabel") && widgetDef["yAxisLabel"].is_string()) {
+            yAxisLabel = widgetDef["yAxisLabel"].template get<std::string>();
+        }
+
+        return std::make_unique<PlotHeatmap>(view, id, axisAutoFit, scaleMin, scaleMax, colormap, xAxisLabel, yAxisLabel, maybeStyle);
     }
 
     bool HasCustomWidth() override;
@@ -54,6 +65,8 @@ public:
         const double scaleMin,
         const double scaleMax,
         const ImPlotColormap colormap,
+        const std::string& xAxisLabel,
+        const std::string& yAxisLabel,
         std::optional<WidgetStyle>& style) : StyledWidget(view, id, style
             ) {
         m_type = "plot-heatmap";
@@ -61,6 +74,8 @@ public:
         m_scaleMin = scaleMin;
         m_scaleMax = scaleMax;
         m_colormap = colormap;
+        m_xAxisLabel = xAxisLabel;
+        m_yAxisLabel = yAxisLabel;
     }
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
