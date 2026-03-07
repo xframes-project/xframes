@@ -26,6 +26,11 @@ export type Primitive = string | number | boolean;
 
 export type SliderTypes = "default" | "angle";
 
+export type PlotLineSeriesDef = {
+    label: string;
+    markerStyle?: ImPlotMarker;
+};
+
 export type PlotCandlestickDataItem = {
     date: number;
     open: number;
@@ -209,6 +214,7 @@ export type WidgetPropsMap = {
         showLegend?: boolean;
         legendLocation?: number;
         legendLabel?: string;
+        series?: PlotLineSeriesDef[];
     };
     Separator: WidgetStyleProps;
     SeparatorText: WidgetStyleProps & {

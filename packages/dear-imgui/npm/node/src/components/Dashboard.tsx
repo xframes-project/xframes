@@ -246,8 +246,8 @@ export const Dashboard = () => {
     let x = 0;
     const interval = setInterval(() => {
       if (plotRef.current) {
-        const y = Math.sin(x * frequency * 0.1);
-        plotRef.current.appendData(x, y);
+        plotRef.current.appendSeriesData(0, x, Math.sin(x * frequency * 0.1));
+        plotRef.current.appendSeriesData(1, x, Math.cos(x * frequency * 0.1));
         x += 0.1;
         setDataPointCount((prev) => prev + 1);
       }
@@ -327,7 +327,7 @@ export const Dashboard = () => {
               xAxisLabel="Time"
               yAxisLabel="Amplitude"
               showLegend
-              legendLabel="Sine Wave"
+              series={[{ label: "Sin" }, { label: "Cos" }]}
               style={styles.plotArea}
             />
             <XFrames.UnformattedText text={`Frequency: ${frequency}`} />

@@ -4,6 +4,8 @@ import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistratio
 
 export type PlotLineImperativeHandle = {
     appendData: (x: number, y: number) => void;
+    appendSeriesData: (seriesIndex: number, x: number, y: number) => void;
+    setData: (seriesData: { data: { x: number; y: number }[] }[]) => void;
     setAxesDecimalDigits: (x: number, y: number) => void;
     setAxesAutoFit: (enabled: boolean) => void;
     resetData: () => void;
@@ -24,6 +26,7 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
             showLegend,
             legendLocation,
             legendLabel,
+            series,
             style,
             hoverStyle,
             activeStyle,
@@ -44,6 +47,17 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
                 return {
                     appendData: (x: number, y: number) => {
                         widgetRegistratonService.appendDataToPlotLine(idRef.current, x, y);
+                    },
+                    appendSeriesData: (seriesIndex: number, x: number, y: number) => {
+                        widgetRegistratonService.appendSeriesDataToPlotLine(
+                            idRef.current,
+                            seriesIndex,
+                            x,
+                            y,
+                        );
+                    },
+                    setData: (seriesData: { data: { x: number; y: number }[] }[]) => {
+                        widgetRegistratonService.setPlotLineData(idRef.current, seriesData);
                     },
                     setAxesDecimalDigits: (x: number, y: number) => {
                         widgetRegistratonService.setPlotLineAxesDecimalDigits(idRef.current, x, y);
@@ -77,6 +91,7 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
                 showLegend={showLegend}
                 legendLocation={legendLocation}
                 legendLabel={legendLabel}
+                series={series}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

@@ -111,6 +111,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    appendSeriesDataToPlotLine(id: string, seriesIndex: number, x: number, y: number) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "appendSeriesData", seriesIndex, x, y }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    setPlotLineData(id: string, series: { data: { x: number; y: number }[] }[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setData", series }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setPlotLineAxesDecimalDigits(id: string, x: number, y: number) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

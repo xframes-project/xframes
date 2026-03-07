@@ -24,6 +24,7 @@ import {
     WidgetReactNode,
     NodeProps,
     PlotCandlestickDataItem,
+    PlotLineSeriesDef,
     WidgetReactElement,
 } from "./components/XFrames/types";
 import RWStyleSheet from "./stylesheet/stylesheet";
@@ -54,6 +55,7 @@ export {
     faIconKeys,
     TreeViewItem,
     PlotCandlestickDataItem,
+    PlotLineSeriesDef,
     ReactFabricProdInitialiser,
     ReactNativePrivateInterface,
     attachSubComponents,

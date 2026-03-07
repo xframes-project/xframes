@@ -48,6 +48,7 @@ const attributesForElements = {
         "showLegend",
         "legendLocation",
         "legendLabel",
+        "series",
     ],
     "plot-candlestick": ["axisAutoFit", "bullColor", "bearColor", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "progress-bar": ["fraction", "overlay"],
