@@ -3,6 +3,7 @@ import { Button } from "./Button";
 import { Checkbox } from "./Checkbox";
 import { Child } from "./Child";
 import { ClippedMultiLineTextRenderer } from "./ClippedMultiLineTextRenderer";
+import { ColorIndicator } from "./ColorIndicator";
 import { CollapsingHeader } from "./CollapsingHeader";
 import { Combo } from "./Combo";
 import { DisabledText } from "./DisabledText";
@@ -37,6 +38,7 @@ export const components = {
     Checkbox,
     Child,
     ClippedMultiLineTextRenderer,
+    ColorIndicator,
     CollapsingHeader,
     Combo,
     DIWindow,

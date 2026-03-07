@@ -107,6 +107,10 @@ export type WidgetPropsMap = {
         label?: string;
         onChange?: (event: CheckboxChangeEvent) => void;
     };
+    ColorIndicator: WidgetStyleProps & {
+        color?: string;
+        shape?: "rect" | "circle";
+    };
     Child: WidgetStyleProps;
     ClippedMultiLineTextRenderer: WidgetStyleProps;
     CollapsingHeader: WidgetStyleProps & {

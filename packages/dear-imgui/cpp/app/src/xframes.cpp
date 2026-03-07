@@ -34,6 +34,7 @@
 #endif
 
 #include "widget/button.h"
+#include "widget/color_indicator.h"
 #include "widget/checkbox.h"
 #include "widget/child.h"
 #include "widget/clipped_multi_line_text_renderer.h"
@@ -153,6 +154,7 @@ void XFrames::SetUpElementCreatorFunctions() {
 
     m_element_init_fn["item-tooltip"] = &makeWidget<ItemTooltip>;
 
+    m_element_init_fn["color-indicator"] = &makeWidget<ColorIndicator>;
     m_element_init_fn["combo"] = &makeWidget<Combo>;
     m_element_init_fn["slider"] = &makeWidget<Slider>;
     m_element_init_fn["input-text"] = &makeWidget<InputText>;

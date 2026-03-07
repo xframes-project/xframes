@@ -139,6 +139,16 @@ const styles = RWStyleSheet.create({
   statusPanel: {
     padding: { all: 4 },
   },
+  indicatorRow: {
+    flexDirection: "row",
+    gap: { column: 8 },
+    margin: { bottom: 4 },
+    alignItems: "center",
+  },
+  indicator: {
+    width: 16,
+    height: 16,
+  },
 });
 
 export const Dashboard = () => {
@@ -373,6 +383,20 @@ export const Dashboard = () => {
           </XFrames.Node>
 
           <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Status Indicators" />
+            <XFrames.Node style={styles.indicatorRow}>
+              <XFrames.ColorIndicator color="#26a69a" shape="circle" style={styles.indicator} />
+              <XFrames.UnformattedText text="Connected" />
+            </XFrames.Node>
+            <XFrames.Node style={styles.indicatorRow}>
+              <XFrames.ColorIndicator color="#ff9800" shape="circle" style={styles.indicator} />
+              <XFrames.UnformattedText text="Waiting" />
+            </XFrames.Node>
+            <XFrames.Node style={styles.indicatorRow}>
+              <XFrames.ColorIndicator color="#ef5350" shape="rect" style={styles.indicator} />
+              <XFrames.UnformattedText text="Error" />
+            </XFrames.Node>
+
             <XFrames.UnformattedText text="Progress" />
             <XFrames.ProgressBar fraction={0.75} overlay="75%" />
             <XFrames.ProgressBar fraction={0.42} overlay="Uploading..." />

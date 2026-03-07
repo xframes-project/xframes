@@ -12,6 +12,7 @@ declare global {
             "bullet-text": ReactElementWidgets["BulletText"];
             "di-button": ReactElementWidgets["Button"];
             checkbox: ReactElementWidgets["Checkbox"];
+            "color-indicator": ReactElementWidgets["ColorIndicator"];
             child: ReactElementWidgets["Child"]; // Deprecated by `node`
             "clipped-multi-line-text-renderer": ReactElementWidgets["ClippedMultiLineTextRenderer"];
             "collapsing-header": ReactElementWidgets["CollapsingHeader"];

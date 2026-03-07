@@ -10,6 +10,7 @@ const attributesForElements = {
     "di-button": ["onClick", "label", "size"],
     checkbox: ["defaultChecked", "label", "onChange"],
     child: ["defaultChecked", "label", "onChange"],
+    "color-indicator": ["color", "shape"],
     "clipped-multi-line-text-renderer": [],
     "collapsing-header": ["label"],
     combo: ["placeholder", "options", "optionsList", "initialSelectedIndex", "onChange"],
