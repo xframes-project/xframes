@@ -513,7 +513,9 @@ void XFrames::PatchStyle(const json& styleDef) {
         ExtractNumberFromStyleDef<float>(styleDef, "windowBorderSize", style->WindowBorderSize);
         ExtractImVec2FromStyleDef(styleDef, "windowMinSize", style->WindowMinSize);
         ExtractImVec2FromStyleDef(styleDef, "windowTitleAlign", style->WindowTitleAlign);
-        ExtractNumberFromStyleDef<int>(styleDef, "windowMenuButtonPosition", style->WindowMenuButtonPosition);
+        if (styleDef.contains("windowMenuButtonPosition") && styleDef["windowMenuButtonPosition"].is_number()) {
+            style->WindowMenuButtonPosition = static_cast<ImGuiDir>(styleDef["windowMenuButtonPosition"].template get<int>());
+        }
         ExtractNumberFromStyleDef<float>(styleDef, "childRounding", style->ChildRounding);
         ExtractNumberFromStyleDef<float>(styleDef, "childBorderSize", style->ChildBorderSize);
         ExtractNumberFromStyleDef<float>(styleDef, "popupRounding", style->PopupRounding);
@@ -534,11 +536,13 @@ void XFrames::PatchStyle(const json& styleDef) {
         ExtractNumberFromStyleDef<float>(styleDef, "logSliderDeadzone", style->LogSliderDeadzone);
         ExtractNumberFromStyleDef<float>(styleDef, "tabRounding", style->TabRounding);
         ExtractNumberFromStyleDef<float>(styleDef, "tabBorderSize", style->TabBorderSize);
-        ExtractNumberFromStyleDef<float>(styleDef, "tabMinWidthForCloseButton", style->TabMinWidthForCloseButton);
+        ExtractNumberFromStyleDef<float>(styleDef, "tabMinWidthForCloseButton", style->TabCloseButtonMinWidthUnselected);
         ExtractNumberFromStyleDef<float>(styleDef, "tabBarBorderSize", style->TabBarBorderSize);
         ExtractNumberFromStyleDef<float>(styleDef, "tableAngledHeadersAngle", style->TableAngledHeadersAngle);
         ExtractImVec2FromStyleDef(styleDef, "tableAngledHeadersTextAlign", style->TableAngledHeadersTextAlign);
-        ExtractNumberFromStyleDef<int>(styleDef, "colorButtonPosition", style->ColorButtonPosition);
+        if (styleDef.contains("colorButtonPosition") && styleDef["colorButtonPosition"].is_number()) {
+            style->ColorButtonPosition = static_cast<ImGuiDir>(styleDef["colorButtonPosition"].template get<int>());
+        }
         ExtractImVec2FromStyleDef(styleDef, "buttonTextAlign", style->ButtonTextAlign);
         ExtractImVec2FromStyleDef(styleDef, "selectableTextAlign", style->SelectableTextAlign);
         ExtractNumberFromStyleDef<float>(styleDef, "separatorTextBorderSize", style->SeparatorTextBorderSize);
@@ -811,7 +815,7 @@ float XFrames::GetWidgetFontSize(const StyledWidget* widget) {
         // auto result = widget->m_style.value()->GetCustomFontId(widget->GetState(), this);
 
         // if (result.has_value()) {
-            return m_renderer->m_loadedFonts[widget->m_style.value()->GetCustomFontId(widget->GetState(), this)]->FontSize;
+            return m_renderer->m_loadedFonts[widget->m_style.value()->GetCustomFontId(widget->GetState(), this)]->LegacySize;
         // }
     }
 
@@ -819,12 +823,12 @@ float XFrames::GetWidgetFontSize(const StyledWidget* widget) {
 
     ImGuiIO& io = m_renderer->m_imGuiCtx->IO;
 
-    if (!io.FontDefault || !io.FontDefault->FontSize) {
+    if (!io.FontDefault || !io.FontDefault->LegacySize) {
         return 16.0f;
     }
 
     // Return default font size as we might be in the middle of rendering a widget with a custom font
-    return io.FontDefault->FontSize;
+    return io.FontDefault->LegacySize;
 }
 
 float XFrames::GetTextLineHeight(const StyledWidget* widget) {
@@ -897,10 +901,10 @@ ImVec2 XFrames::CalcTextSize(const StyledWidget* widget, const char* text, const
         text_display_end = text_end;
     }
 
-    const float font_size = font->FontSize;
+    const float font_size = font->LegacySize;
     if (text == text_display_end)
         return ImVec2(0.0f, font_size);
-    ImVec2 text_size = font->CalcTextSizeA(font->FontSize, FLT_MAX, wrap_width, text, text_display_end, NULL);
+    ImVec2 text_size = font->CalcTextSizeA(font->LegacySize, FLT_MAX, wrap_width, text, text_display_end, NULL);
 
     // Round
     // FIXME: This has been here since Dec 2015 (7b0bf230) but down the line we want this out.

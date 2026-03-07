@@ -444,7 +444,7 @@ class Runner {
             style["logSliderDeadzone"] = m_xframes->m_appStyle.LogSliderDeadzone;
             style["tabRounding"] = m_xframes->m_appStyle.TabRounding;
             style["tabBorderSize"] = m_xframes->m_appStyle.TabBorderSize;
-            style["tabMinWidthForCloseButton"] = m_xframes->m_appStyle.TabMinWidthForCloseButton;
+            style["tabMinWidthForCloseButton"] = m_xframes->m_appStyle.TabCloseButtonMinWidthUnselected;
             style["tabBarBorderSize"] = m_xframes->m_appStyle.TabBarBorderSize;
             style["tableAngledHeadersAngle"] = m_xframes->m_appStyle.TableAngledHeadersAngle;
             style["tableAngledHeadersTextAlign"] = { m_xframes->m_appStyle.TableAngledHeadersTextAlign.x, m_xframes->m_appStyle.TableAngledHeadersTextAlign.y };
