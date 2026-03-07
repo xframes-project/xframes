@@ -16,7 +16,6 @@ bool TabBar::HasCustomHeight() {
 
 void TabBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
-    // todo: double-check if we need to pass a proper id here?
 
     const float left = YGNodeLayoutGetLeft(m_layoutNode->m_node);
     const float top = YGNodeLayoutGetTop(m_layoutNode->m_node);
@@ -27,13 +26,24 @@ void TabBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     ImGui::BeginChild("##", ImVec2(width, height), ImGuiChildFlags_None);
 
-    if (ImGui::BeginTabBar("", ImGuiTabBarFlags_None)) {
+    ImGuiTabBarFlags flags = ImGuiTabBarFlags_None;
+    if (m_reorderable) flags |= ImGuiTabBarFlags_Reorderable;
+
+    if (ImGui::BeginTabBar("", flags)) {
         Widget::HandleChildren(view, viewport);
         ImGui::EndTabBar();
     }
 
     ImGui::EndChild();
     ImGui::PopID();
+};
+
+void TabBar::Patch(const json& widgetPatchDef, XFrames* view) {
+    StyledWidget::Patch(widgetPatchDef, view);
+
+    if (widgetPatchDef.contains("reorderable") && widgetPatchDef["reorderable"].is_boolean()) {
+        m_reorderable = widgetPatchDef["reorderable"].template get<bool>();
+    }
 };
 
 TabItem::TabItem(XFrames* view, const int id, const std::string& label, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
@@ -52,7 +62,10 @@ bool TabItem::HasCustomHeight() {
 
 void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
-    if (ImGui::BeginTabItem(m_label.c_str())) {
+
+    bool* pOpen = m_closeable ? &m_open : nullptr;
+
+    if (ImGui::BeginTabItem(m_label.c_str(), pOpen)) {
         m_layoutNode->SetDisplay(YGDisplayFlex);
 
         const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);
@@ -69,6 +82,12 @@ void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     } else {
         m_layoutNode->SetDisplay(YGDisplayNone);
     }
+
+    if (m_closeable && !m_open) {
+        view->m_onBooleanValueChange(m_id, false);
+        m_open = true; // reset — React controls visibility via conditional rendering
+    }
+
     ImGui::PopID();
 };
 
@@ -77,5 +96,9 @@ void TabItem::Patch(const json& widgetPatchDef, XFrames* view) {
 
     if (widgetPatchDef.contains("label") && widgetPatchDef["label"].is_string()) {
         m_label = widgetPatchDef["label"].template get<std::string>();
+    }
+
+    if (widgetPatchDef.contains("closeable") && widgetPatchDef["closeable"].is_boolean()) {
+        m_closeable = widgetPatchDef["closeable"].template get<bool>();
     }
 };

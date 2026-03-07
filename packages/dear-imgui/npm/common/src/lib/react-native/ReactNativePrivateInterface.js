@@ -55,8 +55,8 @@ const attributesForElements = {
     separator: [],
     "separator-text": ["label"],
     slider: ["sliderType", "label", "defaultValue", "min", "max", "onChange"],
-    "tab-bar": ["label"],
-    "tab-item": ["label", "onOpenChange"],
+    "tab-bar": ["reorderable"],
+    "tab-item": ["label", "closeable", "onChange"],
     "di-table": ["columns", "initialData", "clipRows", "filterable", "reorderable", "hideable", "onSort", "onFilter", "onRowClick"],
     "text-wrap": ["width"],
     "tree-node": [

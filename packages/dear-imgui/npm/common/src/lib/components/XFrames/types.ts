@@ -227,10 +227,13 @@ export type WidgetPropsMap = {
         max?: number;
         onChange?: (event: SliderChangeEvent) => void;
     };
-    TabBar: WidgetStyleProps;
+    TabBar: WidgetStyleProps & {
+        reorderable?: boolean;
+    };
     TabItem: WidgetStyleProps & {
         label: string;
-        onOpenChange?: (event: TabItemChangeEvent) => void;
+        closeable?: boolean;
+        onChange?: (event: TabItemChangeEvent) => void;
     };
     Table: WidgetStyleProps & {
         columns: {

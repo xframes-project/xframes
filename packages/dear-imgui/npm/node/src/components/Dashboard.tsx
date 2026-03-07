@@ -10,6 +10,7 @@ import {
   PlotScatterImperativeHandle,
   PlotCandlestickImperativeHandle,
   PlotCandlestickDataItem,
+  TabItemChangeEvent,
   InputTextChangeEvent,
   ComboChangeEvent,
   SliderChangeEvent,
@@ -167,6 +168,7 @@ export const Dashboard = () => {
   const [inputValue, setInputValue] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [featureEnabled, setFeatureEnabled] = useState(false);
+  const [showNotesTab, setShowNotesTab] = useState(true);
 
   // Load initial table data
   useEffect(() => {
@@ -293,6 +295,12 @@ export const Dashboard = () => {
     setInputValue("");
     setSelectedCategory("All");
     setFeatureEnabled(false);
+  }, []);
+
+  const handleTabClose = useCallback((event: TabItemChangeEvent) => {
+    if (!event.nativeEvent.value) {
+      setShowNotesTab(false);
+    }
   }, []);
 
   return (
@@ -464,6 +472,32 @@ export const Dashboard = () => {
               bearColor="#ef5350"
               style={styles.plotArea}
             />
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Fifth row: Tabs demo */}
+        <XFrames.Node style={{ ...styles.row, height: 200 }}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Tabs (reorderable + closeable)" />
+            <XFrames.TabBar reorderable style={{ width: "100%", flex: 1 }}>
+              <XFrames.TabItem label="Overview" style={{ width: "100%", height: "100%" }}>
+                <XFrames.UnformattedText text="Drag tabs to reorder them." />
+              </XFrames.TabItem>
+              <XFrames.TabItem label="Details" style={{ width: "100%", height: "100%" }}>
+                <XFrames.UnformattedText text="This is the Details tab." />
+              </XFrames.TabItem>
+              {showNotesTab ? (
+                <XFrames.TabItem label="Notes" closeable onChange={handleTabClose} style={{ width: "100%", height: "100%" }}>
+                  <XFrames.UnformattedText text="Close this tab with the X button." />
+                </XFrames.TabItem>
+              ) : null}
+            </XFrames.TabBar>
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
+            {!showNotesTab ? (
+              <XFrames.Button label="Restore Notes Tab" onClick={() => setShowNotesTab(true)} />
+            ) : null}
           </XFrames.Node>
         </XFrames.Node>
       </XFrames.Node>

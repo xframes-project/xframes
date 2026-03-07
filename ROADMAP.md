@@ -51,6 +51,31 @@ PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImP
 
 ---
 
+## Phase 1.5 — Early Adopter Features
+
+Desktop interactivity patterns and additional widgets that make XFrames feel production-ready.
+
+### Tabs
+
+- [ ] Tab close buttons (`closeable` prop, `p_open` parameter)
+- [ ] Tab reordering (`ImGuiTabBarFlags_Reorderable`)
+
+### New Widgets
+
+- [ ] ColorPicker widget (`ImGui::ColorEdit4`) with onChange hex string callback
+- [ ] Histogram chart (`ImPlot::PlotHistogram`) — auto-binned distribution plot
+- [ ] Pie chart (`ImPlot::PlotPieChart`) — labeled slice chart
+
+### Table Enhancements
+
+- [ ] Right-click context menu on table rows (declarative `contextMenuItems` prop)
+
+### Callback Infrastructure
+
+- [ ] New `onItemAction` callback type for context menu actions (adds 14th init arg)
+
+---
+
 ## Phase 2 — Showcase Foundation (u-center lite)
 
 Integrate the UBX native npm module and build the core panels of the showcase app.

@@ -2,14 +2,10 @@ import { useRef } from "react";
 import { PropsWithChildren, WidgetFunctionComponent, WidgetPropsMap } from "./types";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
-export type TabItemProps = PropsWithChildren & {
-    label: string;
-    onOpenChange?: (value: boolean) => void;
-};
-
 export const TabItem: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap["TabItem"]> = ({
     children,
-    onOpenChange,
+    closeable,
+    onChange,
     label,
     style,
     hoverStyle,
@@ -23,6 +19,8 @@ export const TabItem: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap
         <tab-item
             id={idRef.current}
             label={label}
+            closeable={closeable}
+            onChange={onChange}
             style={style}
             hoverStyle={hoverStyle}
             activeStyle={activeStyle}

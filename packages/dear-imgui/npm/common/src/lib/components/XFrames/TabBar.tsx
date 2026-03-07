@@ -10,6 +10,7 @@ import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistratio
 
 export const TabBar: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap["TabBar"]> = ({
     children,
+    reorderable,
     style,
     hoverStyle,
     activeStyle,
@@ -23,7 +24,7 @@ export const TabBar: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap[
             const localChildren = Array.isArray(children) ? children : [children];
 
             return localChildren.filter(
-                (child): child is WidgetReactElement<"TabItem"> => child.type === TabItem,
+                (child): child is WidgetReactElement<"TabItem"> => child != null && child.type === TabItem,
             );
         }
 
@@ -33,6 +34,7 @@ export const TabBar: WidgetFunctionComponent<PropsWithChildren & WidgetPropsMap[
     return (
         <tab-bar
             id={idRef.current}
+            reorderable={reorderable}
             style={style}
             hoverStyle={hoverStyle}
             activeStyle={activeStyle}
