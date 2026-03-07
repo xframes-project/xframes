@@ -98,11 +98,23 @@ The Table widget supports sorting, per-column filtering, row selection, column r
 
 **Table-level boolean props:** `filterable`, `reorderable`, `hideable`
 
-**Per-column flags** (boolean fields on column definitions): `defaultHide`, `defaultSort`, `widthFixed`, `noSort`, `noResize`, `noReorder`, `noHide`. These map to `ImGuiTableColumnFlags_*` and are parsed in `Table::extractColumns()`.
+**Per-column config:** Each column definition has `heading`, `fieldId`, and optional `type` (`"number"`, `"boolean"`). Boolean fields on column definitions (`defaultHide`, `defaultSort`, `widthFixed`, `noSort`, `noResize`, `noReorder`, `noHide`) map to `ImGuiTableColumnFlags_*` and are parsed in `Table::extractColumns()`.
+
+**Type-aware filtering:** Boolean columns render a Combo dropdown (All/Yes/No) instead of a text filter. Number columns filter against displayed values (formatted integers/decimals). String columns use `ImGuiTextFilter`.
 
 **Flag logic:** When `hideable` is set on the table, columns are hideable by default (the `NoHide` flag is dropped). Use `noHide: true` on individual columns to pin them. When `hideable` is not set, all columns get `NoHide` automatically (original behavior).
 
 **Event callbacks:** `onSort`, `onFilter`, `onRowClick` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 13 arguments (indices 0–12).
+
+## InputText Widget
+
+Uses `imgui_stdlib.h` for `std::string`-based input — no buffer size limits or manual buffer management. Supports optional props: `multiline` (renders `InputTextMultiline`), `password` (`ImGuiInputTextFlags_Password`), `readOnly` (`ImGuiInputTextFlags_ReadOnly`), `numericOnly` (`ImGuiInputTextFlags_CharsDecimal`). Flags are per-instance (not static) to avoid sharing state across widget instances.
+
+## Layout & Scroll
+
+`Element::Render()` calls `ImGui::BeginChild("##", size, ImGuiChildFlags_None)` for each element. Yoga computes layout once per frame from the root node.
+
+**Scroll containers:** Set `overflow: "scroll"` on a Node's style. Children must use `flexShrink: 0` with fixed `height` so Yoga doesn't shrink them to fit — when children overflow the viewport, ImGui shows scrollbars automatically. Do **not** call `YGNodeCalculateLayout` a second time during render; it fights the root layout pass and causes flicker.
 
 ## C++ Gotchas
 

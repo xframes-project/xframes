@@ -448,6 +448,7 @@ void ImGuiRenderer::BeginRenderLoop() {
 #endif
     {
         glfwPollEvents();
+        glfwGetWindowSize(m_glfwWindow, &m_window_width, &m_window_height);
 
         HandleScreenSizeChanged();
 
