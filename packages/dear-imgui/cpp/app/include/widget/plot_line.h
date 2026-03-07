@@ -23,6 +23,10 @@ private:
     std::string m_xAxisLabel;
     std::string m_yAxisLabel;
 
+    bool m_showLegend = false;
+    int m_legendLocation = 5;
+    std::string m_legendLabel = "line-plot";
+
 public:
     static std::unique_ptr<PlotLine> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
@@ -67,9 +71,24 @@ public:
             yAxisLabel = widgetDef["yAxisLabel"].template get<std::string>();
         }
 
-        return std::make_unique<PlotLine>(view, id, xAxisDecimalDigits, yAxisDecimalDigits, markerStyle, xAxisScale, yAxisScale, axisAutoFit, dataPointsLimit, xAxisLabel, yAxisLabel, maybeStyle);
+        bool showLegend = false;
+        int legendLocation = 5;
+        std::string legendLabel = "line-plot";
+        if (widgetDef.contains("showLegend")) {
+            showLegend = widgetDef["showLegend"].template get<bool>();
+        }
+        if (widgetDef.contains("legendLocation")) {
+            legendLocation = widgetDef["legendLocation"].template get<int>();
+        }
+        if (widgetDef.contains("legendLabel") && widgetDef["legendLabel"].is_string()) {
+            legendLabel = widgetDef["legendLabel"].template get<std::string>();
+        }
 
-        // throw std::invalid_argument("Invalid JSON data");
+        auto widget = std::make_unique<PlotLine>(view, id, xAxisDecimalDigits, yAxisDecimalDigits, markerStyle, xAxisScale, yAxisScale, axisAutoFit, dataPointsLimit, xAxisLabel, yAxisLabel, maybeStyle);
+        widget->m_showLegend = showLegend;
+        widget->m_legendLocation = legendLocation;
+        widget->m_legendLabel = legendLabel;
+        return widget;
     }
 
     static int axisValueFormatter(double value, char* buff, int size, void* decimalPlaces) {

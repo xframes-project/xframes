@@ -326,6 +326,8 @@ export const Dashboard = () => {
               axisAutoFit
               xAxisLabel="Time"
               yAxisLabel="Amplitude"
+              showLegend
+              legendLabel="Sine Wave"
               style={styles.plotArea}
             />
             <XFrames.UnformattedText text={`Frequency: ${frequency}`} />

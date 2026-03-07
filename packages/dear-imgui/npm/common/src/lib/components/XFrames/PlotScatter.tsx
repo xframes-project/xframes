@@ -16,6 +16,9 @@ export const PlotScatter = forwardRef<PlotScatterImperativeHandle, WidgetPropsMa
             dataPointsLimit,
             xAxisLabel,
             yAxisLabel,
+            showLegend,
+            legendLocation,
+            legendLabel,
             style,
             hoverStyle,
             activeStyle,
@@ -61,6 +64,9 @@ export const PlotScatter = forwardRef<PlotScatterImperativeHandle, WidgetPropsMa
                 dataPointsLimit={dataPointsLimit}
                 xAxisLabel={xAxisLabel}
                 yAxisLabel={yAxisLabel}
+                showLegend={showLegend}
+                legendLocation={legendLocation}
+                legendLabel={legendLabel}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

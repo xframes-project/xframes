@@ -17,6 +17,9 @@ export const PlotHeatmap = forwardRef<PlotHeatmapImperativeHandle, WidgetPropsMa
             colormap,
             xAxisLabel,
             yAxisLabel,
+            showLegend,
+            legendLocation,
+            legendLabel,
             style,
             hoverStyle,
             activeStyle,
@@ -66,6 +69,9 @@ export const PlotHeatmap = forwardRef<PlotHeatmapImperativeHandle, WidgetPropsMa
                 colormap={colormap}
                 xAxisLabel={xAxisLabel}
                 yAxisLabel={yAxisLabel}
+                showLegend={showLegend}
+                legendLocation={legendLocation}
+                legendLabel={legendLabel}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

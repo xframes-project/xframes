@@ -157,6 +157,9 @@ export type WidgetPropsMap = {
         dataPointsLimit?: number;
         xAxisLabel?: string;
         yAxisLabel?: string;
+        showLegend?: boolean;
+        legendLocation?: number;
+        legendLabel?: string;
     };
     PlotCandlestick: WidgetStyleProps & {
         bullColor?: string;
@@ -165,6 +168,9 @@ export type WidgetPropsMap = {
         dataPointsLimit?: number;
         xAxisLabel?: string;
         yAxisLabel?: string;
+        showLegend?: boolean;
+        legendLocation?: number;
+        legendLabel?: string;
     };
     PlotHeatmap: WidgetStyleProps & {
         axisAutoFit?: boolean;
@@ -173,6 +179,9 @@ export type WidgetPropsMap = {
         colormap?: number;
         xAxisLabel?: string;
         yAxisLabel?: string;
+        showLegend?: boolean;
+        legendLocation?: number;
+        legendLabel?: string;
     };
     ProgressBar: WidgetStyleProps & {
         fraction: number;
@@ -183,6 +192,9 @@ export type WidgetPropsMap = {
         dataPointsLimit?: number;
         xAxisLabel?: string;
         yAxisLabel?: string;
+        showLegend?: boolean;
+        legendLocation?: number;
+        legendLabel?: string;
     };
     PlotLine: WidgetStyleProps & {
         xAxisDecimalDigits?: number;
@@ -194,6 +206,9 @@ export type WidgetPropsMap = {
         dataPointsLimit?: number;
         xAxisLabel?: string;
         yAxisLabel?: string;
+        showLegend?: boolean;
+        legendLocation?: number;
+        legendLabel?: string;
     };
     Separator: WidgetStyleProps;
     SeparatorText: WidgetStyleProps & {

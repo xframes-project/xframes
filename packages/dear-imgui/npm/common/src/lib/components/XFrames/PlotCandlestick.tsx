@@ -20,6 +20,9 @@ export const PlotCandlestick = forwardRef<
             dataPointsLimit,
             xAxisLabel,
             yAxisLabel,
+            showLegend,
+            legendLocation,
+            legendLabel,
             style,
             hoverStyle,
             activeStyle,
@@ -64,6 +67,9 @@ export const PlotCandlestick = forwardRef<
                 dataPointsLimit={dataPointsLimit}
                 xAxisLabel={xAxisLabel}
                 yAxisLabel={yAxisLabel}
+                showLegend={showLegend}
+                legendLocation={legendLocation}
+                legendLabel={legendLabel}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

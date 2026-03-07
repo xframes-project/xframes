@@ -19,6 +19,10 @@ private:
     std::string m_xAxisLabel;
     std::string m_yAxisLabel;
 
+    bool m_showLegend = false;
+    int m_legendLocation = 5;
+    std::string m_legendLabel = "heatmap";
+
 public:
     static std::unique_ptr<PlotHeatmap> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
@@ -51,7 +55,24 @@ public:
             yAxisLabel = widgetDef["yAxisLabel"].template get<std::string>();
         }
 
-        return std::make_unique<PlotHeatmap>(view, id, axisAutoFit, scaleMin, scaleMax, colormap, xAxisLabel, yAxisLabel, maybeStyle);
+        bool showLegend = false;
+        int legendLocation = 5;
+        std::string legendLabel = "heatmap";
+        if (widgetDef.contains("showLegend")) {
+            showLegend = widgetDef["showLegend"].template get<bool>();
+        }
+        if (widgetDef.contains("legendLocation")) {
+            legendLocation = widgetDef["legendLocation"].template get<int>();
+        }
+        if (widgetDef.contains("legendLabel") && widgetDef["legendLabel"].is_string()) {
+            legendLabel = widgetDef["legendLabel"].template get<std::string>();
+        }
+
+        auto widget = std::make_unique<PlotHeatmap>(view, id, axisAutoFit, scaleMin, scaleMax, colormap, xAxisLabel, yAxisLabel, maybeStyle);
+        widget->m_showLegend = showLegend;
+        widget->m_legendLocation = legendLocation;
+        widget->m_legendLabel = legendLabel;
+        return widget;
     }
 
     bool HasCustomWidth() override;

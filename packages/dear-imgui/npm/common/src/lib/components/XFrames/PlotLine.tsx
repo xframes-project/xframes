@@ -21,6 +21,9 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
             dataPointsLimit,
             xAxisLabel,
             yAxisLabel,
+            showLegend,
+            legendLocation,
+            legendLabel,
             style,
             hoverStyle,
             activeStyle,
@@ -71,6 +74,9 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
                 dataPointsLimit={dataPointsLimit}
                 xAxisLabel={xAxisLabel}
                 yAxisLabel={yAxisLabel}
+                showLegend={showLegend}
+                legendLocation={legendLocation}
+                legendLabel={legendLabel}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

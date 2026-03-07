@@ -18,7 +18,13 @@ void PlotHeatmap::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     ImPlot::PushColormap(m_colormap);
 
-    if (ImPlot::BeginPlot("plot_heatmap", size, ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText | ImPlotFlags_NoLegend | ImPlotFlags_NoTitle)) {
+    ImPlotFlags plotFlags = ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText | ImPlotFlags_NoTitle;
+    if (!m_showLegend) plotFlags |= ImPlotFlags_NoLegend;
+
+    if (ImPlot::BeginPlot("plot_heatmap", size, plotFlags)) {
+        if (m_showLegend) {
+            ImPlot::SetupLegend(static_cast<ImPlotLocation>(m_legendLocation));
+        }
         ImPlotAxisFlags axFlags = ImPlotAxisFlags_NoGridLines | ImPlotAxisFlags_NoTickMarks;
         if (m_axisAutoFit) {
             axFlags |= ImPlotAxisFlags_AutoFit;
@@ -30,7 +36,7 @@ void PlotHeatmap::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         ImPlot::SetupAxes(xLabel, yLabel, axFlags, axFlags);
 
         if (m_rows > 0 && m_cols > 0 && !m_values.empty()) {
-            ImPlot::PlotHeatmap("heatmap", m_values.data(), m_rows, m_cols,
+            ImPlot::PlotHeatmap(m_legendLabel.c_str(), m_values.data(), m_rows, m_cols,
                 m_scaleMin, m_scaleMax, nullptr,
                 ImPlotPoint(0, 0), ImPlotPoint(static_cast<double>(m_cols), static_cast<double>(m_rows)));
         }
@@ -68,6 +74,16 @@ void PlotHeatmap::Patch(const json& widgetPatchDef, XFrames* view) {
     }
     if (widgetPatchDef.contains("yAxisLabel") && widgetPatchDef["yAxisLabel"].is_string()) {
         m_yAxisLabel = widgetPatchDef["yAxisLabel"].template get<std::string>();
+    }
+
+    if (widgetPatchDef.contains("showLegend")) {
+        m_showLegend = widgetPatchDef["showLegend"].template get<bool>();
+    }
+    if (widgetPatchDef.contains("legendLocation")) {
+        m_legendLocation = widgetPatchDef["legendLocation"].template get<int>();
+    }
+    if (widgetPatchDef.contains("legendLabel") && widgetPatchDef["legendLabel"].is_string()) {
+        m_legendLabel = widgetPatchDef["legendLabel"].template get<std::string>();
     }
 };
 

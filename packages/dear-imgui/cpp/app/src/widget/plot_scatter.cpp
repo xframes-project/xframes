@@ -16,7 +16,13 @@ void PlotScatter::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     auto size = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
-    if (ImPlot::BeginPlot("plot_scatter", size, ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText | ImPlotFlags_NoLegend | ImPlotFlags_NoTitle)) {
+    ImPlotFlags plotFlags = ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText | ImPlotFlags_NoTitle;
+    if (!m_showLegend) plotFlags |= ImPlotFlags_NoLegend;
+
+    if (ImPlot::BeginPlot("plot_scatter", size, plotFlags)) {
+        if (m_showLegend) {
+            ImPlot::SetupLegend(static_cast<ImPlotLocation>(m_legendLocation));
+        }
         const char* xLabel = m_xAxisLabel.empty() ? nullptr : m_xAxisLabel.c_str();
         const char* yLabel = m_yAxisLabel.empty() ? nullptr : m_yAxisLabel.c_str();
 
@@ -31,7 +37,7 @@ void PlotScatter::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         int count = static_cast<int>(m_xValues.size());
 
-        ImPlot::PlotScatter("scatter-plot", x_valuesPtr, y_valuesPtr, count);
+        ImPlot::PlotScatter(m_legendLabel.c_str(), x_valuesPtr, y_valuesPtr, count);
 
         ImPlot::EndPlot();
     }
@@ -52,6 +58,16 @@ void PlotScatter::Patch(const json& widgetPatchDef, XFrames* view) {
     }
     if (widgetPatchDef.contains("yAxisLabel") && widgetPatchDef["yAxisLabel"].is_string()) {
         m_yAxisLabel = widgetPatchDef["yAxisLabel"].template get<std::string>();
+    }
+
+    if (widgetPatchDef.contains("showLegend")) {
+        m_showLegend = widgetPatchDef["showLegend"].template get<bool>();
+    }
+    if (widgetPatchDef.contains("legendLocation")) {
+        m_legendLocation = widgetPatchDef["legendLocation"].template get<int>();
+    }
+    if (widgetPatchDef.contains("legendLabel") && widgetPatchDef["legendLabel"].is_string()) {
+        m_legendLabel = widgetPatchDef["legendLabel"].template get<std::string>();
     }
 };
 

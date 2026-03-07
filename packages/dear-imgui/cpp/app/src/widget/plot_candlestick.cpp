@@ -30,7 +30,13 @@ void PlotCandlestick::Render(XFrames* view, const std::optional<ImRect>& viewpor
 
         // RenderPlotCandlestick();
 
-    if (ImPlot::BeginPlot("Candlestick Chart",ImVec2(-1,0))) {
+    ImPlotFlags plotFlags = ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText | ImPlotFlags_NoTitle;
+    if (!m_showLegend) plotFlags |= ImPlotFlags_NoLegend;
+
+    if (ImPlot::BeginPlot("Candlestick Chart", size, plotFlags)) {
+        if (m_showLegend) {
+            ImPlot::SetupLegend(static_cast<ImPlotLocation>(m_legendLocation));
+        }
         // ImPlot::SetupAxes(nullptr,nullptr,0,ImPlotAxisFlags_AutoFit|ImPlotAxisFlags_RangeFit);
         const char* xLabel = m_xAxisLabel.empty() ? nullptr : m_xAxisLabel.c_str();
         const char* yLabel = m_yAxisLabel.empty() ? nullptr : m_yAxisLabel.c_str();
@@ -101,7 +107,7 @@ void PlotCandlestick::RenderPlotCandlestick() {
     }
 
     // begin plot item
-    if (ImPlot::BeginItem("plot_candlestick")) {
+    if (ImPlot::BeginItem(m_legendLabel.c_str())) {
         // override legend icon color
         ImPlot::GetCurrentItem()->Color = IM_COL32(64,64,64,255);
         // fit data if requested
@@ -148,6 +154,16 @@ void PlotCandlestick::Patch(const json& widgetPatchDef, XFrames* view) {
     }
     if (widgetPatchDef.contains("yAxisLabel") && widgetPatchDef["yAxisLabel"].is_string()) {
         m_yAxisLabel = widgetPatchDef["yAxisLabel"].template get<std::string>();
+    }
+
+    if (widgetPatchDef.contains("showLegend")) {
+        m_showLegend = widgetPatchDef["showLegend"].template get<bool>();
+    }
+    if (widgetPatchDef.contains("legendLocation")) {
+        m_legendLocation = widgetPatchDef["legendLocation"].template get<int>();
+    }
+    if (widgetPatchDef.contains("legendLabel") && widgetPatchDef["legendLabel"].is_string()) {
+        m_legendLabel = widgetPatchDef["legendLabel"].template get<std::string>();
     }
 };
 
