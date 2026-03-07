@@ -31,6 +31,7 @@ const attributesForElements = {
         "decimalDigits",
         "onChange",
     ],
+    "plot-bar": ["axisAutoFit", "dataPointsLimit"],
     "plot-line": [
         "xAxisDecimalDigits",
         "yAxisDecimalDigits",

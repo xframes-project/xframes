@@ -75,6 +75,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/item_tooltip.cpp
 #        ${XFRAMES_BASE_PATH}/src/widget/map_view.cpp
         ${XFRAMES_BASE_PATH}/src/widget/multi_slider.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/plot_bar.cpp
         ${XFRAMES_BASE_PATH}/src/widget/plot_line.cpp
         ${XFRAMES_BASE_PATH}/src/widget/plot_candlestick.cpp
         ${XFRAMES_BASE_PATH}/src/widget/separator.cpp

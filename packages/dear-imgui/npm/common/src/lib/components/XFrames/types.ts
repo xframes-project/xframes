@@ -148,6 +148,10 @@ export type WidgetPropsMap = {
         decimalDigits?: number;
         onChange?: (event: MultiSliderChangeEvent<number>) => void;
     };
+    PlotBar: WidgetStyleProps & {
+        axisAutoFit?: boolean;
+        dataPointsLimit?: number;
+    };
     PlotCandlestick: WidgetStyleProps & {
         bullColor?: string;
         bearColor?: string;
@@ -237,6 +241,7 @@ export type WidgetsRequiringId =
     | "InputText"
     | "MapView"
     | "MultiSlider"
+    | "PlotBar"
     | "PlotLine"
     | "PlotCandlestick"
     | "Slider"

@@ -26,6 +26,7 @@ declare global {
             "item-tooltip": ReactElementWidgets["ItemTooltip"];
             "map-view": ReactElementWidgets["MapView"];
             "multi-slider": ReactElementWidgets["MultiSlider"];
+            "plot-bar": ReactElementWidgets["PlotBar"];
             "plot-line": ReactElementWidgets["PlotLine"];
             "plot-candlestick": ReactElementWidgets["PlotCandlestick"];
             separator: ReactElementWidgets["Separator"];

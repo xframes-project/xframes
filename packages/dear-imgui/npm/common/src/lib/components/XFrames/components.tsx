@@ -14,6 +14,7 @@ import { ItemTooltip } from "./ItemTooltip";
 import { MapView } from "./MapView";
 import { MultiSlider } from "./MultiSlider";
 import { Node } from "./Node";
+import { PlotBar } from "./PlotBar";
 import { PlotCandlestick } from "./PlotCandlestick";
 import { PlotLine } from "./PlotLine";
 import { Separator } from "./Separator";
@@ -44,6 +45,7 @@ export const components = {
     MapView,
     MultiSlider,
     Node,
+    PlotBar,
     PlotCandlestick,
     PlotLine,
     SeparatorText,

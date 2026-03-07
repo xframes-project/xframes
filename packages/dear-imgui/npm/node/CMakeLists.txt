@@ -84,6 +84,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/input_text.cpp
         ${APP}/src/widget/item_tooltip.cpp
         ${APP}/src/widget/multi_slider.cpp
+        ${APP}/src/widget/plot_bar.cpp
         ${APP}/src/widget/plot_candlestick.cpp
         ${APP}/src/widget/plot_line.cpp
         ${APP}/src/widget/separator.cpp

@@ -27,6 +27,7 @@ import {
     WidgetReactElement,
 } from "./components/XFrames/types";
 import RWStyleSheet from "./stylesheet/stylesheet";
+import { PlotBarImperativeHandle } from "./components/XFrames/PlotBar";
 import { PlotLineImperativeHandle } from "./components/XFrames/PlotLine";
 import { PlotCandlestickImperativeHandle } from "./components/XFrames/PlotCandlestick";
 import { ImGuiCol, ImVec2, ImGuiStyleVar, ImPlotScale, ImPlotMarker } from "./types";
@@ -91,6 +92,7 @@ export {
     TableFilterEvent,
     TableRowClickEvent,
     RWStyleSheet,
+    PlotBarImperativeHandle,
     PlotLineImperativeHandle,
     PlotCandlestickImperativeHandle,
     ImPlotScale,

@@ -5,6 +5,7 @@ import {
   RWStyleSheet,
   TableImperativeHandle,
   PlotLineImperativeHandle,
+  PlotBarImperativeHandle,
   PlotCandlestickImperativeHandle,
   PlotCandlestickDataItem,
   InputTextChangeEvent,
@@ -143,6 +144,7 @@ export const Dashboard = () => {
 
   const tableRef = useRef<TableImperativeHandle>(null);
   const plotRef = useRef<PlotLineImperativeHandle>(null);
+  const barRef = useRef<PlotBarImperativeHandle>(null);
   const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -157,6 +159,24 @@ export const Dashboard = () => {
     const timer = setTimeout(() => {
       if (tableRef.current) {
         tableRef.current.setTableData(cityData);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load bar chart data
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (barRef.current) {
+        barRef.current.setData([
+          { x: 1, y: 45 },
+          { x: 2, y: 72 },
+          { x: 3, y: 58 },
+          { x: 4, y: 91 },
+          { x: 5, y: 36 },
+          { x: 6, y: 67 },
+          { x: 7, y: 83 },
+        ]);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -327,9 +347,18 @@ export const Dashboard = () => {
           </XFrames.Node>
         </XFrames.Node>
 
-        {/* Third row: Candlestick */}
+        {/* Third row: Bar Chart + Candlestick */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Bar Chart" />
+            <XFrames.PlotBar
+              ref={barRef}
+              axisAutoFit
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
             <XFrames.UnformattedText text="Candlestick Chart (synthetic data)" />
             <XFrames.PlotCandlestick
               ref={candlestickRef}
