@@ -32,6 +32,7 @@ const attributesForElements = {
         "onChange",
     ],
     "plot-bar": ["axisAutoFit", "dataPointsLimit"],
+    "plot-scatter": ["axisAutoFit", "dataPointsLimit"],
     "plot-line": [
         "xAxisDecimalDigits",
         "yAxisDecimalDigits",

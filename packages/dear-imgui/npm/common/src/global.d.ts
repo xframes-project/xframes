@@ -29,6 +29,7 @@ declare global {
             "plot-bar": ReactElementWidgets["PlotBar"];
             "plot-line": ReactElementWidgets["PlotLine"];
             "plot-candlestick": ReactElementWidgets["PlotCandlestick"];
+            "plot-scatter": ReactElementWidgets["PlotScatter"];
             separator: ReactElementWidgets["Separator"];
             "separator-text": ReactElementWidgets["SeparatorText"];
             slider: ReactElementWidgets["Slider"];

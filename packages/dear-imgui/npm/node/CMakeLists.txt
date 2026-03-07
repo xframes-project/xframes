@@ -87,6 +87,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/plot_bar.cpp
         ${APP}/src/widget/plot_candlestick.cpp
         ${APP}/src/widget/plot_line.cpp
+        ${APP}/src/widget/plot_scatter.cpp
         ${APP}/src/widget/separator.cpp
         ${APP}/src/widget/separator_text.cpp
         ${APP}/src/widget/slider.cpp

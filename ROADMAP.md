@@ -35,7 +35,7 @@ The Table widget today renders string-only cells with no interactivity beyond vi
 PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImPlot:
 
 - [x] Bar chart (`ImPlot::PlotBars`)
-- [ ] Scatter plot (`ImPlot::PlotScatter`)
+- [x] Scatter plot (`ImPlot::PlotScatter`)
 - [ ] Heatmap (`ImPlot::PlotHeatmap`) — useful for signal quality grids
 - [ ] Multi-series support for PlotLine (multiple Y datasets sharing one X axis)
 - [ ] Axis label configuration from JS

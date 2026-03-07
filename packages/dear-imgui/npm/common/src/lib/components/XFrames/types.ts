@@ -158,6 +158,10 @@ export type WidgetPropsMap = {
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
     };
+    PlotScatter: WidgetStyleProps & {
+        axisAutoFit?: boolean;
+        dataPointsLimit?: number;
+    };
     PlotLine: WidgetStyleProps & {
         xAxisDecimalDigits?: number;
         yAxisDecimalDigits?: number;
@@ -244,6 +248,7 @@ export type WidgetsRequiringId =
     | "PlotBar"
     | "PlotLine"
     | "PlotCandlestick"
+    | "PlotScatter"
     | "Slider"
     | "Table"
     | "TabBar"

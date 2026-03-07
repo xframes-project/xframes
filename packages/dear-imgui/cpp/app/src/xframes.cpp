@@ -47,6 +47,7 @@
 #include "widget/plot_bar.h"
 #include "widget/plot_candlestick.h"
 #include "widget/plot_line.h"
+#include "widget/plot_scatter.h"
 #include "widget/separator.h"
 #include "widget/separator_text.h"
 #include "widget/slider.h"
@@ -144,6 +145,7 @@ void XFrames::SetUpElementCreatorFunctions() {
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;
     m_element_init_fn["plot-line"] = &makeWidget<PlotLine>;
+    m_element_init_fn["plot-scatter"] = &makeWidget<PlotScatter>;
     m_element_init_fn["plot-candlestick"] = &makeWidget<PlotCandlestick>;
 
     m_element_init_fn["item-tooltip"] = &makeWidget<ItemTooltip>;

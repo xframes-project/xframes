@@ -17,6 +17,7 @@ import { Node } from "./Node";
 import { PlotBar } from "./PlotBar";
 import { PlotCandlestick } from "./PlotCandlestick";
 import { PlotLine } from "./PlotLine";
+import { PlotScatter } from "./PlotScatter";
 import { Separator } from "./Separator";
 import { SeparatorText } from "./SeparatorText";
 import { Slider } from "./Slider";
@@ -48,6 +49,7 @@ export const components = {
     PlotBar,
     PlotCandlestick,
     PlotLine,
+    PlotScatter,
     SeparatorText,
     Separator,
     Slider,

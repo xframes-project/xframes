@@ -6,6 +6,7 @@ import {
   TableImperativeHandle,
   PlotLineImperativeHandle,
   PlotBarImperativeHandle,
+  PlotScatterImperativeHandle,
   PlotCandlestickImperativeHandle,
   PlotCandlestickDataItem,
   InputTextChangeEvent,
@@ -145,6 +146,7 @@ export const Dashboard = () => {
   const tableRef = useRef<TableImperativeHandle>(null);
   const plotRef = useRef<PlotLineImperativeHandle>(null);
   const barRef = useRef<PlotBarImperativeHandle>(null);
+  const scatterRef = useRef<PlotScatterImperativeHandle>(null);
   const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -177,6 +179,23 @@ export const Dashboard = () => {
           { x: 6, y: 67 },
           { x: 7, y: 83 },
         ]);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load scatter plot data
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scatterRef.current) {
+        const data = [];
+        for (let i = 0; i < 100; i++) {
+          data.push({
+            x: Math.cos(i * 0.1) * 10 + Math.random() * 4 - 2,
+            y: Math.sin(i * 0.1) * 10 + Math.random() * 4 - 2,
+          });
+        }
+        scatterRef.current.setData(data);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -347,7 +366,7 @@ export const Dashboard = () => {
           </XFrames.Node>
         </XFrames.Node>
 
-        {/* Third row: Bar Chart + Candlestick */}
+        {/* Third row: Bar Chart + Scatter Plot */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
             <XFrames.UnformattedText text="Bar Chart" />
@@ -359,6 +378,18 @@ export const Dashboard = () => {
           </XFrames.Node>
 
           <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Scatter Plot" />
+            <XFrames.PlotScatter
+              ref={scatterRef}
+              axisAutoFit
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Fourth row: Candlestick */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
             <XFrames.UnformattedText text="Candlestick Chart (synthetic data)" />
             <XFrames.PlotCandlestick
               ref={candlestickRef}

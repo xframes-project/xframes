@@ -110,6 +110,10 @@ The Table widget supports sorting, per-column filtering, row selection, column r
 
 Wraps `ImPlot::PlotBars`. Same data model as PlotLine: parallel `double` vectors for X (positions) and Y (heights). Props: `axisAutoFit`, `dataPointsLimit`. Internal ops: `setData` (array of `{x, y}`), `appendData` (single `x, y`), `resetData`, `setAxesAutoFit`. The `setData` op accepts a JSON array of `{x, y}` objects. Existing `appendDataToPlotLine` and `resetPlotData` on `WidgetRegistrationService` can be reused since they send generic ops by widget ID; `setPlotBarData` is the dedicated batch setter.
 
+## PlotScatter Widget
+
+Wraps `ImPlot::PlotScatter`. Identical data model and API to PlotBar — parallel `double` vectors for X/Y, same props (`axisAutoFit`, `dataPointsLimit`), same internal ops (`setData`, `appendData`, `resetData`, `setAxesAutoFit`). `setPlotScatterData` is the dedicated batch setter on `WidgetRegistrationService`.
+
 ## InputText Widget
 
 Uses `imgui_stdlib.h` for `std::string`-based input — no buffer size limits or manual buffer management. Supports optional props: `multiline` (renders `InputTextMultiline`), `password` (`ImGuiInputTextFlags_Password`), `readOnly` (`ImGuiInputTextFlags_ReadOnly`), `numericOnly` (`ImGuiInputTextFlags_CharsDecimal`). Flags are per-instance (not static) to avoid sharing state across widget instances.
