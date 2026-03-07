@@ -44,7 +44,7 @@ PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImP
 
 ### Misc
 
-- [ ] Increase PlotLine/PlotCandlestick data point cap (currently 6,000 — may need to be configurable)
+- [x] Increase PlotLine/PlotCandlestick data point cap (currently 6,000 — may need to be configurable)
 - [ ] Progress bar widget
 - [ ] Color indicator widget (for fix status, signal health)
 - [ ] Load Unicode-capable font glyphs so Table boolean columns can render ✓/✗ instead of Yes/No
