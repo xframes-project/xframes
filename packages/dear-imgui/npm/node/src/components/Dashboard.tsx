@@ -5,6 +5,8 @@ import {
   RWStyleSheet,
   TableImperativeHandle,
   PlotLineImperativeHandle,
+  PlotCandlestickImperativeHandle,
+  PlotCandlestickDataItem,
   InputTextChangeEvent,
   ComboChangeEvent,
   SliderChangeEvent,
@@ -79,6 +81,23 @@ const tableColumns: WidgetPropsMap["Table"]["columns"] = [
 
 const comboOptions = ["All", "Asia", "Europe", "Americas", "Africa"];
 
+function generateCandlestickData(): PlotCandlestickDataItem[] {
+  const data: PlotCandlestickDataItem[] = [];
+  let price = 150;
+  const startDate = new Date("2025-01-01").getTime() / 1000;
+  for (let i = 0; i < 90; i++) {
+    const date = startDate + i * 86400;
+    const open = price;
+    const change = (Math.random() - 0.48) * 5;
+    const close = open + change;
+    const low = Math.min(open, close) - Math.random() * 3;
+    const high = Math.max(open, close) + Math.random() * 3;
+    data.push({ date, open, close, low, high });
+    price = close;
+  }
+  return data;
+}
+
 const styles = RWStyleSheet.create({
   row: {
     flexDirection: "row",
@@ -118,6 +137,7 @@ export const Dashboard = () => {
 
   const tableRef = useRef<TableImperativeHandle>(null);
   const plotRef = useRef<PlotLineImperativeHandle>(null);
+  const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
   const [frequency, setFrequency] = useState(3);
@@ -131,6 +151,16 @@ export const Dashboard = () => {
     const timer = setTimeout(() => {
       if (tableRef.current) {
         tableRef.current.setTableData(cityData);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load candlestick data
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (candlestickRef.current) {
+        candlestickRef.current.setData(generateCandlestickData());
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -287,6 +317,20 @@ export const Dashboard = () => {
               onClick={handleThemeToggle}
             />
           </XFrames.Node>
+        </XFrames.Node>
+      </XFrames.Node>
+
+      {/* Third row: Candlestick */}
+      <XFrames.Node style={styles.row}>
+        <XFrames.Node style={styles.leftColumn}>
+          <XFrames.UnformattedText text="Candlestick Chart (synthetic data)" />
+          <XFrames.PlotCandlestick
+            ref={candlestickRef}
+            axisAutoFit
+            bullColor="#26a69a"
+            bearColor="#ef5350"
+            style={styles.plotArea}
+          />
         </XFrames.Node>
       </XFrames.Node>
     </>

@@ -40,7 +40,7 @@ PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImP
 - [ ] Multi-series support for PlotLine (multiple Y datasets sharing one X axis)
 - [ ] Axis label configuration from JS
 - [ ] Legend control
-- [ ] Fix: wire PlotCandlestick `bullColor`/`bearColor` props through to C++ (currently ignored)
+- [x] Fix: wire PlotCandlestick `bullColor`/`bearColor` props through to C++ (currently ignored)
 
 ### Misc
 

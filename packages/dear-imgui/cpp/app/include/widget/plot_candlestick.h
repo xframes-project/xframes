@@ -2,6 +2,7 @@
 
 #include "shared.h"
 #include "styled_widget.h"
+#include "color_helpers.h"
 
 using PlotCandlestickDates = std::vector<double>;
 using PlotCandlestickOpens = std::vector<double>;
@@ -31,9 +32,6 @@ private:
 
     bool m_showTooltip = true;
 
-    // std::optional<ImVec4> bullCol;
-    // std::optional<ImVec4> bearCol;
-
     ImVec4 m_bullCol = ImVec4(0.000f, 1.000f, 0.441f, 1.000f);
     ImVec4 m_bearCol = ImVec4(0.853f, 0.050f, 0.310f, 1.000f);
 
@@ -51,10 +49,16 @@ public:
         if (widgetDef.contains("axisAutoFit")) {
             axisAutoFit = widgetDef["axisAutoFit"].template get<bool>();
         }
+        if (widgetDef.contains("bullColor")) {
+            auto maybeColor = extractColor(widgetDef["bullColor"]);
+            if (maybeColor.has_value()) bullCol = maybeColor.value();
+        }
+        if (widgetDef.contains("bearColor")) {
+            auto maybeColor = extractColor(widgetDef["bearColor"]);
+            if (maybeColor.has_value()) bearCol = maybeColor.value();
+        }
 
-        return std::make_unique<PlotCandlestick>(view, id, bullCol, bearCol, axisAutoFit, maybeStyle);
-
-        // throw std::invalid_argument("Invalid JSON data");
+        return std::make_unique<PlotCandlestick>(view, id, bullCol, bearCol, axisAutoFit, maybeStyle);;
     }
 
     static int axisValueFormatter(double value, char* buff, int size, void* decimalPlaces) {

@@ -132,6 +132,14 @@ void PlotCandlestick::Patch(const json& widgetPatchDef, XFrames* view) {
         const auto axisAutoFit = widgetPatchDef["axisAutoFit"].template get<bool>();
         SetAxesAutoFit(axisAutoFit);
     }
+    if (widgetPatchDef.contains("bullColor")) {
+        auto maybeColor = extractColor(widgetPatchDef["bullColor"]);
+        if (maybeColor.has_value()) m_bullCol = maybeColor.value();
+    }
+    if (widgetPatchDef.contains("bearColor")) {
+        auto maybeColor = extractColor(widgetPatchDef["bearColor"]);
+        if (maybeColor.has_value()) m_bearCol = maybeColor.value();
+    }
 };
 
 bool PlotCandlestick::HasInternalOps() {
