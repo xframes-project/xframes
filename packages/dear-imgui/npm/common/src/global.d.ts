@@ -31,6 +31,7 @@ declare global {
             "plot-line": ReactElementWidgets["PlotLine"];
             "plot-candlestick": ReactElementWidgets["PlotCandlestick"];
             "plot-scatter": ReactElementWidgets["PlotScatter"];
+            "progress-bar": ReactElementWidgets["ProgressBar"];
             separator: ReactElementWidgets["Separator"];
             "separator-text": ReactElementWidgets["SeparatorText"];
             slider: ReactElementWidgets["Slider"];

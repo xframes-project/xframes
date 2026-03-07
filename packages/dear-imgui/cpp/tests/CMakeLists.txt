@@ -83,6 +83,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/plot_scatter.cpp
         ../app/src/widget/separator.cpp
         ../app/src/widget/separator_text.cpp
+        ../app/src/widget/progress_bar.cpp
         ../app/src/widget/slider.cpp
         ../app/src/widget/table.cpp
         ../app/src/widget/tabs.cpp

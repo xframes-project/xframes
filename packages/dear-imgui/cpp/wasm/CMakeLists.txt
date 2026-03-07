@@ -74,6 +74,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/plot_candlestick.cpp
     ${XFRAMES_BASE_PATH}/src/widget/separator.cpp
     ${XFRAMES_BASE_PATH}/src/widget/separator_text.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/progress_bar.cpp
     ${XFRAMES_BASE_PATH}/src/widget/slider.cpp
     ${XFRAMES_BASE_PATH}/src/widget/table.cpp
     ${XFRAMES_BASE_PATH}/src/widget/tabs.cpp

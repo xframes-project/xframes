@@ -373,6 +373,11 @@ export const Dashboard = () => {
           </XFrames.Node>
 
           <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Progress" />
+            <XFrames.ProgressBar fraction={0.75} overlay="75%" />
+            <XFrames.ProgressBar fraction={0.42} overlay="Uploading..." />
+            <XFrames.ProgressBar fraction={1.0} />
+
             <XFrames.UnformattedText text="Status" />
             <XFrames.Node style={styles.statusPanel}>
               <XFrames.UnformattedText text={`Theme: ${themeName}`} />

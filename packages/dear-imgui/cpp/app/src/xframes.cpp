@@ -45,6 +45,7 @@
 #include "widget/item_tooltip.h"
 #include "widget/multi_slider.h"
 #include "widget/plot_bar.h"
+#include "widget/progress_bar.h"
 #include "widget/plot_candlestick.h"
 #include "widget/plot_heatmap.h"
 #include "widget/plot_line.h"
@@ -159,6 +160,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["checkbox"] = &makeWidget<Checkbox>;
     m_element_init_fn["di-button"] = &makeWidget<Button>;
 
+    m_element_init_fn["progress-bar"] = &makeWidget<ProgressBar>;
     m_element_init_fn["separator-text"] = &makeWidget<SeparatorText>;
     m_element_init_fn["bullet-text"] = &makeWidget<BulletText>;
     m_element_init_fn["unformatted-text"] = &makeWidget<UnformattedText>;

@@ -164,6 +164,10 @@ export type WidgetPropsMap = {
         scaleMax?: number;
         colormap?: number;
     };
+    ProgressBar: WidgetStyleProps & {
+        fraction: number;
+        overlay?: string;
+    };
     PlotScatter: WidgetStyleProps & {
         axisAutoFit?: boolean;
         dataPointsLimit?: number;

@@ -44,6 +44,7 @@ const attributesForElements = {
         "dataPointsLimit",
     ],
     "plot-candlestick": ["axisAutoFit", "bullColor", "bearColor", "dataPointsLimit"],
+    "progress-bar": ["fraction", "overlay"],
     separator: [],
     "separator-text": ["label"],
     slider: ["sliderType", "label", "defaultValue", "min", "max", "onChange"],
