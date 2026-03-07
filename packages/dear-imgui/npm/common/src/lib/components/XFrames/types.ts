@@ -158,6 +158,12 @@ export type WidgetPropsMap = {
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
     };
+    PlotHeatmap: WidgetStyleProps & {
+        axisAutoFit?: boolean;
+        scaleMin?: number;
+        scaleMax?: number;
+        colormap?: number;
+    };
     PlotScatter: WidgetStyleProps & {
         axisAutoFit?: boolean;
         dataPointsLimit?: number;
@@ -246,6 +252,7 @@ export type WidgetsRequiringId =
     | "MapView"
     | "MultiSlider"
     | "PlotBar"
+    | "PlotHeatmap"
     | "PlotLine"
     | "PlotCandlestick"
     | "PlotScatter"

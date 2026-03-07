@@ -32,6 +32,7 @@ const attributesForElements = {
         "onChange",
     ],
     "plot-bar": ["axisAutoFit", "dataPointsLimit"],
+    "plot-heatmap": ["axisAutoFit", "scaleMin", "scaleMax", "colormap"],
     "plot-scatter": ["axisAutoFit", "dataPointsLimit"],
     "plot-line": [
         "xAxisDecimalDigits",

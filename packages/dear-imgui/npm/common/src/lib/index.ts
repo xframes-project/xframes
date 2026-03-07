@@ -28,6 +28,7 @@ import {
 } from "./components/XFrames/types";
 import RWStyleSheet from "./stylesheet/stylesheet";
 import { PlotBarImperativeHandle } from "./components/XFrames/PlotBar";
+import { PlotHeatmapImperativeHandle } from "./components/XFrames/PlotHeatmap";
 import { PlotLineImperativeHandle } from "./components/XFrames/PlotLine";
 import { PlotScatterImperativeHandle } from "./components/XFrames/PlotScatter";
 import { PlotCandlestickImperativeHandle } from "./components/XFrames/PlotCandlestick";
@@ -94,6 +95,7 @@ export {
     TableRowClickEvent,
     RWStyleSheet,
     PlotBarImperativeHandle,
+    PlotHeatmapImperativeHandle,
     PlotLineImperativeHandle,
     PlotScatterImperativeHandle,
     PlotCandlestickImperativeHandle,

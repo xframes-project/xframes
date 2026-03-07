@@ -156,6 +156,21 @@ export class WidgetRegistrationService {
         }
     }
 
+    setPlotHeatmapData(id: string, rows: number, cols: number, values: number[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setData", rows, cols, values }),
+                );
+            } catch (error) {
+                // todo: propagate this?
+                console.error(error);
+            }
+        }
+    }
+
     setPlotScatterData(id: string, data: { x: number; y: number }[]) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

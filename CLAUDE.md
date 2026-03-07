@@ -114,6 +114,10 @@ Wraps `ImPlot::PlotBars`. Same data model as PlotLine: parallel `double` vectors
 
 Wraps `ImPlot::PlotScatter`. Identical data model and API to PlotBar — parallel `double` vectors for X/Y, same props (`axisAutoFit`, `dataPointsLimit`), same internal ops (`setData`, `appendData`, `resetData`, `setAxesAutoFit`). `setPlotScatterData` is the dedicated batch setter on `WidgetRegistrationService`.
 
+## PlotHeatmap Widget
+
+Wraps `ImPlot::PlotHeatmap`. Different data model from other plots: flat 1D array of `rows × cols` doubles (row-major). Props: `axisAutoFit`, `scaleMin`, `scaleMax` (0/0 = auto-scale), `colormap` (ImPlotColormap enum, default `Viridis`). Internal ops: `setData` (with `rows`, `cols`, `values` array), `resetData`, `setAxesAutoFit`. No `appendData` — heatmaps are batch-only. `setPlotHeatmapData(id, rows, cols, values)` is the dedicated setter on `WidgetRegistrationService`. Bounds are set to `(0,0)-(cols,rows)` so cells map 1:1 to plot coordinates.
+
 ## InputText Widget
 
 Uses `imgui_stdlib.h` for `std::string`-based input — no buffer size limits or manual buffer management. Supports optional props: `multiline` (renders `InputTextMultiline`), `password` (`ImGuiInputTextFlags_Password`), `readOnly` (`ImGuiInputTextFlags_ReadOnly`), `numericOnly` (`ImGuiInputTextFlags_CharsDecimal`). Flags are per-instance (not static) to avoid sharing state across widget instances.

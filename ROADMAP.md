@@ -36,7 +36,7 @@ PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImP
 
 - [x] Bar chart (`ImPlot::PlotBars`)
 - [x] Scatter plot (`ImPlot::PlotScatter`)
-- [ ] Heatmap (`ImPlot::PlotHeatmap`) — useful for signal quality grids
+- [x] Heatmap (`ImPlot::PlotHeatmap`) — useful for signal quality grids
 - [ ] Multi-series support for PlotLine (multiple Y datasets sharing one X axis)
 - [ ] Axis label configuration from JS
 - [ ] Legend control

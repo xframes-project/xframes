@@ -16,6 +16,7 @@ import { MultiSlider } from "./MultiSlider";
 import { Node } from "./Node";
 import { PlotBar } from "./PlotBar";
 import { PlotCandlestick } from "./PlotCandlestick";
+import { PlotHeatmap } from "./PlotHeatmap";
 import { PlotLine } from "./PlotLine";
 import { PlotScatter } from "./PlotScatter";
 import { Separator } from "./Separator";
@@ -48,6 +49,7 @@ export const components = {
     Node,
     PlotBar,
     PlotCandlestick,
+    PlotHeatmap,
     PlotLine,
     PlotScatter,
     SeparatorText,

@@ -6,6 +6,7 @@ import {
   TableImperativeHandle,
   PlotLineImperativeHandle,
   PlotBarImperativeHandle,
+  PlotHeatmapImperativeHandle,
   PlotScatterImperativeHandle,
   PlotCandlestickImperativeHandle,
   PlotCandlestickDataItem,
@@ -146,6 +147,7 @@ export const Dashboard = () => {
   const tableRef = useRef<TableImperativeHandle>(null);
   const plotRef = useRef<PlotLineImperativeHandle>(null);
   const barRef = useRef<PlotBarImperativeHandle>(null);
+  const heatmapRef = useRef<PlotHeatmapImperativeHandle>(null);
   const scatterRef = useRef<PlotScatterImperativeHandle>(null);
   const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
 
@@ -196,6 +198,24 @@ export const Dashboard = () => {
           });
         }
         scatterRef.current.setData(data);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load heatmap data (8x8 gradient)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (heatmapRef.current) {
+        const rows = 8;
+        const cols = 8;
+        const values: number[] = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            values.push(Math.sin(r * 0.5) * Math.cos(c * 0.5) * 50 + 50);
+          }
+        }
+        heatmapRef.current.setData(rows, cols, values);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -387,9 +407,18 @@ export const Dashboard = () => {
           </XFrames.Node>
         </XFrames.Node>
 
-        {/* Fourth row: Candlestick */}
+        {/* Fourth row: Heatmap + Candlestick */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Heatmap" />
+            <XFrames.PlotHeatmap
+              ref={heatmapRef}
+              axisAutoFit
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
             <XFrames.UnformattedText text="Candlestick Chart (synthetic data)" />
             <XFrames.PlotCandlestick
               ref={candlestickRef}
