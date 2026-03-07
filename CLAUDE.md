@@ -92,6 +92,22 @@ Uses a **vendored React Native Fabric renderer** (`ReactFabric-prod.js`) — not
 
 **Important:** Do not use esbuild directly to bundle `@xframes/common` on Windows — it truncates output at 128KB. Use tsup (which works correctly with `splitting: false`).
 
+## Table Widget
+
+The Table widget supports sorting, per-column filtering, row selection, column reordering, and column visibility toggles.
+
+**Table-level boolean props:** `filterable`, `reorderable`, `hideable`
+
+**Per-column flags** (boolean fields on column definitions): `defaultHide`, `defaultSort`, `widthFixed`, `noSort`, `noResize`, `noReorder`, `noHide`. These map to `ImGuiTableColumnFlags_*` and are parsed in `Table::extractColumns()`.
+
+**Flag logic:** When `hideable` is set on the table, columns are hideable by default (the `NoHide` flag is dropped). Use `noHide: true` on individual columns to pin them. When `hideable` is not set, all columns get `NoHide` automatically (original behavior).
+
+**Event callbacks:** `onSort`, `onFilter`, `onRowClick` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 13 arguments (indices 0–12).
+
+## C++ Gotchas
+
+- MSVC does not allow default member initializers in unnamed structs used with `using` typedefs. Use named `struct Foo { ... };` instead of `using Foo = struct { ... };` when fields have defaults.
+
 ## Platform Notes
 
 - Desktop rendering: GLFW + OpenGL 3

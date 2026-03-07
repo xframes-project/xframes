@@ -45,7 +45,7 @@ const attributesForElements = {
     slider: ["sliderType", "label", "defaultValue", "min", "max", "onChange"],
     "tab-bar": ["label"],
     "tab-item": ["label", "onOpenChange"],
-    "di-table": ["columns", "initialData", "clipRows", "filterable", "onSort", "onFilter", "onRowClick"],
+    "di-table": ["columns", "initialData", "clipRows", "filterable", "reorderable", "hideable", "onSort", "onFilter", "onRowClick"],
     "text-wrap": ["width"],
     "tree-node": [
         "itemId",

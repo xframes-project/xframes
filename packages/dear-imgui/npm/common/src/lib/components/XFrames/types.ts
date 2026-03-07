@@ -174,10 +174,23 @@ export type WidgetPropsMap = {
         onOpenChange?: (event: TabItemChangeEvent) => void;
     };
     Table: WidgetStyleProps & {
-        columns: { heading: string; fieldId?: string }[];
+        columns: {
+            heading: string;
+            fieldId?: string;
+            type?: "string" | "number" | "boolean";
+            defaultHide?: boolean;
+            defaultSort?: boolean;
+            widthFixed?: boolean;
+            noSort?: boolean;
+            noResize?: boolean;
+            noReorder?: boolean;
+            noHide?: boolean;
+        }[];
         initialData?: string;
         clipRows?: number;
         filterable?: boolean;
+        reorderable?: boolean;
+        hideable?: boolean;
         onSort?: (event: TableSortEvent) => void;
         onFilter?: (event: TableFilterEvent) => void;
         onRowClick?: (event: TableRowClickEvent) => void;

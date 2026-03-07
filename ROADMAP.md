@@ -17,10 +17,10 @@ The Table widget today renders string-only cells with no interactivity beyond vi
 - [x] Column sorting (ascending/descending toggle, sort callback to JS)
 - [x] Column filtering / search (per-column text filter via `ImGuiTextFilter`, `filterable` prop)
 - [x] Row selection with click event emitted to JS
-- [ ] Typed cell values (numbers, booleans, icons — not just strings)
-- [ ] Column reordering (`ImGuiTableFlags_Reorderable`)
-- [ ] Column visibility toggles (`ImGuiTableFlags_Hideable`)
-- [ ] Configurable column flags from JS (width mode, default sort, etc.)
+- [x] Typed cell values (numbers, booleans, icons — not just strings)
+- [x] Column reordering (`ImGuiTableFlags_Reorderable`)
+- [x] Column visibility toggles (`ImGuiTableFlags_Hideable`)
+- [x] Configurable column flags from JS (width mode, default sort, etc.)
 
 ### InputText
 
@@ -49,6 +49,7 @@ PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImP
 - [ ] Increase PlotLine/PlotCandlestick data point cap (currently 6,000 — may need to be configurable)
 - [ ] Progress bar widget
 - [ ] Color indicator widget (for fix status, signal health)
+- [ ] Load Unicode-capable font glyphs so Table boolean columns can render ✓/✗ instead of Yes/No
 
 ---
 

@@ -16,6 +16,8 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
             clipRows,
             initialData,
             filterable,
+            reorderable,
+            hideable,
             onSort,
             onFilter,
             onRowClick,
@@ -60,6 +62,8 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
                 columns={columns}
                 clipRows={clipRows}
                 filterable={filterable}
+                reorderable={reorderable}
+                hideable={hideable}
                 onSort={onSort}
                 onFilter={onFilter}
                 onRowClick={onRowClick}

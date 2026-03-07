@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include "widget/table.h"
 #include "xframes.h"
 
@@ -14,7 +15,7 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             int frozenRows = m_filterable ? 2 : 1;
             ImGui::TableSetupScrollFreeze(0, frozenRows);
             for (const auto& columnSpec : m_columns) {
-                ImGui::TableSetupColumn(columnSpec.heading.c_str(), ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn(columnSpec.heading.c_str(), columnSpec.flags);
             }
             ImGui::TableHeadersRow();
 
@@ -25,8 +26,16 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                     ImGui::TableSetColumnIndex(i);
                     ImGui::PushID(i);
                     ImGui::SetNextItemWidth(-FLT_MIN);
-                    if (m_filters[i].Draw("##filter")) {
-                        view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
+                    if (m_columns[i].type == "boolean") {
+                        const char* boolOptions[] = { "All", "Yes", "No" };
+                        if (ImGui::Combo("##filter", &m_boolFilterStates[i], boolOptions, 3)) {
+                            const char* labels[] = { "", "Yes", "No" };
+                            view->m_onTableFilter(m_id, i, std::string(labels[m_boolFilterStates[i]]));
+                        }
+                    } else {
+                        if (m_filters[i].Draw("##filter")) {
+                            view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
+                        }
                     }
                     ImGui::PopID();
                 }
@@ -37,12 +46,22 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                     const auto& spec = sort_specs->Specs[0];
                     if (spec.ColumnIndex < (int)m_columns.size() && m_columns[spec.ColumnIndex].fieldId.has_value()) {
                         const auto& fieldId = m_columns[spec.ColumnIndex].fieldId.value();
+                        const auto& colType = m_columns[spec.ColumnIndex].type;
                         bool ascending = spec.SortDirection == ImGuiSortDirection_Ascending;
                         std::sort(m_data.begin(), m_data.end(), [&](const TableRow& a, const TableRow& b) {
                             auto itA = a.find(fieldId);
                             auto itB = b.find(fieldId);
                             if (itA == a.end()) return false;
                             if (itB == b.end()) return true;
+                            if (colType == "number") {
+                                try {
+                                    double numA = std::stod(itA->second);
+                                    double numB = std::stod(itB->second);
+                                    return ascending ? numA < numB : numA > numB;
+                                } catch (...) {
+                                    return ascending ? itA->second < itB->second : itA->second > itB->second;
+                                }
+                            }
                             return ascending ? itA->second < itB->second : itA->second > itB->second;
                         });
                     }
@@ -84,7 +103,7 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                             if (m_columns[i].fieldId.has_value()) {
                                 auto& fieldId = m_columns[i].fieldId.value();
                                 if (m_data[row].contains(fieldId)) {
-                                    ImGui::TextUnformatted(m_data[row][fieldId].c_str());
+                                    RenderCell(m_data[row][fieldId], m_columns[i].type);
                                 }
                             }
                         }
@@ -111,7 +130,7 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                             if (m_columns[i].fieldId.has_value()) {
                                 auto& fieldId = m_columns[i].fieldId.value();
                                 if (m_data[row].contains(fieldId)) {
-                                    ImGui::TextUnformatted(m_data[row][fieldId].c_str());
+                                    RenderCell(m_data[row][fieldId], m_columns[i].type);
                                 }
                             }
                         }
@@ -122,7 +141,7 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
     } else if (ImGui::BeginTable("t", (int)m_columns.size(), m_flags, outerSize)) {
         for (const auto& columnSpec : m_columns) {
-            ImGui::TableSetupColumn(columnSpec.heading.c_str(), ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(columnSpec.heading.c_str(), columnSpec.flags);
         }
 
         ImGui::TableHeadersRow();
@@ -134,8 +153,16 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 ImGui::TableSetColumnIndex(i);
                 ImGui::PushID(i);
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                if (m_filters[i].Draw("##filter")) {
-                    view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
+                if (m_columns[i].type == "boolean") {
+                    const char* boolOptions[] = { "All", "Yes", "No" };
+                    if (ImGui::Combo("##filter", &m_boolFilterStates[i], boolOptions, 3)) {
+                        const char* labels[] = { "", "Yes", "No" };
+                        view->m_onTableFilter(m_id, i, std::string(labels[m_boolFilterStates[i]]));
+                    }
+                } else {
+                    if (m_filters[i].Draw("##filter")) {
+                        view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
+                    }
                 }
                 ImGui::PopID();
             }
@@ -146,12 +173,22 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 const auto& spec = sort_specs->Specs[0];
                 if (spec.ColumnIndex < (int)m_columns.size() && m_columns[spec.ColumnIndex].fieldId.has_value()) {
                     const auto& fieldId = m_columns[spec.ColumnIndex].fieldId.value();
+                    const auto& colType = m_columns[spec.ColumnIndex].type;
                     bool ascending = spec.SortDirection == ImGuiSortDirection_Ascending;
                     std::sort(m_data.begin(), m_data.end(), [&](const TableRow& a, const TableRow& b) {
                         auto itA = a.find(fieldId);
                         auto itB = b.find(fieldId);
                         if (itA == a.end()) return false;
                         if (itB == b.end()) return true;
+                        if (colType == "number") {
+                            try {
+                                double numA = std::stod(itA->second);
+                                double numB = std::stod(itB->second);
+                                return ascending ? numA < numB : numA > numB;
+                            } catch (...) {
+                                return ascending ? itA->second < itB->second : itA->second > itB->second;
+                            }
+                        }
                         return ascending ? itA->second < itB->second : itA->second > itB->second;
                     });
                 }
@@ -183,7 +220,7 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                     auto& fieldId = m_columns[i].fieldId.value();
 
                     if (dataRow.contains(fieldId)) {
-                        ImGui::TextUnformatted(dataRow[fieldId].c_str());
+                        RenderCell(dataRow[fieldId], m_columns[i].type);
                     }
                 }
             }
@@ -207,6 +244,24 @@ void Table::Patch(const json& widgetPatchDef, XFrames* view) {
         m_filterable = widgetPatchDef["filterable"].template get<bool>();
         if (m_filterable && m_filters.size() != m_columns.size()) {
             m_filters.resize(m_columns.size());
+            m_boolFilterStates.resize(m_columns.size(), 0);
+        }
+    }
+
+    if (widgetPatchDef.contains("reorderable") && widgetPatchDef["reorderable"].is_boolean()) {
+        if (widgetPatchDef["reorderable"].template get<bool>()) {
+            m_flags |= ImGuiTableFlags_Reorderable;
+        } else {
+            m_flags &= ~ImGuiTableFlags_Reorderable;
+        }
+    }
+
+    if (widgetPatchDef.contains("hideable") && widgetPatchDef["hideable"].is_boolean()) {
+        m_hideable = widgetPatchDef["hideable"].template get<bool>();
+        if (m_hideable) {
+            m_flags |= ImGuiTableFlags_Hideable;
+        } else {
+            m_flags &= ~ImGuiTableFlags_Hideable;
         }
     }
 };
@@ -266,6 +321,10 @@ TableData Table::parseTableData(const json& jsonTableData) {
                 for (auto& [parsedRowFieldKey, parsedRowFieldValue] : parsedRow.items()) {
                     if (parsedRowFieldValue.is_string()) {
                         row[parsedRowFieldKey] = parsedRowFieldValue.template get<std::string>();
+                    } else if (parsedRowFieldValue.is_number()) {
+                        row[parsedRowFieldKey] = std::to_string(parsedRowFieldValue.template get<double>());
+                    } else if (parsedRowFieldValue.is_boolean()) {
+                        row[parsedRowFieldKey] = parsedRowFieldValue.template get<bool>() ? "true" : "false";
                     }
                 }
 
