@@ -332,12 +332,15 @@ void ImGuiRenderer::RenderDrawData() {
 #endif
 
 void ImGuiRenderer::CleanUp() {
-    ImGui::DestroyContext(m_imGuiCtx);
-
 #ifdef __EMSCRIPTEN__
     ImGui_ImplWGPU_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
 #else
+    ImGui_ImplOpenGL3_Shutdown();
+#endif
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext(m_imGuiCtx);
+
+#ifndef __EMSCRIPTEN__
     glfwDestroyWindow(m_glfwWindow);
     glfwTerminate();
 #endif

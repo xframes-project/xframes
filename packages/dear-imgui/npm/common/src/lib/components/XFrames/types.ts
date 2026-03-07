@@ -152,6 +152,7 @@ export type WidgetPropsMap = {
         bullColor?: string;
         bearColor?: string;
         axisAutoFit?: boolean;
+        dataPointsLimit?: number;
     };
     PlotLine: WidgetStyleProps & {
         xAxisDecimalDigits?: number;
@@ -160,6 +161,7 @@ export type WidgetPropsMap = {
         xAxisScale?: ImPlotScale;
         yAxisScale?: ImPlotScale;
         axisAutoFit?: boolean;
+        dataPointsLimit?: number;
     };
     Separator: WidgetStyleProps;
     SeparatorText: WidgetStyleProps & {

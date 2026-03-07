@@ -51,7 +51,12 @@ public:
             axisAutoFit = widgetDef["axisAutoFit"].template get<bool>();
         }
 
-        return std::make_unique<PlotLine>(view, id, xAxisDecimalDigits, yAxisDecimalDigits, markerStyle, xAxisScale, yAxisScale, axisAutoFit, maybeStyle);
+        int dataPointsLimit = 6000;
+        if (widgetDef.contains("dataPointsLimit")) {
+            dataPointsLimit = widgetDef["dataPointsLimit"].template get<int>();
+        }
+
+        return std::make_unique<PlotLine>(view, id, xAxisDecimalDigits, yAxisDecimalDigits, markerStyle, xAxisScale, yAxisScale, axisAutoFit, dataPointsLimit, maybeStyle);
 
         // throw std::invalid_argument("Invalid JSON data");
     }
@@ -77,6 +82,7 @@ public:
         const ImPlotScale xAxisScale,
         const ImPlotScale yAxisScale,
         const bool axisAutoFit,
+        const int dataPointsLimit,
         std::optional<WidgetStyle>& style) : StyledWidget(view, id, style
             ) {
         m_type = "plot-line";
@@ -86,6 +92,7 @@ public:
         m_xAxisScale = xAxisScale;
         m_yAxisScale = yAxisScale;
         m_axisAutoFit = axisAutoFit;
+        m_dataPointsLimit = dataPointsLimit;
 
         m_xValues.reserve(m_dataPointsLimit);
         m_yValues.reserve(m_dataPointsLimit);

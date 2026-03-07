@@ -58,7 +58,12 @@ public:
             if (maybeColor.has_value()) bearCol = maybeColor.value();
         }
 
-        return std::make_unique<PlotCandlestick>(view, id, bullCol, bearCol, axisAutoFit, maybeStyle);;
+        int dataPointsLimit = 6000;
+        if (widgetDef.contains("dataPointsLimit")) {
+            dataPointsLimit = widgetDef["dataPointsLimit"].template get<int>();
+        }
+
+        return std::make_unique<PlotCandlestick>(view, id, bullCol, bearCol, axisAutoFit, dataPointsLimit, maybeStyle);
     }
 
     static int axisValueFormatter(double value, char* buff, int size, void* decimalPlaces) {
@@ -73,9 +78,10 @@ public:
 
     bool HasCustomHeight() override;
 
-    PlotCandlestick(XFrames* view, const int id, const ImVec4& bullCol, const ImVec4& bearCol, const bool axisAutoFit, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
+    PlotCandlestick(XFrames* view, const int id, const ImVec4& bullCol, const ImVec4& bearCol, const bool axisAutoFit, const int dataPointsLimit, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
         m_type = "plot-candlestick";
         m_axisAutoFit = axisAutoFit;
+        m_dataPointsLimit = dataPointsLimit;
 
         m_bullCol = bullCol;
         m_bearCol = bearCol;

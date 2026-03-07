@@ -92,6 +92,10 @@ class Runner {
         };
 
         ~Runner() {
+            releaseTSFNs();
+        }
+
+        void releaseTSFNs() {
             m_tsfnOnInit.Release();
             m_tsfnOnTextChange.Release();
             m_tsfnOnComboChange.Release();
@@ -652,6 +656,9 @@ int run()
     auto pRunner = Runner::getInstance();
 
     pRunner->run();
+    pRunner->releaseTSFNs();
+
+    std::exit(0);
 
     return 0;
 }

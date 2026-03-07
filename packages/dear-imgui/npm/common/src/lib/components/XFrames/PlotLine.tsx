@@ -18,6 +18,7 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
             xAxisScale,
             yAxisScale,
             axisAutoFit,
+            dataPointsLimit,
             style,
             hoverStyle,
             activeStyle,
@@ -65,6 +66,7 @@ export const PlotLine = forwardRef<PlotLineImperativeHandle, WidgetPropsMap["Plo
                 xAxisScale={xAxisScale}
                 yAxisScale={yAxisScale}
                 axisAutoFit={axisAutoFit}
+                dataPointsLimit={dataPointsLimit}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

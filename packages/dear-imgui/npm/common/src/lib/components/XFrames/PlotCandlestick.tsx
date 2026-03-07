@@ -17,6 +17,7 @@ export const PlotCandlestick = forwardRef<
             axisAutoFit,
             bearColor,
             bullColor,
+            dataPointsLimit,
             style,
             hoverStyle,
             activeStyle,
@@ -58,6 +59,7 @@ export const PlotCandlestick = forwardRef<
                 bearColor={bearColor}
                 bullColor={bullColor}
                 axisAutoFit={axisAutoFit}
+                dataPointsLimit={dataPointsLimit}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}
