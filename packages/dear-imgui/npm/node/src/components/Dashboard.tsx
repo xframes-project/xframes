@@ -99,10 +99,16 @@ function generateCandlestickData(): PlotCandlestickDataItem[] {
 }
 
 const styles = RWStyleSheet.create({
+  scrollContainer: {
+    width: "100%",
+    flex: 1,
+    overflow: "scroll",
+  },
   row: {
     flexDirection: "row",
     width: "100%",
-    flex: 1,
+    height: 350,
+    flexShrink: 0,
   },
   leftColumn: {
     flex: 1,
@@ -227,110 +233,112 @@ export const Dashboard = () => {
         text="XFrames Dashboard"
       />
 
-      {/* Top row: Table + Plot */}
-      <XFrames.Node style={styles.row}>
-        <XFrames.Node style={styles.leftColumn}>
-          <XFrames.UnformattedText text="World Cities (sort, filter & select)" />
-          <XFrames.Table
-            ref={tableRef}
-            columns={tableColumns}
-            clipRows={20}
-            filterable
-            reorderable
-            hideable
-            onRowClick={handleRowClick}
-            style={styles.tableArea}
-          />
-        </XFrames.Node>
-
-        <XFrames.Node style={styles.rightColumn}>
-          <XFrames.UnformattedText text="Live Sine Wave" />
-          <XFrames.PlotLine
-            ref={plotRef}
-            axisAutoFit
-            style={styles.plotArea}
-          />
-          <XFrames.UnformattedText text={`Frequency: ${frequency}`} />
-          <XFrames.Slider
-            defaultValue={3}
-            min={1}
-            max={10}
-            onChange={handleFreqChange}
-          />
-          <XFrames.Button label="Reset Plot" onClick={handleResetPlot} />
-        </XFrames.Node>
-      </XFrames.Node>
-
-      {/* Bottom row: Form + Status */}
-      <XFrames.Node style={styles.row}>
-        <XFrames.Node style={styles.leftColumn}>
-          <XFrames.UnformattedText text="Form Controls" />
-          <XFrames.InputText
-            hint="Type something..."
-            onChange={handleInputChange}
-            style={styles.formField}
-          />
-          {inputValue ? (
-            <XFrames.UnformattedText text={`You typed: ${inputValue}`} />
-          ) : null}
-          <XFrames.InputText
-            hint="Password..."
-            password
-            onChange={handleInputChange}
-            style={styles.formField}
-          />
-          <XFrames.InputText
-            defaultValue="This is read-only"
-            readOnly
-            style={styles.formField}
-          />
-          <XFrames.InputText
-            hint="Numbers only..."
-            numericOnly
-            style={styles.formField}
-          />
-          <XFrames.Combo
-            options={comboOptions}
-            initialSelectedIndex={0}
-            onChange={handleComboChange}
-            style={styles.formField}
-          />
-          <XFrames.Checkbox
-            label="Enable feature"
-            onChange={handleCheckboxChange}
-            style={styles.formField}
-          />
-          <XFrames.UnformattedText
-            text={`Feature: ${featureEnabled ? "ON" : "OFF"}`}
-          />
-          <XFrames.Button label="Reset Form" onClick={handleResetForm} />
-        </XFrames.Node>
-
-        <XFrames.Node style={styles.rightColumn}>
-          <XFrames.UnformattedText text="Status" />
-          <XFrames.Node style={styles.statusPanel}>
-            <XFrames.UnformattedText text={`Theme: ${themeName}`} />
-            <XFrames.UnformattedText text={`Category: ${selectedCategory}`} />
-            <XFrames.UnformattedText text={`Data points: ${dataPointCount}`} />
-            <XFrames.Button
-              label="Toggle Theme"
-              onClick={handleThemeToggle}
+      <XFrames.Node style={styles.scrollContainer}>
+        {/* Top row: Table + Plot */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="World Cities (sort, filter & select)" />
+            <XFrames.Table
+              ref={tableRef}
+              columns={tableColumns}
+              clipRows={20}
+              filterable
+              reorderable
+              hideable
+              onRowClick={handleRowClick}
+              style={styles.tableArea}
             />
           </XFrames.Node>
-        </XFrames.Node>
-      </XFrames.Node>
 
-      {/* Third row: Candlestick */}
-      <XFrames.Node style={styles.row}>
-        <XFrames.Node style={styles.leftColumn}>
-          <XFrames.UnformattedText text="Candlestick Chart (synthetic data)" />
-          <XFrames.PlotCandlestick
-            ref={candlestickRef}
-            axisAutoFit
-            bullColor="#26a69a"
-            bearColor="#ef5350"
-            style={styles.plotArea}
-          />
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Live Sine Wave" />
+            <XFrames.PlotLine
+              ref={plotRef}
+              axisAutoFit
+              style={styles.plotArea}
+            />
+            <XFrames.UnformattedText text={`Frequency: ${frequency}`} />
+            <XFrames.Slider
+              defaultValue={3}
+              min={1}
+              max={10}
+              onChange={handleFreqChange}
+            />
+            <XFrames.Button label="Reset Plot" onClick={handleResetPlot} />
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Bottom row: Form + Status */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Form Controls" />
+            <XFrames.InputText
+              hint="Type something..."
+              onChange={handleInputChange}
+              style={styles.formField}
+            />
+            {inputValue ? (
+              <XFrames.UnformattedText text={`You typed: ${inputValue}`} />
+            ) : null}
+            <XFrames.InputText
+              hint="Password..."
+              password
+              onChange={handleInputChange}
+              style={styles.formField}
+            />
+            <XFrames.InputText
+              defaultValue="This is read-only"
+              readOnly
+              style={styles.formField}
+            />
+            <XFrames.InputText
+              hint="Numbers only..."
+              numericOnly
+              style={styles.formField}
+            />
+            <XFrames.Combo
+              options={comboOptions}
+              initialSelectedIndex={0}
+              onChange={handleComboChange}
+              style={styles.formField}
+            />
+            <XFrames.Checkbox
+              label="Enable feature"
+              onChange={handleCheckboxChange}
+              style={styles.formField}
+            />
+            <XFrames.UnformattedText
+              text={`Feature: ${featureEnabled ? "ON" : "OFF"}`}
+            />
+            <XFrames.Button label="Reset Form" onClick={handleResetForm} />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Status" />
+            <XFrames.Node style={styles.statusPanel}>
+              <XFrames.UnformattedText text={`Theme: ${themeName}`} />
+              <XFrames.UnformattedText text={`Category: ${selectedCategory}`} />
+              <XFrames.UnformattedText text={`Data points: ${dataPointCount}`} />
+              <XFrames.Button
+                label="Toggle Theme"
+                onClick={handleThemeToggle}
+              />
+            </XFrames.Node>
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Third row: Candlestick */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Candlestick Chart (synthetic data)" />
+            <XFrames.PlotCandlestick
+              ref={candlestickRef}
+              axisAutoFit
+              bullColor="#26a69a"
+              bearColor="#ef5350"
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
         </XFrames.Node>
       </XFrames.Node>
     </>
