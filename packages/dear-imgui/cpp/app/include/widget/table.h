@@ -1,4 +1,5 @@
 #include "styled_widget.h"
+#include "IconsFontAwesome6.h"
 
 using TableRow = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
 using TableData = std::vector<TableRow>;
@@ -278,9 +279,9 @@ class Table final : public StyledWidget {
                 }
             } else if (colType == "boolean") {
                 if (value == "true" || value == "1") {
-                    ImGui::TextUnformatted("Yes");
+                    ImGui::TextUnformatted(ICON_FA_CHECK);
                 } else {
-                    ImGui::TextUnformatted("No");
+                    ImGui::TextUnformatted(ICON_FA_XMARK);
                 }
             } else {
                 ImGui::TextUnformatted(value.c_str());

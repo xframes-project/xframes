@@ -47,7 +47,7 @@ PlotLine and PlotCandlestick exist. The showcase needs more chart types from ImP
 - [x] Increase PlotLine/PlotCandlestick data point cap (currently 6,000 — may need to be configurable)
 - [x] Progress bar widget
 - [x] Color indicator widget (for fix status, signal health)
-- [ ] Load Unicode-capable font glyphs so Table boolean columns can render ✓/✗ instead of Yes/No
+- [x] Load Unicode-capable font glyphs so Table boolean columns can render ✓/✗ instead of Yes/No
 
 ---
 
@@ -159,7 +159,7 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 
 ### Theming
 
-- [ ] Ship 2-3 polished built-in themes (dark, light, high-contrast)
+- [x] Ship 3 polished built-in themes (Dark, Light, Ocean) with accent colors
 - [x] Theme switching at runtime in the showcase app
 
 ---
