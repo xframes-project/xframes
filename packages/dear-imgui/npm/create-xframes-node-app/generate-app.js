@@ -60,8 +60,8 @@ const packageJson = {
   version: "0.1.0",
   private: true,
   dependencies: {
-    "@xframes/common": "0.0.13",
-    "@xframes/node": "0.0.18",
+    "@xframes/common": "0.1.0",
+    "@xframes/node": "0.1.0",
     react: "18.3.1",
     tsx: "4.19.2",
   },

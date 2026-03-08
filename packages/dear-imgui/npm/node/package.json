@@ -1,6 +1,6 @@
 {
     "name": "@xframes/node",
-    "version": "0.0.22",
+    "version": "0.1.0",
     "description": "DOM-less, GPU-accelerated GUI development for Node.js",
     "main": "dist/index.js",
     "files": [
@@ -68,7 +68,7 @@
         "whatwg-fetch": "^3.6.20"
     },
     "peerDependencies": {
-        "@xframes/common": "^0.0.13",
+        "@xframes/common": "^0.1.0",
         "react": "^18.2.0"
     },
     "devDependencies": {

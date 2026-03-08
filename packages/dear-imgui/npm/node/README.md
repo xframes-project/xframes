@@ -1,39 +1,103 @@
-# xframes for Node.js
+# @xframes/node
 
-## Building
+DOM-free, GPU-accelerated desktop GUI development for Node.js — powered by [Dear ImGui](https://github.com/ocornut/imgui) and [Yoga Layout](https://www.yogalayout.dev/).
 
-### Windows
+Write React/TypeScript components that render as native desktop widgets with zero browser overhead.
 
-If a prebuilt module isn't found then you will need Visual Studio 2022
+## Quick Start
 
-### WSL2 - Ubuntu 24.04
+```bash
+npx create-xframes-node-app
+cd my-app
+npm start
+```
 
-You may need to run `export GALLIUM_DRIVER=d3d12` before starting the application to enable Direct3D 12 rendering support.
-This setting is required for proper GPU acceleration in WSL2 and needs to be set in each new terminal session.
-You can add this line to your ~/.bashrc to make it permanent.
+## Example
 
-### Linux
+```tsx
+import { resolve } from "path";
+import * as React from "react";
+import { render, XFrames } from "@xframes/node";
 
-If a prebuilt module isn't found then you will need gcc 13+ to build the project locally.
+const fontDefs = {
+  defs: [{ name: "roboto-regular", sizes: [16, 18, 20, 24] }]
+    .map(({ name, sizes }) => sizes.map((size) => ({ name, size })))
+    .flat(),
+};
 
-Ubuntu 24.04 dependencies:
+const theme = { /* ... */ };
 
-`sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+const App = () => (
+  <XFrames.Node root style={{ height: "100%" }}>
+    <XFrames.UnformattedText text="Hello, world" />
+    <XFrames.Button label="Click me" onClick={() => console.log("clicked")} />
+  </XFrames.Node>
+);
 
-Fedora 41 dependencies:
+render(App, resolve("./assets"), fontDefs, theme);
+```
 
-`sudo dnf install @development-tools gcc-c++ cmake glfw-devel`
+## Available Widgets
 
-Raspberry Pi OS
+**Input**: Button, Checkbox, Combo, InputText, Slider, MultiSlider, ColorPicker
 
-`sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+**Text**: BulletText, DisabledText, SeparatorText, TextWrap, UnformattedText
 
-You must set:
+**Layout**: Node, Child, Group, DIWindow, Separator, TabBar, TabItem, CollapsingHeader, TreeNode, TreeView
 
-`export ARM64_LINUX=1`
+**Data**: Table (sorting, filtering, column reorder/hide, context menus), PlotLine, PlotBar, PlotScatter, PlotHeatmap, PlotHistogram, PlotPieChart, PlotCandlestick
 
-We could not work out how to detect the correct architecture so, for convenience, in CMakeLists.txt we check for this ENV variable to be set.
+**Other**: Image, ProgressBar, ColorIndicator, ClippedMultiLineTextRenderer, ItemTooltip
 
-`export VCPKG_FORCE_SYSTEM_BINARIES=1`
+## Key Features
 
-It suppresses the downloading of CMake and Ninja and forces the use of the system binaries.
+- **React components** — familiar JSX syntax, hooks, refs, state management
+- **Yoga flexbox layout** — the same layout engine used by React Native
+- **Per-state styling** — base, hover, active, and disabled style variants
+- **Imperative handles** — refs for Table, Plot widgets, InputText, and more
+- **Font Awesome icons** — built-in icon support in tables and text
+- **Theme system** — runtime theme switching via `patchStyle`
+- **Prebuilt binaries** — `npm install` downloads platform-specific native addons (NAPI v9)
+
+## Platform Support
+
+| Architecture | OS | Notes |
+|---|---|---|
+| x64-windows | Windows 11 | Works |
+| x64-linux | WSL2 Ubuntu 24.04 | Set `export GALLIUM_DRIVER=d3d12` |
+| x64-linux | Debian Trixie | Works |
+| x64-linux | Ubuntu 22.04 / 24.04 | Works |
+| arm64-linux | Raspberry Pi OS (Bookworm) | Works |
+
+## Building from Source
+
+If a prebuilt binary isn't available for your platform, the native addon compiles from source during `npm install`. Requirements:
+
+**Windows**: Visual Studio 2022
+
+**Ubuntu 24.04**:
+```bash
+sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
+```
+
+**Fedora 41**:
+```bash
+sudo dnf install @development-tools gcc-c++ cmake glfw-devel
+```
+
+**Raspberry Pi OS**:
+```bash
+sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
+export ARM64_LINUX=1
+export VCPKG_FORCE_SYSTEM_BINARIES=1
+```
+
+## Links
+
+- [Documentation](https://xframes.dev)
+- [GitHub](https://github.com/xframes-project/xframes)
+- [Discord](https://discord.gg/Cbgcajdq)
+
+## License
+
+MIT
