@@ -180,6 +180,13 @@ export type WidgetPropsMap = {
         legendLocation?: number;
         legendLabel?: string;
     };
+    PlotPieChart: WidgetStyleProps & {
+        labelFormat?: string;
+        angle0?: number;
+        normalize?: boolean;
+        showLegend?: boolean;
+        legendLocation?: number;
+    };
     PlotCandlestick: WidgetStyleProps & {
         bullColor?: string;
         bearColor?: string;
@@ -312,6 +319,7 @@ export type WidgetsRequiringId =
     | "PlotHeatmap"
     | "PlotHistogram"
     | "PlotLine"
+    | "PlotPieChart"
     | "PlotCandlestick"
     | "PlotScatter"
     | "Slider"

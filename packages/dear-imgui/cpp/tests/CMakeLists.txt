@@ -81,6 +81,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/plot_candlestick.cpp
         ../app/src/widget/plot_histogram.cpp
         ../app/src/widget/plot_heatmap.cpp
+        ../app/src/widget/plot_pie_chart.cpp
         ../app/src/widget/plot_line.cpp
         ../app/src/widget/plot_scatter.cpp
         ../app/src/widget/separator.cpp

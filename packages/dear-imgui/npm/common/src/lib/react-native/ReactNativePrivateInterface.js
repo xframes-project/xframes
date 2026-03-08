@@ -35,6 +35,7 @@ const attributesForElements = {
     ],
     "plot-bar": ["axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "plot-histogram": ["bins", "axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
+    "plot-pie-chart": ["labelFormat", "angle0", "normalize", "showLegend", "legendLocation"],
     "plot-heatmap": ["axisAutoFit", "scaleMin", "scaleMax", "colormap", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "plot-scatter": ["axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "plot-line": [

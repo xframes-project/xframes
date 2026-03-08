@@ -10,6 +10,7 @@ import {
   PlotScatterImperativeHandle,
   PlotCandlestickImperativeHandle,
   PlotHistogramImperativeHandle,
+  PlotPieChartImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
   InputTextChangeEvent,
@@ -163,6 +164,7 @@ export const Dashboard = () => {
   const scatterRef = useRef<PlotScatterImperativeHandle>(null);
   const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
   const histogramRef = useRef<PlotHistogramImperativeHandle>(null);
+  const pieChartRef = useRef<PlotPieChartImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
   const [frequency, setFrequency] = useState(3);
@@ -248,6 +250,20 @@ export const Dashboard = () => {
           values.push(z * 15 + 50);
         }
         histogramRef.current.setData(values);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load pie chart data
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (pieChartRef.current) {
+        pieChartRef.current.setData([
+          { label: "Desktop", value: 62 },
+          { label: "Mobile", value: 28 },
+          { label: "Tablet", value: 10 },
+        ]);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -517,7 +533,15 @@ export const Dashboard = () => {
             />
           </XFrames.Node>
 
-          <XFrames.Node style={styles.rightColumn} />
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Pie Chart (device breakdown)" />
+            <XFrames.PlotPieChart
+              ref={pieChartRef}
+              normalize
+              showLegend
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
         </XFrames.Node>
 
         {/* Sixth row: Tabs demo */}

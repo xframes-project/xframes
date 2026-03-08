@@ -122,6 +122,10 @@ Wraps `ImPlot::PlotHeatmap`. Different data model from other plots: flat 1D arra
 
 Wraps `ImPlot::PlotHistogram`. Unlike PlotBar (X/Y pairs), histogram takes a single `std::vector<double>` of raw values and auto-bins them. Props: `axisAutoFit`, `dataPointsLimit`, `bins` (int, default `ImPlotBin_Sturges`; negative values select algorithm, positive values set explicit bin count). Internal ops: `setData` (flat array of doubles), `appendData` (single `value`), `resetData`, `setAxesAutoFit`. `setPlotHistogramData(id, values)` and `appendDataToPlotHistogram(id, value)` are the dedicated methods on `WidgetRegistrationService`.
 
+## PlotPieChart Widget
+
+Wraps `ImPlot::PlotPieChart`. Takes parallel label (`std::vector<std::string>`) and value (`std::vector<double>`) arrays, renders labeled slices with `ImPlotFlags_Equal` for square aspect ratio. Props: `labelFormat` (printf-style, default `"%.1f"`, `""` to hide), `angle0` (starting angle in degrees, default `90`), `normalize` (bool, forces full circle), `showLegend` (default `true`), `legendLocation`. Axes use `NoDecorations` with fixed limits `(0,1,0,1)`, center `(0.5,0.5)`, radius `0.4`. Internal ops: `setData` (array of `{label, value}` objects), `resetData`. Batch-only (no `appendData`). `setPlotPieChartData(id, data)` is the dedicated setter on `WidgetRegistrationService`.
+
 ## ColorIndicator Widget
 
 Renders a filled colored shape via `ImDrawList`. Props: `color` (CSS color string, parsed via `extractColor`), `shape` (optional `"rect"` | `"circle"`, default `"rect"`). Size is controlled entirely by Yoga layout style props (`width`, `height`). Uses `ImGui::Dummy` after drawing to advance the cursor. No events, no imperative handle.

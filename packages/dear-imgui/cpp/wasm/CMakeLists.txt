@@ -72,6 +72,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/plot_heatmap.cpp
     ${XFRAMES_BASE_PATH}/src/widget/plot_histogram.cpp
     ${XFRAMES_BASE_PATH}/src/widget/plot_line.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/plot_pie_chart.cpp
     ${XFRAMES_BASE_PATH}/src/widget/plot_scatter.cpp
     ${XFRAMES_BASE_PATH}/src/widget/plot_candlestick.cpp
     ${XFRAMES_BASE_PATH}/src/widget/separator.cpp

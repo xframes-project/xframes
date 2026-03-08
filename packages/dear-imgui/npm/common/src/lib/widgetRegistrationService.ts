@@ -199,6 +199,20 @@ export class WidgetRegistrationService {
         }
     }
 
+    setPlotPieChartData(id: string, data: { label: string; value: number }[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setData", data }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setPlotHistogramData(id: string, values: number[]) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

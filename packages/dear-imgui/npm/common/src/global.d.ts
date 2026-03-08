@@ -31,6 +31,7 @@ declare global {
             "plot-bar": ReactElementWidgets["PlotBar"];
             "plot-histogram": ReactElementWidgets["PlotHistogram"];
             "plot-heatmap": ReactElementWidgets["PlotHeatmap"];
+            "plot-pie-chart": ReactElementWidgets["PlotPieChart"];
             "plot-line": ReactElementWidgets["PlotLine"];
             "plot-candlestick": ReactElementWidgets["PlotCandlestick"];
             "plot-scatter": ReactElementWidgets["PlotScatter"];

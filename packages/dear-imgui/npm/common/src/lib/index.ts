@@ -32,6 +32,7 @@ import { PlotBarImperativeHandle } from "./components/XFrames/PlotBar";
 import { PlotHeatmapImperativeHandle } from "./components/XFrames/PlotHeatmap";
 import { PlotHistogramImperativeHandle } from "./components/XFrames/PlotHistogram";
 import { PlotLineImperativeHandle } from "./components/XFrames/PlotLine";
+import { PlotPieChartImperativeHandle } from "./components/XFrames/PlotPieChart";
 import { PlotScatterImperativeHandle } from "./components/XFrames/PlotScatter";
 import { PlotCandlestickImperativeHandle } from "./components/XFrames/PlotCandlestick";
 import { ImGuiCol, ImVec2, ImGuiStyleVar, ImPlotScale, ImPlotMarker } from "./types";
@@ -101,6 +102,7 @@ export {
     PlotHeatmapImperativeHandle,
     PlotHistogramImperativeHandle,
     PlotLineImperativeHandle,
+    PlotPieChartImperativeHandle,
     PlotScatterImperativeHandle,
     PlotCandlestickImperativeHandle,
     ImPlotScale,

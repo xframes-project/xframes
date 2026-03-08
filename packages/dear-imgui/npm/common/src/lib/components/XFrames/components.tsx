@@ -20,6 +20,7 @@ import { PlotBar } from "./PlotBar";
 import { PlotCandlestick } from "./PlotCandlestick";
 import { PlotHistogram } from "./PlotHistogram";
 import { PlotHeatmap } from "./PlotHeatmap";
+import { PlotPieChart } from "./PlotPieChart";
 import { PlotLine } from "./PlotLine";
 import { PlotScatter } from "./PlotScatter";
 import { ProgressBar } from "./ProgressBar";
@@ -58,6 +59,7 @@ export const components = {
     PlotHeatmap,
     PlotHistogram,
     PlotLine,
+    PlotPieChart,
     PlotScatter,
     ProgressBar,
     SeparatorText,
