@@ -63,6 +63,7 @@ bool TabItem::HasCustomHeight() {
 void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
+    const bool wasOpen = m_open;
     bool* pOpen = m_closeable ? &m_open : nullptr;
 
     if (ImGui::BeginTabItem(m_label.c_str(), pOpen)) {
@@ -71,21 +72,20 @@ void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);
         const float height = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
-        ImGui::SetCursorPos(ImVec2(0, 25.f)); // padding top to account for tabs
+        if (width > 0 && height > 0) {
+            ImGui::SetCursorPos(ImVec2(0, 25.f));
+            ImGui::BeginChild("##", ImVec2(width, height), ImGuiChildFlags_None);
+            Widget::HandleChildren(view, viewport);
+            ImGui::EndChild();
+        }
 
-        ImGui::BeginChild("##", ImVec2(width, height), ImGuiChildFlags_None);
-
-        Widget::HandleChildren(view, viewport);
-
-        ImGui::EndChild();
         ImGui::EndTabItem();
     } else {
         m_layoutNode->SetDisplay(YGDisplayNone);
     }
 
-    if (m_closeable && !m_open) {
+    if (m_closeable && wasOpen && !m_open) {
         view->m_onBooleanValueChange(m_id, false);
-        m_open = true; // reset — React controls visibility via conditional rendering
     }
 
     ImGui::PopID();

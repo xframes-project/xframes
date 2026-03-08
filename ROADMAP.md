@@ -57,8 +57,8 @@ Desktop interactivity patterns and additional widgets that make XFrames feel pro
 
 ### Tabs
 
-- [ ] Tab close buttons (`closeable` prop, `p_open` parameter)
-- [ ] Tab reordering (`ImGuiTabBarFlags_Reorderable`)
+- [x] Tab close buttons (`closeable` prop, `p_open` parameter)
+- [x] Tab reordering (`ImGuiTabBarFlags_Reorderable`)
 
 ### New Widgets
 

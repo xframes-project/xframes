@@ -136,6 +136,12 @@ Uses `imgui_stdlib.h` for `std::string`-based input — no buffer size limits or
 
 **Scroll containers:** Set `overflow: "scroll"` on a Node's style. Children must use `flexShrink: 0` with fixed `height` so Yoga doesn't shrink them to fit — when children overflow the viewport, ImGui shows scrollbars automatically. Do **not** call `YGNodeCalculateLayout` a second time during render; it fights the root layout pass and causes flicker.
 
+## Tab Widget
+
+TabBar supports `reorderable` prop (`ImGuiTabBarFlags_Reorderable`). TabItem supports `closeable` prop (renders close button via `p_open` parameter). Close fires `onBooleanValueChange(id, false)` on the open→closed transition only (tracked via `wasOpen` flag). The tab stays closed C++-side until the element is removed.
+
+**Known issue:** ImGui logs a `SetCursorPos extends window/parent boundaries` warning on first tab bar render. This is cosmetic — no crash, no visual glitch. The warning comes from `SetCursorPos(0, 25.f)` in `TabItem::Render()` positioning content below the tab headers. The same `SetCursorPos` pattern is used throughout the codebase without issue; the tab context triggers it for reasons not yet diagnosed.
+
 ## C++ Gotchas
 
 - MSVC does not allow default member initializers in unnamed structs used with `using` typedefs. Use named `struct Foo { ... };` instead of `using Foo = struct { ... };` when fields have defaults.
