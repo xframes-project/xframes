@@ -22,7 +22,13 @@ import {
   WidgetPropsMap,
   useWidgetRegistrationService,
 } from "@xframes/common";
-import { theme1, theme2 } from "../themes";
+import { theme1, theme2, theme3 } from "../themes";
+
+const themeList = [
+  { name: "Dark", theme: theme2 },
+  { name: "Light", theme: theme1 },
+  { name: "Ocean", theme: theme3 },
+] as const;
 
 // --- Sample data: 50 cities ---
 const cityData = [
@@ -140,6 +146,12 @@ const styles = RWStyleSheet.create({
     width: "100%",
     flex: 1,
   },
+  headerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: { column: 8 },
+    padding: { left: 8, right: 8, bottom: 4 },
+  },
   statusPanel: {
     padding: { all: 4 },
   },
@@ -169,7 +181,7 @@ export const Dashboard = () => {
 
   const [dataPointCount, setDataPointCount] = useState(0);
   const [frequency, setFrequency] = useState(3);
-  const [themeName, setThemeName] = useState("Dark");
+  const [themeIndex, setThemeIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [featureEnabled, setFeatureEnabled] = useState(false);
@@ -305,12 +317,13 @@ export const Dashboard = () => {
     }
   }, []);
 
-  const handleThemeToggle = useCallback(() => {
-    const nextTheme = themeName === "Dark" ? "Light" : "Dark";
-    const themeObj = nextTheme === "Dark" ? theme2 : theme1;
-    (widgetRegistrationService as any).wasmModule.patchStyle(JSON.stringify(themeObj));
-    setThemeName(nextTheme);
-  }, [themeName, widgetRegistrationService]);
+  const handleThemeChange = useCallback((event: ComboChangeEvent) => {
+    const index = event.nativeEvent.value;
+    (widgetRegistrationService as any).wasmModule.patchStyle(
+      JSON.stringify(themeList[index].theme),
+    );
+    setThemeIndex(index);
+  }, [widgetRegistrationService]);
 
   const handleInputChange = useCallback((event: InputTextChangeEvent) => {
     setInputValue(event.nativeEvent.value);
@@ -350,6 +363,15 @@ export const Dashboard = () => {
         style={styles.title}
         text="XFrames Dashboard"
       />
+
+      <XFrames.Node style={styles.headerBar}>
+        <XFrames.UnformattedText text="Theme:" />
+        <XFrames.Combo
+          options={themeList.map((t) => t.name)}
+          initialSelectedIndex={0}
+          onChange={handleThemeChange}
+        />
+      </XFrames.Node>
 
       <XFrames.Node style={styles.scrollContainer}>
         {/* Top row: Table + Plot */}
@@ -471,13 +493,8 @@ export const Dashboard = () => {
 
             <XFrames.UnformattedText text="Status" />
             <XFrames.Node style={styles.statusPanel}>
-              <XFrames.UnformattedText text={`Theme: ${themeName}`} />
               <XFrames.UnformattedText text={`Category: ${selectedCategory}`} />
               <XFrames.UnformattedText text={`Data points: ${dataPointCount}`} />
-              <XFrames.Button
-                label="Toggle Theme"
-                onClick={handleThemeToggle}
-              />
             </XFrames.Node>
           </XFrames.Node>
         </XFrames.Node>
