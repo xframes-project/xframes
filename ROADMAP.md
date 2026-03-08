@@ -141,43 +141,43 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 ### Documentation (xframes.dev Docusaurus site)
 
 #### Getting Started
-- [ ] Expand intro.md beyond "Hello, world" — explain `render()` args (assets path, fontDefs, theme), root Node pattern, basic layout
-- [ ] Layout guide — Yoga flexbox basics (row/column, flex, padding/margin objects, percentage widths), scroll containers (`overflow: "scroll"`, `flexShrink: 0`)
-- [ ] Fonts guide — fontDefs shape, available font sizes, `font: { name, size }` in style rules, Font Awesome icons
+- [x] Expand intro.md beyond "Hello, world" — explain `render()` args (assets path, fontDefs, theme), root Node pattern, basic layout
+- [x] Layout guide — Yoga flexbox basics (row/column, flex, padding/margin objects, percentage widths), scroll containers (`overflow: "scroll"`, `flexShrink: 0`)
+- [x] Fonts guide — fontDefs shape, available font sizes, `font: { name, size }` in style rules, Font Awesome icons
 
 #### Widget Catalog (grouped doc pages with props, events, imperative handles, code examples)
-- [ ] Layout components — Node, Child, Group, DIWindow, CollapsingHeader, ItemTooltip, TextWrap
-- [ ] Text components — UnformattedText, BulletText, DisabledText, SeparatorText, Separator, ClippedMultiLineTextRenderer
-- [ ] Form controls — Button, Checkbox, Combo, InputText (multiline/password/readOnly/numericOnly), Slider, MultiSlider, ColorPicker
-- [ ] Display components — ColorIndicator (shapes), ProgressBar, Image
-- [ ] Table — columns config, typed cells (string/number/boolean), sorting, filtering (text/boolean/number), row selection, column reordering/visibility, context menus, imperative handle
-- [ ] Navigation — TabBar (reorderable), TabItem (closeable), TreeNode, TreeView
-- [ ] Plots — PlotLine (multi-series, streaming), PlotBar, PlotScatter, PlotHeatmap, PlotHistogram, PlotPieChart, PlotCandlestick; cover data models, imperative handles, axis/legend config
+- [x] Layout components — Node, Child, Group, DIWindow, CollapsingHeader, ItemTooltip, TextWrap
+- [x] Text components — UnformattedText, BulletText, DisabledText, SeparatorText, Separator, ClippedMultiLineTextRenderer
+- [x] Form controls — Button, Checkbox, Combo, InputText (multiline/password/readOnly/numericOnly), Slider, MultiSlider, ColorPicker
+- [x] Display components — ColorIndicator (shapes), ProgressBar, Image
+- [x] Table — columns config, typed cells (string/number/boolean), sorting, filtering (text/boolean/number), row selection, column reordering/visibility, context menus, imperative handle
+- [x] Navigation — TabBar (reorderable), TabItem (closeable), TreeNode, TreeView
+- [x] Plots — PlotLine (multi-series, streaming), PlotBar, PlotScatter, PlotHeatmap, PlotHistogram, PlotPieChart, PlotCandlestick; cover data models, imperative handles, axis/legend config
 
 #### Styling & Theming
-- [ ] Flesh out general-styling-concepts.md — style/hoverStyle/activeStyle/disabledStyle, RWStyleSheet.create(), style composition
-- [ ] Flesh out yoga-layout-properties.md — add usage examples and gotchas (padding/margin objects, not plain numbers)
-- [ ] Flesh out base-drawing-style-properties.md — backgroundColor, border, rounding with examples
-- [ ] Theming guide — built-in themes (Dark/Light/Ocean), XFramesStyleForPatching type, ImGuiCol enum, runtime switching via patchStyle
+- [x] Flesh out general-styling-concepts.md — style/hoverStyle/activeStyle/disabledStyle, RWStyleSheet.create(), style composition
+- [x] Flesh out yoga-layout-properties.md — add usage examples and gotchas (padding/margin objects, not plain numbers)
+- [x] Flesh out base-drawing-style-properties.md — backgroundColor, border, rounding with examples
+- [x] Theming guide — built-in themes (Dark/Light/Ocean), XFramesStyleForPatching type, ImGuiCol enum, runtime switching via patchStyle
 
 #### API Reference
-- [ ] Event types reference — CheckboxChangeEvent, InputTextChangeEvent, ComboChangeEvent, SliderChangeEvent, MultiSliderChangeEvent, TabItemChangeEvent, TableSortEvent, TableFilterEvent, TableRowClickEvent, TableItemActionEvent
-- [ ] Imperative handle reference — TableImperativeHandle, PlotLineImperativeHandle, PlotBarImperativeHandle, PlotScatterImperativeHandle, PlotHeatmapImperativeHandle, PlotHistogramImperativeHandle, PlotPieChartImperativeHandle, PlotCandlestickImperativeHandle, ComboImperativeHandle, InputTextImperativeHandle
-- [ ] ImGui enums reference — ImGuiCol, ImGuiStyleVar, ImGuiDir, ImPlotMarker, ImPlotScale, ImPlotColormap
+- [x] Event types reference — CheckboxChangeEvent, InputTextChangeEvent, ComboChangeEvent, SliderChangeEvent, MultiSliderChangeEvent, TabItemChangeEvent, TableSortEvent, TableFilterEvent, TableRowClickEvent, TableItemActionEvent
+- [x] Imperative handle reference — TableImperativeHandle, PlotLineImperativeHandle, PlotBarImperativeHandle, PlotScatterImperativeHandle, PlotHeatmapImperativeHandle, PlotHistogramImperativeHandle, PlotPieChartImperativeHandle, PlotCandlestickImperativeHandle, ComboImperativeHandle, InputTextImperativeHandle
+- [x] ImGui enums reference — ImGuiCol, ImGuiStyleVar, ImGuiDir, ImPlotMarker, ImPlotScale, ImPlotColormap
 
 ### Website & Positioning (xframes.dev)
-- [ ] Refocus homepage messaging on TypeScript/React — lead with the primary supported stack rather than 20+ language logos
-- [ ] Move multi-language FFI showcase to a dedicated "Language Bindings" page (experimental/community status) instead of homepage hero
-- [ ] Update homepage feature cards to highlight concrete developer benefits: React components, Yoga layout, live theming, ImPlot charts
+- [x] Refocus homepage messaging on TypeScript/React — lead with the primary supported stack rather than 20+ language logos
+- [x] Move multi-language FFI showcase to a dedicated "Language Bindings" page (experimental/community status) instead of homepage hero
+- [x] Update homepage feature cards to highlight concrete developer benefits: React components, Yoga layout, live theming, ImPlot charts
 - [ ] Add a live screenshot or GIF of the Dashboard demo on the homepage
-- [ ] Consolidate intro.md to focus on the Node.js/TypeScript getting-started path; move other languages to a separate "Other Languages" doc page with appropriate "experimental" labels
+- [x] Consolidate intro.md to focus on the Node.js/TypeScript getting-started path; move other languages to a separate "Other Languages" doc page with appropriate "experimental" labels
 
 ### create-xframes-node-app
 
 - [x] Add a "demo" template option that scaffolds a meaningful example (table + plot + form)
-- [ ] Pin and track latest package versions
-- [ ] Print `npm start` instruction after scaffold completes
-- [ ] Replace raw `curl` downloads with bundled templates for reliability
+- [x] Pin and track latest package versions
+- [x] Print `npm start` instruction after scaffold completes
+- [x] Replace raw `curl` downloads with bundled templates for reliability
 
 ### Performance Story
 
@@ -189,6 +189,12 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 
 - [x] Ship 3 polished built-in themes (Dark, Light, Ocean) with accent colors
 - [x] Theme switching at runtime in the showcase app
+
+---
+
+## Low Priority
+
+- [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)
 
 ---
 

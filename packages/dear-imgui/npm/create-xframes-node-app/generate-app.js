@@ -3,7 +3,7 @@
 import os from "os";
 import path from "path";
 import fs from "fs";
-import { execSync, execFileSync } from "child_process";
+import { execSync } from "child_process";
 import { input } from "@inquirer/prompts";
 
 const projectName = (
@@ -54,6 +54,7 @@ try {
   process.exit(1);
 }
 
+// Update these versions when publishing new releases to npm
 const packageJson = {
   name: projectName,
   version: "0.1.0",
@@ -73,36 +74,17 @@ fs.writeFileSync(
   JSON.stringify(packageJson, null, 2) + os.EOL
 );
 
-const indexTsxUrl =
-  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/index.tsx";
-const themesTsUrl =
-  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/themes.ts";
-const tsConfigUrl =
-  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/tsconfig.json";
-const robotoRegularUrl =
-  "https://raw.githubusercontent.com/andreamancuso/xframes/refs/heads/main/packages/dear-imgui/npm/create-xframes-node-app/roboto-regular.ttf";
+const templateDir = path.dirname(new URL(import.meta.url).pathname);
+const normalizedTemplateDir = process.platform === "win32"
+  ? templateDir.replace(/^\//, "")
+  : templateDir;
 
-console.log("Downloading source file...");
+console.log("Copying template files...");
 
-execFileSync("curl", ["-o", indexTsxPath, "--silent", "-L", indexTsxUrl], {
-  encoding: "utf8",
-});
-
-execFileSync("curl", ["-o", themesTsPath, "--silent", "-L", themesTsUrl], {
-  encoding: "utf8",
-});
-
-execFileSync("curl", ["-o", tsConfigPath, "--silent", "-L", tsConfigUrl], {
-  encoding: "utf8",
-});
-
-execFileSync(
-  "curl",
-  ["-o", robotoRegularPath, "--silent", "-L", robotoRegularUrl],
-  {
-    encoding: "utf8",
-  }
-);
+fs.copyFileSync(path.join(normalizedTemplateDir, "index.tsx"), indexTsxPath);
+fs.copyFileSync(path.join(normalizedTemplateDir, "themes.ts"), themesTsPath);
+fs.copyFileSync(path.join(normalizedTemplateDir, "tsconfig.json"), tsConfigPath);
+fs.copyFileSync(path.join(normalizedTemplateDir, "roboto-regular.ttf"), robotoRegularPath);
 
 process.chdir(projectPath);
 
@@ -112,6 +94,6 @@ execSync("npm install");
 
 process.chdir(currentPath);
 
-console.log("Assuming no errors occurred, you're all done. You may now run");
-
-console.log(`cd ${projectName}`);
+console.log("All done! To start your app:\n");
+console.log(`  cd ${projectName}`);
+console.log("  npm start\n");
