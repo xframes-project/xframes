@@ -34,6 +34,7 @@ const attributesForElements = {
         "onChange",
     ],
     "plot-bar": ["axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
+    "plot-histogram": ["bins", "axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "plot-heatmap": ["axisAutoFit", "scaleMin", "scaleMax", "colormap", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "plot-scatter": ["axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
     "plot-line": [

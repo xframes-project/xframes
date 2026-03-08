@@ -18,6 +18,7 @@ import { MultiSlider } from "./MultiSlider";
 import { Node } from "./Node";
 import { PlotBar } from "./PlotBar";
 import { PlotCandlestick } from "./PlotCandlestick";
+import { PlotHistogram } from "./PlotHistogram";
 import { PlotHeatmap } from "./PlotHeatmap";
 import { PlotLine } from "./PlotLine";
 import { PlotScatter } from "./PlotScatter";
@@ -55,6 +56,7 @@ export const components = {
     PlotBar,
     PlotCandlestick,
     PlotHeatmap,
+    PlotHistogram,
     PlotLine,
     PlotScatter,
     ProgressBar,

@@ -170,6 +170,16 @@ export type WidgetPropsMap = {
         legendLocation?: number;
         legendLabel?: string;
     };
+    PlotHistogram: WidgetStyleProps & {
+        bins?: number;
+        axisAutoFit?: boolean;
+        dataPointsLimit?: number;
+        xAxisLabel?: string;
+        yAxisLabel?: string;
+        showLegend?: boolean;
+        legendLocation?: number;
+        legendLabel?: string;
+    };
     PlotCandlestick: WidgetStyleProps & {
         bullColor?: string;
         bearColor?: string;
@@ -300,6 +310,7 @@ export type WidgetsRequiringId =
     | "MultiSlider"
     | "PlotBar"
     | "PlotHeatmap"
+    | "PlotHistogram"
     | "PlotLine"
     | "PlotCandlestick"
     | "PlotScatter"

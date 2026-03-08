@@ -87,6 +87,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/multi_slider.cpp
         ${APP}/src/widget/plot_bar.cpp
         ${APP}/src/widget/plot_candlestick.cpp
+        ${APP}/src/widget/plot_histogram.cpp
         ${APP}/src/widget/plot_heatmap.cpp
         ${APP}/src/widget/plot_line.cpp
         ${APP}/src/widget/plot_scatter.cpp

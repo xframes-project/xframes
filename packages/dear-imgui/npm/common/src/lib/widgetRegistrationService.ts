@@ -199,6 +199,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    setPlotHistogramData(id: string, values: number[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setData", data: values }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    appendDataToPlotHistogram(id: string, value: number) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "appendData", value }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setPlotScatterData(id: string, data: { x: number; y: number }[]) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

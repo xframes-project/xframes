@@ -47,6 +47,7 @@
 #include "widget/item_tooltip.h"
 #include "widget/multi_slider.h"
 #include "widget/plot_bar.h"
+#include "widget/plot_histogram.h"
 #include "widget/progress_bar.h"
 #include "widget/plot_candlestick.h"
 #include "widget/plot_heatmap.h"
@@ -149,6 +150,7 @@ void XFrames::SetUpElementCreatorFunctions() {
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;
     m_element_init_fn["plot-heatmap"] = &makeWidget<PlotHeatmap>;
+    m_element_init_fn["plot-histogram"] = &makeWidget<PlotHistogram>;
     m_element_init_fn["plot-line"] = &makeWidget<PlotLine>;
     m_element_init_fn["plot-scatter"] = &makeWidget<PlotScatter>;
     m_element_init_fn["plot-candlestick"] = &makeWidget<PlotCandlestick>;

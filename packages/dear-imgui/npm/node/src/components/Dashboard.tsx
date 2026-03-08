@@ -9,6 +9,7 @@ import {
   PlotHeatmapImperativeHandle,
   PlotScatterImperativeHandle,
   PlotCandlestickImperativeHandle,
+  PlotHistogramImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
   InputTextChangeEvent,
@@ -161,6 +162,7 @@ export const Dashboard = () => {
   const heatmapRef = useRef<PlotHeatmapImperativeHandle>(null);
   const scatterRef = useRef<PlotScatterImperativeHandle>(null);
   const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
+  const histogramRef = useRef<PlotHistogramImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
   const [frequency, setFrequency] = useState(3);
@@ -229,6 +231,23 @@ export const Dashboard = () => {
           }
         }
         heatmapRef.current.setData(rows, cols, values);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load histogram data (normal distribution via Box-Muller)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (histogramRef.current) {
+        const values: number[] = [];
+        for (let i = 0; i < 500; i++) {
+          const u1 = Math.random();
+          const u2 = Math.random();
+          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+          values.push(z * 15 + 50);
+        }
+        histogramRef.current.setData(values);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -485,7 +504,23 @@ export const Dashboard = () => {
           </XFrames.Node>
         </XFrames.Node>
 
-        {/* Fifth row: Tabs demo */}
+        {/* Fifth row: Histogram */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Histogram (normal distribution)" />
+            <XFrames.PlotHistogram
+              ref={histogramRef}
+              axisAutoFit
+              xAxisLabel="Value"
+              yAxisLabel="Count"
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn} />
+        </XFrames.Node>
+
+        {/* Sixth row: Tabs demo */}
         <XFrames.Node style={{ ...styles.row, height: 200 }}>
           <XFrames.Node style={styles.leftColumn}>
             <XFrames.UnformattedText text="Tabs (reorderable + closeable)" />

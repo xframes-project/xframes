@@ -79,6 +79,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/multi_slider.cpp
         ../app/src/widget/plot_bar.cpp
         ../app/src/widget/plot_candlestick.cpp
+        ../app/src/widget/plot_histogram.cpp
         ../app/src/widget/plot_heatmap.cpp
         ../app/src/widget/plot_line.cpp
         ../app/src/widget/plot_scatter.cpp

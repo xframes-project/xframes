@@ -30,6 +30,7 @@ import {
 import RWStyleSheet from "./stylesheet/stylesheet";
 import { PlotBarImperativeHandle } from "./components/XFrames/PlotBar";
 import { PlotHeatmapImperativeHandle } from "./components/XFrames/PlotHeatmap";
+import { PlotHistogramImperativeHandle } from "./components/XFrames/PlotHistogram";
 import { PlotLineImperativeHandle } from "./components/XFrames/PlotLine";
 import { PlotScatterImperativeHandle } from "./components/XFrames/PlotScatter";
 import { PlotCandlestickImperativeHandle } from "./components/XFrames/PlotCandlestick";
@@ -98,6 +99,7 @@ export {
     RWStyleSheet,
     PlotBarImperativeHandle,
     PlotHeatmapImperativeHandle,
+    PlotHistogramImperativeHandle,
     PlotLineImperativeHandle,
     PlotScatterImperativeHandle,
     PlotCandlestickImperativeHandle,
