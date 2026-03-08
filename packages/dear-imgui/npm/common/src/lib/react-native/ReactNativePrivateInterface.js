@@ -11,6 +11,7 @@ const attributesForElements = {
     checkbox: ["defaultChecked", "label", "onChange"],
     child: ["defaultChecked", "label", "onChange"],
     "color-indicator": ["color", "shape"],
+    "color-picker": ["defaultColor", "onChange"],
     "clipped-multi-line-text-renderer": [],
     "collapsing-header": ["label"],
     combo: ["placeholder", "options", "optionsList", "initialSelectedIndex", "onChange"],

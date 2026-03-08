@@ -75,6 +75,7 @@ add_library(${PROJECT_NAME} SHARED
 
         ${APP}/src/widget/button.cpp
         ${APP}/src/widget/checkbox.cpp
+        ${APP}/src/widget/color_picker.cpp
         ${APP}/src/widget/child.cpp
         ${APP}/src/widget/clipped_multi_line_text_renderer.cpp
         ${APP}/src/widget/collapsing_header.cpp

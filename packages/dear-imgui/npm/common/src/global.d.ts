@@ -13,6 +13,7 @@ declare global {
             "di-button": ReactElementWidgets["Button"];
             checkbox: ReactElementWidgets["Checkbox"];
             "color-indicator": ReactElementWidgets["ColorIndicator"];
+            "color-picker": ReactElementWidgets["ColorPicker"];
             child: ReactElementWidgets["Child"]; // Deprecated by `node`
             "clipped-multi-line-text-renderer": ReactElementWidgets["ClippedMultiLineTextRenderer"];
             "collapsing-header": ReactElementWidgets["CollapsingHeader"];

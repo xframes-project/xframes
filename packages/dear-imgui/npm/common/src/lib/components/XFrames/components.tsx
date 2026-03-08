@@ -4,6 +4,7 @@ import { Checkbox } from "./Checkbox";
 import { Child } from "./Child";
 import { ClippedMultiLineTextRenderer } from "./ClippedMultiLineTextRenderer";
 import { ColorIndicator } from "./ColorIndicator";
+import { ColorPicker } from "./ColorPicker";
 import { CollapsingHeader } from "./CollapsingHeader";
 import { Combo } from "./Combo";
 import { DisabledText } from "./DisabledText";
@@ -39,6 +40,7 @@ export const components = {
     Child,
     ClippedMultiLineTextRenderer,
     ColorIndicator,
+    ColorPicker,
     CollapsingHeader,
     Combo,
     DIWindow,

@@ -57,6 +57,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/styled_widget.cpp
     ${XFRAMES_BASE_PATH}/src/widget/button.cpp
     ${XFRAMES_BASE_PATH}/src/widget/checkbox.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/color_picker.cpp
     ${XFRAMES_BASE_PATH}/src/widget/child.cpp
     ${XFRAMES_BASE_PATH}/src/widget/clipped_multi_line_text_renderer.cpp
     ${XFRAMES_BASE_PATH}/src/widget/collapsing_header.cpp

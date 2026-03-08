@@ -168,6 +168,7 @@ export const Dashboard = () => {
   const [inputValue, setInputValue] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [featureEnabled, setFeatureEnabled] = useState(false);
+  const [selectedColor, setSelectedColor] = useState("");
   const [showNotesTab, setShowNotesTab] = useState(true);
 
   // Load initial table data
@@ -391,6 +392,15 @@ export const Dashboard = () => {
             <XFrames.UnformattedText
               text={`Feature: ${featureEnabled ? "ON" : "OFF"}`}
             />
+            <XFrames.UnformattedText text="Pick a color" />
+            <XFrames.ColorPicker
+              defaultColor="#26a69a"
+              onChange={(e) => setSelectedColor(e.nativeEvent.value)}
+              style={styles.formField}
+            />
+            {selectedColor ? (
+              <XFrames.UnformattedText text={`Color: ${selectedColor}`} />
+            ) : null}
             <XFrames.Button label="Reset Form" onClick={handleResetForm} />
           </XFrames.Node>
 

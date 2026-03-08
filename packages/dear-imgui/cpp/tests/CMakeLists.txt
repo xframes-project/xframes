@@ -67,6 +67,7 @@ add_executable(Google_Tests_run
 
         ../app/src/widget/button.cpp
         ../app/src/widget/checkbox.cpp
+        ../app/src/widget/color_picker.cpp
         ../app/src/widget/child.cpp
         ../app/src/widget/clipped_multi_line_text_renderer.cpp
         ../app/src/widget/collapsing_header.cpp

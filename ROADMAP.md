@@ -62,7 +62,7 @@ Desktop interactivity patterns and additional widgets that make XFrames feel pro
 
 ### New Widgets
 
-- [ ] ColorPicker widget (`ImGui::ColorEdit4`) with onChange hex string callback
+- [x] ColorPicker widget (`ImGui::ColorEdit4`) with onChange hex string callback
 - [ ] Histogram chart (`ImPlot::PlotHistogram`) — auto-binned distribution plot
 - [ ] Pie chart (`ImPlot::PlotPieChart`) — labeled slice chart
 

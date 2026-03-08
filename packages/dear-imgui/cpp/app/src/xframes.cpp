@@ -36,6 +36,7 @@
 #include "widget/button.h"
 #include "widget/color_indicator.h"
 #include "widget/checkbox.h"
+#include "widget/color_picker.h"
 #include "widget/child.h"
 #include "widget/clipped_multi_line_text_renderer.h"
 #include "widget/collapsing_header.h"
@@ -160,6 +161,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["input-text"] = &makeWidget<InputText>;
     m_element_init_fn["multi-slider"] = &makeWidget<MultiSlider>;
     m_element_init_fn["checkbox"] = &makeWidget<Checkbox>;
+    m_element_init_fn["color-picker"] = &makeWidget<ColorPicker>;
     m_element_init_fn["di-button"] = &makeWidget<Button>;
 
     m_element_init_fn["progress-bar"] = &makeWidget<ProgressBar>;

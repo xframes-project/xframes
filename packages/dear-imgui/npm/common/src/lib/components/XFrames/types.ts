@@ -116,6 +116,10 @@ export type WidgetPropsMap = {
         color?: string;
         shape?: "rect" | "circle";
     };
+    ColorPicker: WidgetStyleProps & {
+        defaultColor?: string;
+        onChange?: (event: InputTextChangeEvent) => void;
+    };
     Child: WidgetStyleProps;
     ClippedMultiLineTextRenderer: WidgetStyleProps;
     CollapsingHeader: WidgetStyleProps & {
@@ -286,6 +290,7 @@ export type WidgetKeys = keyof WidgetPropsMap;
 export type WidgetsRequiringId =
     | "Button"
     | "Checkbox"
+    | "ColorPicker"
     | "ClippedMultiLineTextRenderer"
     | "CollapsingHeader"
     | "Combo"
