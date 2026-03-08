@@ -244,7 +244,10 @@ void XFrames::CreateElement(const json& elementDef) {
                         if (m_elements[id]->HasInternalOps()) {
                             m_elementInternalOpsSubject[id] = rpp::subjects::serialized_replay_subject<json>{10};
                             auto handler = [this, id](const json& opDef) {
-                                m_elements[id]->HandleInternalOp(opDef);
+                                const std::lock_guard<std::mutex> lock(m_elements_mutex);
+                                if (m_elements.contains(id)) {
+                                    m_elements[id]->HandleInternalOp(opDef);
+                                }
                             };
                             m_elementInternalOpsSubject[id].get_observable() | rpp::ops::subscribe(handler);
                         }
@@ -683,26 +686,6 @@ void XFrames::PatchElement(const json& patchDef) {
     }
 }
 
-void XFrames::HandleElementInternalOp(const json& opDef) {
-    const auto id = opDef["id"].template get<int>();
-
-    const std::lock_guard<std::mutex> lock(m_elements_mutex);
-
-    if (m_elements.contains(id)) {
-        const auto pElement = m_elements[id].get();
-
-        try {
-            pElement->HandleInternalOp(opDef);
-        } catch (const nlohmann::json::exception& ex) {
-            // todo: signal that widget creation was not successful!
-            printf("An error occurred while decoding JSON element internal op definition %d (%s): %s\n", id, pElement->m_type.c_str(), ex.what());
-        } catch (const std::exception& ex) {
-            // todo: signal that widget creation was not successful!
-            printf("An error occurred while invoking widget %d (%s)'s interal op (%s): %s\n", id, pElement->m_type.c_str(), opDef.dump().c_str(), ex.what());
-        }
-    }
-}
-
 void XFrames::SetChildren(const json& opDef) {
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
     const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
@@ -755,6 +738,7 @@ void XFrames::AppendChild(const json& opDef) {
 }
 
 std::vector<int> XFrames::GetChildren(int id) {
+    const std::lock_guard<std::mutex> lock(m_hierarchy_mutex);
     return m_hierarchy[id];
 };
 

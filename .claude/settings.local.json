@@ -13,7 +13,10 @@
       "Bash(tar:*)",
       "Bash(powershell:*)",
       "Bash(grep:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:learn.sparkfun.com)",
+      "WebFetch(domain:www.u-blox.com)",
+      "WebFetch(domain:content.u-blox.com)"
     ]
   }
 }

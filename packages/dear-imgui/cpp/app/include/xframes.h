@@ -62,8 +62,6 @@ class XFrames {
 
         void PatchElement(const json& patchDef);
 
-        void HandleElementInternalOp(const json& opDef);
-
         void SetChildren(const json& opDef);
 
         void AppendChild(const json& opDef);
