@@ -93,7 +93,7 @@ export const theme2: XFramesStyleForPatching = {
     [ImGuiCol.TextDisabled]: [theme2Colors.lighterGrey, 1],
     [ImGuiCol.WindowBg]: [theme2Colors.black, 1],
     [ImGuiCol.ChildBg]: [theme2Colors.black, 1],
-    [ImGuiCol.PopupBg]: [theme2Colors.white, 1],
+    [ImGuiCol.PopupBg]: [theme2Colors.darkerGrey, 1],
     [ImGuiCol.Border]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.BorderShadow]: [theme2Colors.darkestGrey, 1],
     [ImGuiCol.FrameBg]: [theme2Colors.black, 1],
@@ -104,17 +104,17 @@ export const theme2: XFramesStyleForPatching = {
     [ImGuiCol.TitleBgCollapsed]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.MenuBarBg]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.ScrollbarBg]: [theme2Colors.darkerGrey, 1], //
-    [ImGuiCol.ScrollbarGrab]: [theme2Colors.darkerGrey, 1], //
+    [ImGuiCol.ScrollbarGrab]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.ScrollbarGrabHovered]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.ScrollbarGrabActive]: [theme2Colors.darkestGrey, 1],
-    [ImGuiCol.CheckMark]: [theme2Colors.darkestGrey, 1],
+    [ImGuiCol.CheckMark]: [theme2Colors.white, 1],
     [ImGuiCol.SliderGrab]: [theme2Colors.darkerGrey, 1], //
     [ImGuiCol.SliderGrabActive]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.Button]: [theme2Colors.black, 1],
     [ImGuiCol.ButtonHovered]: [theme2Colors.darkerGrey, 1], //
     [ImGuiCol.ButtonActive]: [theme2Colors.black, 1],
-    [ImGuiCol.Header]: [theme2Colors.black, 1],
-    [ImGuiCol.HeaderHovered]: [theme2Colors.black, 1],
+    [ImGuiCol.Header]: [theme2Colors.darkerGrey, 1],
+    [ImGuiCol.HeaderHovered]: [theme2Colors.darkGrey, 1],
     [ImGuiCol.HeaderActive]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.Separator]: [theme2Colors.darkestGrey, 1],
     [ImGuiCol.SeparatorHovered]: [theme2Colors.lightGrey, 1],
@@ -127,9 +127,9 @@ export const theme2: XFramesStyleForPatching = {
     [ImGuiCol.TabActive]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.TabUnfocused]: [theme2Colors.black, 1],
     [ImGuiCol.TabUnfocusedActive]: [theme2Colors.lightGrey, 1],
-    [ImGuiCol.PlotLines]: [theme2Colors.darkerGrey, 1], //
+    [ImGuiCol.PlotLines]: [theme2Colors.lighterGrey, 1],
     [ImGuiCol.PlotLinesHovered]: [theme2Colors.lightGrey, 1],
-    [ImGuiCol.PlotHistogram]: [theme2Colors.darkerGrey, 1], //
+    [ImGuiCol.PlotHistogram]: [theme2Colors.lighterGrey, 1],
     [ImGuiCol.PlotHistogramHovered]: [theme2Colors.lightGrey, 1],
     [ImGuiCol.TableHeaderBg]: [theme2Colors.black, 1],
     [ImGuiCol.TableBorderStrong]: [theme2Colors.lightGrey, 1],
