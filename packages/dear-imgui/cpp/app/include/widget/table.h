@@ -3,6 +3,11 @@
 using TableRow = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
 using TableData = std::vector<TableRow>;
 
+struct TableContextMenuItem {
+    std::string id;
+    std::string label;
+};
+
 // todo: for those use cases where we expect large quantities of data, should we preallocate?
 class Table final : public StyledWidget {
     struct TableColumn {
@@ -48,6 +53,8 @@ class Table final : public StyledWidget {
         int m_selectedRowIndex = -1;
         std::vector<ImGuiTextFilter> m_filters;
         std::vector<int> m_boolFilterStates; // 0=All, 1=Yes, 2=No
+        std::vector<TableContextMenuItem> m_contextMenuItems;
+        int m_contextMenuRowIndex = -1;
 
         static std::vector<TableColumn> extractColumns(const json& columnsDef, bool tableHideable = false) {
             std::vector<TableColumn> columns;
@@ -135,7 +142,20 @@ class Table final : public StyledWidget {
                 throw std::invalid_argument("no columns were extracted");
             }
 
-            return makeWidget(view, id, extractedColumns, clipRows, filterable, reorderable, hideable, maybeStyle);
+            auto widget = makeWidget(view, id, extractedColumns, clipRows, filterable, reorderable, hideable, maybeStyle);
+
+            if (widgetDef.contains("contextMenuItems") && widgetDef["contextMenuItems"].is_array()) {
+                for (const auto& item : widgetDef["contextMenuItems"]) {
+                    if (item.is_object() && item.contains("id") && item.contains("label")) {
+                        widget->m_contextMenuItems.push_back({
+                            item["id"].template get<std::string>(),
+                            item["label"].template get<std::string>()
+                        });
+                    }
+                }
+            }
+
+            return widget;
         }
 
         static std::unique_ptr<Table> makeWidget(XFrames* view, const int id, const std::vector<TableColumn>& columns, std::optional<int> clipRows, bool filterable, bool reorderable, bool hideable, std::optional<WidgetStyle>& style) {

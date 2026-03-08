@@ -23,6 +23,7 @@ EMSCRIPTEN_DECLARE_VAL_TYPE(OnClickType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableSortType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableFilterType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableRowClickType);
+EMSCRIPTEN_DECLARE_VAL_TYPE(OnTableItemActionType);
 
 template <typename T>
 std::vector<T> JsonToVector(std::string& data) {
@@ -168,6 +169,15 @@ class WasmRunner {
             );
         }
 
+        static void OnTableItemAction(int const id, int const rowIndex, const std::string& actionId) {
+            EM_ASM_ARGS(
+                { Module.eventHandlers.onTableItemAction($0, $1, UTF8ToString($2)); },
+                id,
+                rowIndex,
+                actionId.c_str()
+            );
+        }
+
         void run(std::string& canvasSelector, std::string& rawFontDefs, std::optional<std::string>& rawStyleOverridesDefs) {
             m_xframes = new XFrames("XFrames", rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
@@ -187,7 +197,8 @@ class WasmRunner {
                 OnClick,
                 OnTableSort,
                 OnTableFilter,
-                OnTableRowClick);
+                OnTableRowClick,
+                OnTableItemAction);
             m_renderer->Init(canvasSelector);
         }
 

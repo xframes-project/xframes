@@ -77,6 +77,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnTableSort;
         Napi::ThreadSafeFunction m_tsfnOnTableFilter;
         Napi::ThreadSafeFunction m_tsfnOnTableRowClick;
+        Napi::ThreadSafeFunction m_tsfnOnTableItemAction;
 
         static Runner* instance;
 
@@ -106,6 +107,7 @@ class Runner {
             m_tsfnOnTableSort.Release();
             m_tsfnOnTableFilter.Release();
             m_tsfnOnTableRowClick.Release();
+            m_tsfnOnTableItemAction.Release();
         }
 
         static void OnInit() {
@@ -247,6 +249,19 @@ class Runner {
             }
         }
 
+        static void OnTableItemAction(int id, int rowIndex, const std::string& actionId) {
+            auto pRunner = getInstance();
+            auto callback = [id, rowIndex, actionId](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, rowIndex), Napi::String::New(env, actionId)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnTableItemAction.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
         // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
         void SetHandlers(
             const Napi::CallbackInfo& info,
@@ -259,7 +274,8 @@ class Runner {
             Napi::Function onClick,
             Napi::Function onTableSort,
             Napi::Function onTableFilter,
-            Napi::Function onTableRowClick
+            Napi::Function onTableRowClick,
+            Napi::Function onTableItemAction
             ) {
             Napi::Env env = info.Env();
 
@@ -332,6 +348,13 @@ class Runner {
                     "onTableRowClick",
                     0,
                     1);
+
+            m_tsfnOnTableItemAction = Napi::ThreadSafeFunction::New(
+                    env,
+                    onTableItemAction,
+                    "onTableItemAction",
+                    0,
+                    1);
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -368,7 +391,8 @@ class Runner {
                 OnClick,
                 OnTableSort,
                 OnTableFilter,
-                OnTableRowClick
+                OnTableRowClick,
+                OnTableItemAction
             );
         }
 
@@ -682,14 +706,16 @@ Napi::ThreadSafeFunction tsfn;
  * [9] OnClick function
  * [10] OnTableSort function
  * [11] OnTableFilter function
+ * [12] OnTableRowClick function
+ * [13] OnTableItemAction function
  */
 static Napi::Value init(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
 
     Napi::Env env = info.Env();
 
-    if (info.Length() < 12) {
-        throw Napi::TypeError::New(env, "Expected twelve arguments");
+    if (info.Length() < 14) {
+        throw Napi::TypeError::New(env, "Expected fourteen arguments");
     } else if (!info[0].IsString()) {
         throw Napi::TypeError::New(env, "Expected first arg to be string");
     } else if (!info[1].IsString()) {
@@ -716,6 +742,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected twelfth arg to be function");
     } else if (!info[12].IsFunction()) {
         throw Napi::TypeError::New(env, "Expected thirteenth arg to be function");
+    } else if (!info[13].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected fourteenth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
@@ -732,6 +760,7 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     const auto onTableSort = info[10].As<Napi::Function>();
     const auto onTableFilter = info[11].As<Napi::Function>();
     const auto onTableRowClick = info[12].As<Napi::Function>();
+    const auto onTableItemAction = info[13].As<Napi::Function>();
 
     pRunner->SetHandlers(
         info,
@@ -744,7 +773,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         onClick,
         onTableSort,
         onTableFilter,
-        onTableRowClick
+        onTableRowClick,
+        onTableItemAction
     );
 
     pRunner->init();

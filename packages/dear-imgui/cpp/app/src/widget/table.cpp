@@ -72,6 +72,8 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
             const auto numColumns = m_columns.size();
 
+            bool openContextMenu = false;
+
             if (m_filterable && AnyFilterActive()) {
                 // Build filtered index list, then clip over that
                 std::vector<int> filteredIndices;
@@ -97,6 +99,10 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                                 if (ImGui::Selectable(label, isSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
                                     m_selectedRowIndex = row;
                                     view->m_onTableRowClick(m_id, row);
+                                }
+                                if (!m_contextMenuItems.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlappedByItem) && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                                    m_contextMenuRowIndex = row;
+                                    openContextMenu = true;
                                 }
                                 ImGui::SameLine();
                             }
@@ -125,6 +131,10 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                                     m_selectedRowIndex = row;
                                     view->m_onTableRowClick(m_id, row);
                                 }
+                                if (!m_contextMenuItems.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlappedByItem) && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                                    m_contextMenuRowIndex = row;
+                                    openContextMenu = true;
+                                }
                                 ImGui::SameLine();
                             }
                             if (m_columns[i].fieldId.has_value()) {
@@ -137,6 +147,21 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                     }
                 }
             }
+
+            if (!m_contextMenuItems.empty()) {
+                if (openContextMenu) {
+                    ImGui::OpenPopup("##table_ctx");
+                }
+                if (ImGui::BeginPopup("##table_ctx")) {
+                    for (const auto& item : m_contextMenuItems) {
+                        if (ImGui::MenuItem(item.label.c_str())) {
+                            view->m_onTableItemAction(m_id, m_contextMenuRowIndex, item.id);
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
+            }
+
             ImGui::EndTable();
         }
     } else if (ImGui::BeginTable("t", (int)m_columns.size(), m_flags, outerSize)) {
@@ -198,6 +223,7 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
 
         const auto numColumns = m_columns.size();
+        bool openContextMenu = false;
 
         for (int row = 0; row < (int)m_data.size(); row++) {
             auto& dataRow = m_data[row];
@@ -214,6 +240,10 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                         m_selectedRowIndex = row;
                         view->m_onTableRowClick(m_id, row);
                     }
+                    if (!m_contextMenuItems.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlappedByItem) && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                        m_contextMenuRowIndex = row;
+                        openContextMenu = true;
+                    }
                     ImGui::SameLine();
                 }
                 if (m_columns[i].fieldId.has_value()) {
@@ -223,6 +253,20 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                         RenderCell(dataRow[fieldId], m_columns[i].type);
                     }
                 }
+            }
+        }
+
+        if (!m_contextMenuItems.empty()) {
+            if (openContextMenu) {
+                ImGui::OpenPopup("##table_ctx");
+            }
+            if (ImGui::BeginPopup("##table_ctx")) {
+                for (const auto& item : m_contextMenuItems) {
+                    if (ImGui::MenuItem(item.label.c_str())) {
+                        view->m_onTableItemAction(m_id, m_contextMenuRowIndex, item.id);
+                    }
+                }
+                ImGui::EndPopup();
             }
         }
 
@@ -253,6 +297,18 @@ void Table::Patch(const json& widgetPatchDef, XFrames* view) {
             m_flags |= ImGuiTableFlags_Reorderable;
         } else {
             m_flags &= ~ImGuiTableFlags_Reorderable;
+        }
+    }
+
+    if (widgetPatchDef.contains("contextMenuItems") && widgetPatchDef["contextMenuItems"].is_array()) {
+        m_contextMenuItems.clear();
+        for (const auto& item : widgetPatchDef["contextMenuItems"]) {
+            if (item.is_object() && item.contains("id") && item.contains("label")) {
+                m_contextMenuItems.push_back({
+                    item["id"].template get<std::string>(),
+                    item["label"].template get<std::string>()
+                });
+            }
         }
     }
 

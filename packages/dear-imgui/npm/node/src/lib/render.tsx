@@ -143,6 +143,18 @@ export const render = (
     );
   };
 
+  const onTableItemAction = (id: number, rowIndex: number, actionId: string) => {
+    const rootNodeID = id;
+    const topLevelType = "onItemAction";
+    const nativeEventParam = { rowIndex, actionId };
+
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+      rootNodeID,
+      topLevelType,
+      nativeEventParam
+    );
+  };
+
   xframes.init(
     assetsBasePath,
     JSON.stringify(fontDefs),
@@ -156,7 +168,8 @@ export const render = (
     onClick,
     onTableSort,
     onTableFilter,
-    onTableRowClick
+    onTableRowClick,
+    onTableItemAction
   );
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);

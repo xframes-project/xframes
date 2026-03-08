@@ -21,6 +21,8 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
             onSort,
             onFilter,
             onRowClick,
+            contextMenuItems,
+            onItemAction,
             style,
             hoverStyle,
             activeStyle,
@@ -67,6 +69,8 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
                 onSort={onSort}
                 onFilter={onFilter}
                 onRowClick={onRowClick}
+                contextMenuItems={contextMenuItems}
+                onItemAction={onItemAction}
                 style={style}
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}

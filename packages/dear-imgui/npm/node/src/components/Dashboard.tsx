@@ -18,6 +18,7 @@ import {
   SliderChangeEvent,
   CheckboxChangeEvent,
   TableRowClickEvent,
+  TableItemActionEvent,
   WidgetPropsMap,
   useWidgetRegistrationService,
 } from "@xframes/common";
@@ -327,6 +328,10 @@ export const Dashboard = () => {
     console.log(`Row clicked: index=${event.nativeEvent.rowIndex}`);
   }, []);
 
+  const handleItemAction = useCallback((event: TableItemActionEvent) => {
+    console.log(`Context menu action: row=${event.nativeEvent.rowIndex}, action=${event.nativeEvent.actionId}`);
+  }, []);
+
   const handleResetForm = useCallback(() => {
     setInputValue("");
     setSelectedCategory("All");
@@ -359,6 +364,11 @@ export const Dashboard = () => {
               reorderable
               hideable
               onRowClick={handleRowClick}
+              contextMenuItems={[
+                { id: "view", label: "View Details" },
+                { id: "delete", label: "Delete" },
+              ]}
+              onItemAction={handleItemAction}
               style={styles.tableArea}
             />
           </XFrames.Node>

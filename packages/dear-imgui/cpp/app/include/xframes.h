@@ -97,6 +97,7 @@ class XFrames {
         OnTableSortCallback m_onTableSort;
         OnTableFilterCallback m_onTableFilter;
         OnTableRowClickCallback m_onTableRowClick;
+        OnTableItemActionCallback m_onTableItemAction;
 
         XFrames(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
 
@@ -120,7 +121,8 @@ class XFrames {
             OnClickCallback onClickFn,
             OnTableSortCallback onTableSortFn,
             OnTableFilterCallback onTableFilterFn,
-            OnTableRowClickCallback onTableRowClickFn
+            OnTableRowClickCallback onTableRowClickFn,
+            OnTableItemActionCallback onTableItemActionFn
         );
 
         void PrepareForRender();

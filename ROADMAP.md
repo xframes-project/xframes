@@ -68,11 +68,11 @@ Desktop interactivity patterns and additional widgets that make XFrames feel pro
 
 ### Table Enhancements
 
-- [ ] Right-click context menu on table rows (declarative `contextMenuItems` prop)
+- [x] Right-click context menu on table rows (declarative `contextMenuItems` prop)
 
 ### Callback Infrastructure
 
-- [ ] New `onItemAction` callback type for context menu actions (adds 14th init arg)
+- [x] New `onItemAction` callback type for context menu actions (adds 14th init arg)
 
 ---
 

@@ -15,6 +15,7 @@ export type ModuleEventHandlers = {
     onTableSort: (id: number, columnIndex: number, sortDirection: number) => void;
     onTableFilter: (id: number, columnIndex: number, filterText: string) => void;
     onTableRowClick: (id: number, rowIndex: number) => void;
+    onTableItemAction: (id: number, rowIndex: number, actionId: string) => void;
     onInit?: () => void;
 };
 
@@ -95,6 +96,11 @@ export type TableFilterEvent = SyntheticEvent<
 export type TableRowClickEvent = SyntheticEvent<
     WidgetReactElement<"Table">,
     { rowIndex: number }
+>;
+
+export type TableItemActionEvent = SyntheticEvent<
+    WidgetReactElement<"Table">,
+    { rowIndex: number; actionId: string }
 >;
 
 export type WidgetPropsMap = {
@@ -274,9 +280,11 @@ export type WidgetPropsMap = {
         filterable?: boolean;
         reorderable?: boolean;
         hideable?: boolean;
+        contextMenuItems?: { id: string; label: string }[];
         onSort?: (event: TableSortEvent) => void;
         onFilter?: (event: TableFilterEvent) => void;
         onRowClick?: (event: TableRowClickEvent) => void;
+        onItemAction?: (event: TableItemActionEvent) => void;
     };
     TextWrap: WidgetStyleProps & { width: number };
     TreeNode: WidgetStyleProps & {

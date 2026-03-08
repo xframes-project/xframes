@@ -60,7 +60,7 @@ const attributesForElements = {
     slider: ["sliderType", "label", "defaultValue", "min", "max", "onChange"],
     "tab-bar": ["reorderable"],
     "tab-item": ["label", "closeable", "onChange"],
-    "di-table": ["columns", "initialData", "clipRows", "filterable", "reorderable", "hideable", "onSort", "onFilter", "onRowClick"],
+    "di-table": ["columns", "initialData", "clipRows", "filterable", "reorderable", "hideable", "contextMenuItems", "onSort", "onFilter", "onRowClick", "onItemAction"],
     "text-wrap": ["width"],
     "tree-node": [
         "itemId",
@@ -118,6 +118,7 @@ export default {
                 onSort: { registrationName: "onSort" },
                 onFilter: { registrationName: "onFilter" },
                 onRowClick: { registrationName: "onRowClick" },
+                onItemAction: { registrationName: "onItemAction" },
             },
             get(elementType, ...unknownArgs) {
                 if (attributesForElementsMap[elementType] === undefined) {

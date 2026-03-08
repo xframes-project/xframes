@@ -32,6 +32,7 @@ using OnClickCallback = void (*)(int id);
 using OnTableSortCallback = void (*)(int id, int columnIndex, int sortDirection);
 using OnTableFilterCallback = void (*)(int id, int columnIndex, const std::string& filterText);
 using OnTableRowClickCallback = void (*)(int id, int rowIndex);
+using OnTableItemActionCallback = void (*)(int id, int rowIndex, const std::string& actionId);
 
 std::optional<float> charPercentageToFloat(const char* input);
 
