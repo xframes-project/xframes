@@ -76,6 +76,55 @@ Desktop interactivity patterns and additional widgets that make XFrames feel pro
 
 ---
 
+## Phase 1.75 — Map Widget Integration
+
+The [osm-static-map-generator](https://github.com/andreamancuso/osm-static-map-generator) submodule provides OSM raster tile compositing for both desktop (libcurl + Leptonica) and browser (Emscripten Fetch + Leptonica). A MapView widget already exists in C++ and TypeScript but is currently disabled on desktop. This phase enables it end-to-end and adds it to the demo dashboard, laying groundwork for the u-center lite position tracking panel.
+
+### Stage 1 — Submodule & Build Plumbing
+
+- [ ] Update osm-static-map-generator submodule to latest (`93d12b5`) — brings in LRU tile cache with TTL, curl-based native downloader with retry/exponential backoff, Emscripten 5.0.2 upgrade
+- [ ] Add `curl` to `vcpkg.json` (`cpp/app/vcpkg.json`)
+- [ ] Add `find_package(CURL REQUIRED)` and link `CURL::libcurl` in `CMakeLists.txt` (`cpp/app/CMakeLists.txt`)
+- [ ] Add `tilecache.cpp` to `OSM_STATIC_MAP_GENERATOR_SRC` (new file in updated library)
+- [ ] Uncomment `map_view.cpp` in `XFRAMES_SRC` (line 77)
+- [ ] Uncomment `${OSM_STATIC_MAP_GENERATOR_SRC}` in the `add_library` call (line 102)
+
+### Stage 2 — Desktop Widget Activation
+
+- [ ] Remove `#ifdef __EMSCRIPTEN__` guard around MapView include and registration in `xframes.cpp` (currently lines 32–34 and 148–150)
+- [ ] Update `map_view.cpp` `HandleInternalOp()` to read Yoga layout dimensions instead of hardcoded 600×600
+- [ ] Add `User-Agent` header to tile requests for OSM tile server compliance
+- [ ] Verify texture loading pipeline works on desktop OpenGL path (`ImGuiRenderer::LoadTexture` via stb → `glTexImage2D` → `ImDrawList::AddImage`)
+
+### Stage 3 — Demo Dashboard Integration
+
+- [ ] Add MapView row to `Dashboard.tsx` with render button and zoom slider (1–17)
+- [ ] Auto-render a default location (e.g. London: `−0.1276, 51.5074`, zoom 13) on mount
+- [ ] Follow existing imperative handle pattern (`useRef<MapImperativeHandle>` + `useEffect` + `setTimeout`)
+
+### Stage 4 — Enhanced Interactivity
+
+- [ ] Async tile downloading on a background thread to avoid UI freeze on first render (curl_multi blocks the render thread; subsequent renders are fast thanks to tile cache)
+- [ ] Scroll-wheel zoom with re-render
+- [ ] City table → map linkage (click a row in World Cities table to center map on that city)
+- [ ] Expose `tileUrl`, `tileRequestHeaders`, `tileRequestLimit`, `tileCacheMaxEntries` as props from TypeScript
+- [ ] Keyboard navigation (arrow keys to pan)
+
+### Stage 5 — Map Overlays & u-center lite Integration
+
+- [ ] Pin marker overlay (render markers at given lat/lon coordinates on top of the map texture)
+- [ ] Route/polyline overlay (connect sequential positions)
+- [ ] Wire into u-center lite Position Tracking panel (Phase 3) — live position dot on map updated from NAV-PVT messages
+- [ ] Map center follows GPS fix when in "follow" mode
+
+### Stage 6 — Documentation
+
+- [ ] Add MapView to widget catalog on xframes.dev (props, imperative handle, code example)
+- [ ] Add `MapImperativeHandle` to imperative handle reference page
+- [ ] Update CLAUDE.md with MapView widget section
+
+---
+
 ## Phase 2 — Showcase Foundation (u-center lite)
 
 Integrate the UBX native npm module and build the core panels of the showcase app.

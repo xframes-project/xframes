@@ -32,6 +32,7 @@ find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 # find_package(RPP REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
@@ -42,6 +43,7 @@ set(OSM_STATIC_MAP_GENERATOR_SRC
         ${DEPS}/osm-static-map-generator/cpp/shared.cpp
         ${DEPS}/osm-static-map-generator/cpp/tiledownloader.cpp
         ${DEPS}/osm-static-map-generator/cpp/mapgenerator.cpp
+        ${DEPS}/osm-static-map-generator/cpp/tilecache.cpp
 )
 
 # Copied from yoga's CMakeLists.txt
@@ -74,7 +76,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/image.cpp
         ${XFRAMES_BASE_PATH}/src/widget/input_text.cpp
         ${XFRAMES_BASE_PATH}/src/widget/item_tooltip.cpp
-#        ${XFRAMES_BASE_PATH}/src/widget/map_view.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/map_view.cpp
         ${XFRAMES_BASE_PATH}/src/widget/multi_slider.cpp
         ${XFRAMES_BASE_PATH}/src/widget/plot_bar.cpp
         ${XFRAMES_BASE_PATH}/src/widget/plot_heatmap.cpp
@@ -99,7 +101,7 @@ set(XFRAMES_SRC
 
 add_library(xframes
         ${XFRAMES_SRC}
-#        ${OSM_STATIC_MAP_GENERATOR_SRC}
+        ${OSM_STATIC_MAP_GENERATOR_SRC}
         ${LEPTONICA_SRC}
         ${YOGA_SRC}
         ${DEPS}/css-color-parser-cpp/csscolorparser.hpp
@@ -128,6 +130,7 @@ target_link_libraries(xframes PRIVATE
         JPEG::JPEG
         PNG::PNG
         TIFF::TIFF
+        CURL::libcurl
         fmt::fmt
         glfw
         OpenGL::GL

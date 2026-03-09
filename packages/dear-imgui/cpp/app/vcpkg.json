@@ -17,6 +17,7 @@
     "libjpeg-turbo",
     "libpng",
     "tiff",
+    "curl",
     "fmt",
     "glfw3"
   ]
