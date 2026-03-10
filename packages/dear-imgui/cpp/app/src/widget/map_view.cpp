@@ -213,14 +213,6 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 m_centerLon = xToLon(m_centerTileX, m_zoom);
                 m_centerLat = yToLat(m_centerTileY, m_zoom);
 
-                // Clear old-zoom textures
-#ifndef __EMSCRIPTEN__
-                for (auto& [key, tex] : m_tileTextures) {
-                    glDeleteTextures(1, &tex.textureView);
-                }
-#endif
-                m_tileTextures.clear();
-
                 view->m_onNumericValueChange(m_id, static_cast<float>(m_zoom));
             }
         }
@@ -244,6 +236,27 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
 
     int maxTiles = 1 << m_zoom;
+
+    // Render old-zoom tiles as scaled placeholders (background layer)
+    for (const auto& [key, tex] : m_tileTextures) {
+        if (key.zoom == m_zoom) continue;
+
+        double scale = pow(2.0, m_zoom - key.zoom);
+        double tileWorldSize = TILE_SIZE * scale;
+
+        double tileX = key.x * scale;
+        double tileY = key.y * scale;
+
+        float px = static_cast<float>(round((tileX - m_centerTileX) * TILE_SIZE + viewW / 2.0));
+        float py = static_cast<float>(round((tileY - m_centerTileY) * TILE_SIZE + viewH / 2.0));
+
+        ImVec2 tileP0(p0.x + px, p0.y + py);
+        ImVec2 tileP1(p0.x + px + static_cast<float>(tileWorldSize),
+                      p0.y + py + static_cast<float>(tileWorldSize));
+
+        drawList->AddImage((void*)(intptr_t)tex.textureView, tileP0, tileP1,
+                           ImVec2(0, 0), ImVec2(1, 1));
+    }
 
     for (int x = xMin; x < xMax; x++) {
         for (int y = yMin; y < yMax; y++) {
@@ -273,7 +286,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
     }
 
-    // GPU texture eviction: keep only tiles near visible area at current zoom
+    // GPU texture eviction: keep current-zoom nearby tiles + old-zoom tiles overlapping viewport
 #ifndef __EMSCRIPTEN__
     {
         std::set<TileKey> nearbyKeys;
@@ -281,6 +294,18 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             for (int y = std::max(0, yMin - 2); y < std::min(maxTiles, yMax + 2); y++) {
                 int wrappedX = ((x % maxTiles) + maxTiles) % maxTiles;
                 nearbyKeys.insert(TileKey{wrappedX, y, m_zoom});
+            }
+        }
+
+        // Keep old-zoom tiles that overlap the visible area (placeholder background)
+        for (const auto& [key, tex] : m_tileTextures) {
+            if (key.zoom == m_zoom) continue;
+            double scale = pow(2.0, m_zoom - key.zoom);
+            double tileX = key.x * scale;
+            double tileY = key.y * scale;
+            if (tileX + scale > xMin && tileX < xMax &&
+                tileY + scale > yMin && tileY < yMax) {
+                nearbyKeys.insert(key);
             }
         }
 
@@ -326,22 +351,15 @@ void MapView::HandleInternalOp(const json& opDef) {
             auto lat = opDef["centerY"].template get<double>();
             auto zoom = opDef["zoom"].template get<int>();
 
-            // If zoom changed, clear all tile textures
-            if (zoom != m_zoom) {
-                // TODO: Stage 8 — proper VRAM eviction. For now, delete all GL textures.
-#ifndef __EMSCRIPTEN__
-                for (auto& [key, tex] : m_tileTextures) {
-                    glDeleteTextures(1, &tex.textureView);
-                }
-#endif
-                m_tileTextures.clear();
-            }
-
             m_centerLon = lon;
             m_centerLat = lat;
             m_zoom = zoom;
             m_centerTileX = lonToX(lon, zoom);
             m_centerTileY = latToY(lat, zoom);
+
+            if (!m_initialized) {
+                TileCache::getGlobalInstance().configure(1024, 3600000);
+            }
             m_initialized = true;
 
             // Compute visible tile range
