@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <mutex>
 #include <set>
 #include <vector>
@@ -58,6 +59,10 @@ private:
     };
     std::mutex m_pendingMutex;
     std::vector<PendingTile> m_pendingTiles;
+
+    // Zoom debounce
+    std::chrono::steady_clock::time_point m_lastZoomChangeTime{};
+    bool m_zoomDebouncing = false;
 
     // Track in-flight downloads to avoid duplicates
     std::mutex m_inflightMutex;

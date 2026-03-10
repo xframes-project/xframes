@@ -201,6 +201,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 double mouseLat = yToLat(mouseTileY, m_zoom);
 
                 m_zoom = newZoom;
+                m_lastZoomChangeTime = std::chrono::steady_clock::now();
+                m_zoomDebouncing = true;
 
                 // Recompute at new zoom
                 double newMouseTileX = lonToX(mouseLon, m_zoom);
@@ -331,8 +333,16 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     }
 #endif
 
-    // Always fetch missing visible tiles (handles drag, zoom, initial render)
-    FetchMissingTiles(xMin, xMax, yMin, yMax);
+    // Debounce tile fetches during rapid zoom (150ms after last scroll)
+    if (m_zoomDebouncing) {
+        auto elapsed = std::chrono::steady_clock::now() - m_lastZoomChangeTime;
+        if (elapsed >= std::chrono::milliseconds(150)) {
+            m_zoomDebouncing = false;
+            FetchMissingTiles(xMin, xMax, yMin, yMax);
+        }
+    } else {
+        FetchMissingTiles(xMin, xMax, yMin, yMax);
+    }
 
     // Attribution overlay
     if (!m_attribution.empty()) {
