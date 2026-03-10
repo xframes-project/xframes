@@ -37,6 +37,7 @@ import { PlotLineImperativeHandle } from "./components/XFrames/PlotLine";
 import { PlotPieChartImperativeHandle } from "./components/XFrames/PlotPieChart";
 import { PlotScatterImperativeHandle } from "./components/XFrames/PlotScatter";
 import { PlotCandlestickImperativeHandle } from "./components/XFrames/PlotCandlestick";
+import { SliderImperativeHandle } from "./components/XFrames/Slider";
 import { ImGuiCol, ImVec2, ImGuiStyleVar, ImPlotScale, ImPlotMarker } from "./types";
 import { components } from "./components/XFrames/components";
 import { WidgetRegistrationService } from "./widgetRegistrationService";
@@ -109,6 +110,7 @@ export {
     PlotPieChartImperativeHandle,
     PlotScatterImperativeHandle,
     PlotCandlestickImperativeHandle,
+    SliderImperativeHandle,
     ImPlotScale,
     ImPlotMarker,
     components,

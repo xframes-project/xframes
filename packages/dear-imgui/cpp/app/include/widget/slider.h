@@ -54,6 +54,9 @@ class Slider final : public StyledWidget {
 
         void Patch(const json& widgetPatchDef, XFrames* view) override;
 
+        bool HasInternalOps() override;
+        void HandleInternalOp(const json& opDef) override;
+
         void Init(const json& elementDef) override {
             Element::Init(elementDef);
 

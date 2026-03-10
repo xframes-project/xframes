@@ -12,6 +12,7 @@ import {
   PlotHistogramImperativeHandle,
   PlotPieChartImperativeHandle,
   MapImperativeHandle,
+  SliderImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
   InputTextChangeEvent,
@@ -181,6 +182,7 @@ export const Dashboard = () => {
   const histogramRef = useRef<PlotHistogramImperativeHandle>(null);
   const pieChartRef = useRef<PlotPieChartImperativeHandle>(null);
   const mapRef = useRef<MapImperativeHandle>(null);
+  const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
   const [mapZoom, setMapZoom] = useState(13);
@@ -372,11 +374,14 @@ export const Dashboard = () => {
   }, [mapZoom]);
 
   const handleZoomChange = useCallback((event: SliderChangeEvent) => {
-    setMapZoom(event.nativeEvent.value);
+    const zoom = event.nativeEvent.value;
+    setMapZoom(zoom);
+    mapRef.current?.render(-0.1276, 51.5074, zoom);
   }, []);
 
   const handleMapZoomChange = useCallback((event: MapZoomChangeEvent) => {
     setMapZoom(event.nativeEvent.value);
+    zoomSliderRef.current?.setValue(event.nativeEvent.value);
   }, []);
 
   const handleTabClose = useCallback((event: TabItemChangeEvent) => {
@@ -615,6 +620,7 @@ export const Dashboard = () => {
             <XFrames.UnformattedText text="Center: -0.1276, 51.5074 (London)" />
             <XFrames.UnformattedText text={`Zoom: ${mapZoom}`} />
             <XFrames.Slider
+              ref={zoomSliderRef}
               defaultValue={13}
               min={1}
               max={17}

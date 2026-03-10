@@ -382,6 +382,16 @@ export class WidgetRegistrationService {
         }
     }
 
+    setSliderValue(id: string, value: number) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setValue", value }),
+            );
+        }
+    }
+
     setComboSelectedIndex(id: string, index: number) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

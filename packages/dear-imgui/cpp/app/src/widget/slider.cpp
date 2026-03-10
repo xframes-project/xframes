@@ -17,6 +17,19 @@ void Slider::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PopID();
 };
 
+bool Slider::HasInternalOps() {
+    return true;
+}
+
+void Slider::HandleInternalOp(const json& opDef) {
+    if (opDef.contains("op") && opDef["op"].is_string()) {
+        auto op = opDef["op"].template get<std::string>();
+        if (op == "setValue" && opDef.contains("value") && opDef["value"].is_number()) {
+            m_value = opDef["value"].template get<float>();
+        }
+    }
+}
+
 void Slider::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
