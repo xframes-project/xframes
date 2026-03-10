@@ -8,6 +8,13 @@ class MapView final : public StyledWidget {
 private:
     ImVec2 m_offset;
 
+    double m_centerLon = 0.0;
+    double m_centerLat = 0.0;
+    int m_zoom = 1;
+    bool m_wasDragging = false;
+
+    static constexpr int BUFFER_MULTIPLIER = 3;
+
     int m_mapGeneratorJobCounter = 0;
     std::unordered_map<int, std::unique_ptr<MapGenerator>> m_mapGeneratorJobs;
 

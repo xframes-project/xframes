@@ -51,7 +51,10 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             double boxHeightPct = imageSize.y / m_textures[0]->height;
 
             ImGui::InvisibleButton("##map_canvas", imageSize);
-            if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+
+            bool isDragging = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+
+            if (isDragging) {
                 m_offset.x += ImGui::GetIO().MouseDelta.x;
                 m_offset.y += ImGui::GetIO().MouseDelta.y;
 
@@ -70,6 +73,34 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 if (m_offset.y > (m_textures[0]->height - imageSize.y)) {
                     m_offset.y = m_textures[0]->height - imageSize.y;
                 }
+
+                m_wasDragging = true;
+            }
+
+            if (m_wasDragging && !isDragging) {
+                m_wasDragging = false;
+
+                // Convert pixel offset from texture center to new lat/lon
+                float viewCenterX = m_offset.x + imageSize.x / 2.0f;
+                float viewCenterY = m_offset.y + imageSize.y / 2.0f;
+                float texCenterX = m_textures[0]->width / 2.0f;
+                float texCenterY = m_textures[0]->height / 2.0f;
+
+                float deltaPixelsX = viewCenterX - texCenterX;
+                float deltaPixelsY = viewCenterY - texCenterY;
+
+                int tileSize = 256;
+                double centerTileX = lonToX(m_centerLon, m_zoom);
+                double centerTileY = latToY(m_centerLat, m_zoom);
+
+                double newTileX = centerTileX + static_cast<double>(deltaPixelsX) / tileSize;
+                double newTileY = centerTileY + static_cast<double>(deltaPixelsY) / tileSize;
+
+                double newLon = xToLon(newTileX, m_zoom);
+                double newLat = yToLat(newTileY, m_zoom);
+
+                json reRenderOp = {{"op", "render"}, {"centerX", newLon}, {"centerY", newLat}, {"zoom", m_zoom}};
+                HandleInternalOp(reRenderOp);
             }
 
             if (!ImGui::IsItemVisible()) {
@@ -113,20 +144,31 @@ void MapView::HandleInternalOp(const json& opDef) {
             auto centerY = opDef["centerY"].template get<double>();
             auto zoom = opDef["zoom"].template get<int>();
 
+            m_centerLon = centerX;
+            m_centerLat = centerY;
+            m_zoom = zoom;
+
             int mapWidth = static_cast<int>(YGNodeLayoutGetWidth(m_layoutNode->m_node));
             int mapHeight = static_cast<int>(YGNodeLayoutGetHeight(m_layoutNode->m_node));
 
             if (mapWidth <= 0) mapWidth = 600;
             if (mapHeight <= 0) mapHeight = 600;
 
+            int texWidth = mapWidth * BUFFER_MULTIPLIER;
+            int texHeight = mapHeight * BUFFER_MULTIPLIER;
+
             MapGeneratorOptions options;
-            options.m_width = mapWidth;
-            options.m_height = mapHeight;
+            options.m_width = texWidth;
+            options.m_height = texHeight;
             options.m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
+
+            // Center viewport in the oversized texture
+            m_offset.x = static_cast<float>((texWidth - mapWidth) / 2);
+            m_offset.y = static_cast<float>((texHeight - mapHeight) / 2);
 
             m_mapGeneratorJobCounter++;
 
-            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this, mapWidth, mapHeight] (void* data, const size_t numBytes) {
+            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this, texWidth, texHeight] (void* data, const size_t numBytes) {
 #ifdef __EMSCRIPTEN__
                 Texture texture{};
                 const bool ret = m_view->m_renderer->LoadTexture(data, static_cast<int>(numBytes), &texture);
@@ -140,8 +182,8 @@ void MapView::HandleInternalOp(const json& opDef) {
                             static_cast<unsigned char*>(data),
                             static_cast<unsigned char*>(data) + numBytes
                         ),
-                        mapWidth,
-                        mapHeight
+                        texWidth,
+                        texHeight
                     };
                 }
 #endif
