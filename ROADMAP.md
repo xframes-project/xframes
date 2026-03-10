@@ -82,46 +82,94 @@ The [osm-static-map-generator](https://github.com/andreamancuso/osm-static-map-g
 
 ### Stage 1 — Submodule & Build Plumbing
 
-- [ ] Update osm-static-map-generator submodule to latest (`93d12b5`) — brings in LRU tile cache with TTL, curl-based native downloader with retry/exponential backoff, Emscripten 5.0.2 upgrade
-- [ ] Add `curl` to `vcpkg.json` (`cpp/app/vcpkg.json`)
-- [ ] Add `find_package(CURL REQUIRED)` and link `CURL::libcurl` in `CMakeLists.txt` (`cpp/app/CMakeLists.txt`)
-- [ ] Add `tilecache.cpp` to `OSM_STATIC_MAP_GENERATOR_SRC` (new file in updated library)
-- [ ] Uncomment `map_view.cpp` in `XFRAMES_SRC` (line 77)
-- [ ] Uncomment `${OSM_STATIC_MAP_GENERATOR_SRC}` in the `add_library` call (line 102)
+- [x] Update osm-static-map-generator submodule to latest (`93d12b5`) — brings in LRU tile cache with TTL, curl-based native downloader with retry/exponential backoff, Emscripten 5.0.2 upgrade
+- [x] Add `curl` to `vcpkg.json` (`cpp/app/vcpkg.json`)
+- [x] Add `find_package(CURL REQUIRED)` and link `CURL::libcurl` in `CMakeLists.txt` (`cpp/app/CMakeLists.txt`)
+- [x] Add `tilecache.cpp` to `OSM_STATIC_MAP_GENERATOR_SRC` (new file in updated library)
+- [x] Uncomment `map_view.cpp` in `XFRAMES_SRC`
+- [x] Uncomment `${OSM_STATIC_MAP_GENERATOR_SRC}` in the `add_library` call
+- [x] Mirror all build changes to `npm/node/CMakeLists.txt` and `npm/node/vcpkg.json` (Node addon has its own separate CMake build)
+- [x] Generate `endianness.h` for Leptonica and add `HAVE_LIBJPEG`/`HAVE_LIBTIFF`/`HAVE_LIBPNG` compile definitions
+- [x] Add `NOMINMAX` compile definition to prevent Windows `min`/`max` macro conflicts with `ada` headers
 
 ### Stage 2 — Desktop Widget Activation
 
-- [ ] Remove `#ifdef __EMSCRIPTEN__` guard around MapView include and registration in `xframes.cpp` (currently lines 32–34 and 148–150)
-- [ ] Update `map_view.cpp` `HandleInternalOp()` to read Yoga layout dimensions instead of hardcoded 600×600
-- [ ] Add `User-Agent` header to tile requests for OSM tile server compliance
-- [ ] Verify texture loading pipeline works on desktop OpenGL path (`ImGuiRenderer::LoadTexture` via stb → `glTexImage2D` → `ImDrawList::AddImage`)
+- [x] Remove `#ifdef __EMSCRIPTEN__` guard around MapView include and registration in `xframes.cpp`
+- [x] Update `map_view.cpp` `HandleInternalOp()` to read Yoga layout dimensions instead of hardcoded 600×600
+- [x] Add `User-Agent` header to tile requests for OSM tile server compliance
+- [x] Fix GL Error 1282: deferred texture upload via mutex-protected pending buffer (OpenGL calls must run on the GL render thread, not the MapGenerator callback thread)
+- [x] Background tile download via `std::thread` to avoid blocking the render loop
+- [x] Flicker-free texture swap: store pending offset alongside pending texture data, apply atomically
 
 ### Stage 3 — Demo Dashboard Integration
 
-- [ ] Add MapView row to `Dashboard.tsx` with render button and zoom slider (1–17)
-- [ ] Auto-render a default location (e.g. London: `−0.1276, 51.5074`, zoom 13) on mount
-- [ ] Follow existing imperative handle pattern (`useRef<MapImperativeHandle>` + `useEffect` + `setTimeout`)
+- [x] Add MapView row to `Dashboard.tsx` with render button and zoom slider (1–17)
+- [x] Auto-render a default location (London: `−0.1276, 51.5074`, zoom 13) on mount
+- [x] Follow existing imperative handle pattern (`useRef<MapImperativeHandle>` + `useEffect` + `setTimeout`)
+- [x] Basic pan support: 3x oversized texture buffer with drag-end re-render at new center
 
-### Stage 4 — Enhanced Interactivity
+### Stage 4 — Tile-Grid Foundation
 
-- [ ] Async tile downloading on a background thread to avoid UI freeze on first render (curl_multi blocks the render thread; subsequent renders are fast thanks to tile cache)
-- [ ] Scroll-wheel zoom with re-render
-- [ ] City table → map linkage (click a row in World Cities table to center map on that city)
-- [ ] Expose `tileUrl`, `tileRequestHeaders`, `tileRequestLimit`, `tileCacheMaxEntries` as props from TypeScript
-- [ ] Keyboard navigation (arrow keys to pan)
+Replace the monolithic composited-PNG approach with individual tile textures rendered in a grid. This eliminates visual jumps on pan and enables incremental tile loading.
 
-### Stage 5 — Map Overlays & u-center lite Integration
+- [ ] Define `TileKey` struct (`int x, y, zoom`) and `TileEntry` struct (raw PNG bytes + decode state)
+- [ ] Create GPU texture registry: `std::unordered_map<TileKey, GLuint>` for uploaded textures, separate from the existing `TileCache` (which stores raw PNG bytes)
+- [ ] Implement visible-tile calculation in MapView: given center (lon, lat), zoom, and viewport size, compute the set of `TileKey`s that overlap the viewport (port the grid math from `MapGenerator::DrawLayer()`)
+- [ ] Implement per-tile screen positioning: `TileKey` → screen rect `(x0, y0, x1, y1)` using the `XToPx`/`YToPx` pattern from MapGenerator
+- [ ] Render loop: iterate visible tiles, call `ImDrawList::AddImage()` once per tile with its GL texture and screen rect
 
-- [ ] Pin marker overlay (render markers at given lat/lon coordinates on top of the map texture)
+### Stage 5 — Tile Download & Decode Pipeline
+
+Wire up individual tile fetching, decoding, and GPU upload with proper threading.
+
+- [ ] Create a `TileGridDownloader` class (or extend `TileDownloader`) that accepts a list of `TileKey`s, checks `TileCache` first, then downloads missing tiles via libcurl multi (desktop) or Emscripten Fetch (WASM)
+- [ ] Background thread: download + decode tiles (PNG bytes → RGBA pixels via `stbi_load_from_memory`, avoiding Leptonica entirely for decode-only)
+- [ ] Render-thread upload: pending decoded tiles are picked up each frame and uploaded via `glTexImage2D` (same mutex + pending-queue pattern as current `PendingTexture`)
+- [ ] Populate the GPU texture registry as tiles arrive — partial renders are fine (show available tiles, leave gaps for pending ones)
+- [ ] Placeholder tile: render a solid gray rect for tiles not yet loaded
+
+### Stage 6 — Smooth Panning
+
+Sub-pixel smooth panning with incremental edge-tile fetching.
+
+- [ ] Track center as fractional tile coordinates (`double m_centerTileX, m_centerTileY`) — update continuously during drag via pixel delta → tile delta conversion
+- [ ] On each frame during drag: recalculate visible tile set, kick off downloads for any new tiles that scrolled into view
+- [ ] Keep existing tiles in the GPU registry as long as they're nearby — don't evict on every pan
+- [ ] No full re-render on drag end — panning is continuous, tiles load incrementally as the viewport moves
+- [ ] Tile clipping: when a tile is partially off-screen, clip via UV coordinates (existing pattern)
+
+### Stage 7 — Zoom
+
+Scroll-wheel zoom with tile-level transitions.
+
+- [ ] `ImGui::GetIO().MouseWheel` on the map canvas increments/decrements zoom level (clamped 1–17)
+- [ ] On zoom change: recalculate visible tile set at new zoom level, start fetching new tiles
+- [ ] While new-zoom tiles load, scale the old-zoom tiles as a placeholder (render at 2x or 0.5x size via adjusted screen rects)
+- [ ] Once all new-zoom tiles arrive, drop old-zoom textures from the registry
+- [ ] Expose zoom level to React via an `onZoomChange` callback
+
+### Stage 8 — Optimization & Resource Management
+
+VRAM and memory management for long panning sessions.
+
+- [ ] GPU texture eviction: discard textures for tiles more than 2 tile-widths outside the viewport
+- [ ] VRAM budget tracking: cap total uploaded textures (e.g., 512 tiles × 256×256×4 ≈ 128MB) with LRU eviction
+- [ ] Prefetching: when panning in a direction, preemptively fetch 1 row/column of tiles ahead of the viewport edge
+- [ ] `TileCache` tuning: increase `maxEntries` for tile-grid use (many more individual tiles than monolithic renders)
+- [ ] Deduplicate in-flight requests: if a tile download is already pending, don't queue a duplicate
+
+### Stage 9 — Map Overlays & u-center lite Integration
+
+- [ ] Pin marker overlay (render markers at given lat/lon coordinates on top of the tile grid)
 - [ ] Route/polyline overlay (connect sequential positions)
 - [ ] Wire into u-center lite Position Tracking panel (Phase 3) — live position dot on map updated from NAV-PVT messages
 - [ ] Map center follows GPS fix when in "follow" mode
 
-### Stage 6 — Documentation
+### Stage 10 — Documentation
 
-- [ ] Add MapView to widget catalog on xframes.dev (props, imperative handle, code example)
+- [ ] Add MapView to widget catalog on xframes.dev (props, imperative handle, tile-grid architecture, code example)
 - [ ] Add `MapImperativeHandle` to imperative handle reference page
-- [ ] Update CLAUDE.md with MapView widget section
+- [ ] Update CLAUDE.md with MapView widget section (tile-grid model, TileCache, GPU texture registry)
 
 ---
 
