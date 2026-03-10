@@ -329,6 +329,22 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     // Always fetch missing visible tiles (handles drag, zoom, initial render)
     FetchMissingTiles(xMin, xMax, yMin, yMax);
 
+    // Attribution overlay
+    {
+        const char* attribution = "\xC2\xA9 OpenStreetMap contributors";
+        ImFont* font = ImGui::GetIO().FontDefault;
+        float fontSize = font->LegacySize;
+        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, attribution);
+
+        float pad = 4.0f;
+        ImVec2 boxP1(p1.x - 2.0f, p1.y - 2.0f);
+        ImVec2 boxP0(boxP1.x - textSize.x - pad * 2, boxP1.y - textSize.y - pad * 2);
+
+        drawList->AddRectFilled(boxP0, boxP1, IM_COL32(255, 255, 255, 180), 2.0f);
+        drawList->AddText(font, fontSize, ImVec2(boxP0.x + pad, boxP0.y + pad),
+                          IM_COL32(0, 0, 0, 200), attribution);
+    }
+
     ImGui::PopClipRect();
     ImGui::EndGroup();
     ImGui::PopID();
