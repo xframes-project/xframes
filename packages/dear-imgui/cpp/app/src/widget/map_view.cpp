@@ -258,6 +258,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                            ImVec2(0, 0), ImVec2(1, 1));
     }
 
+    bool allCurrentTilesLoaded = true;
+
     for (int x = xMin; x < xMax; x++) {
         for (int y = yMin; y < yMax; y++) {
             if (y < 0 || y >= maxTiles) continue;
@@ -282,6 +284,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             } else {
                 // Placeholder: gray rect
                 drawList->AddRectFilled(tileP0, tileP1, IM_COL32(200, 200, 200, 255));
+                allCurrentTilesLoaded = false;
             }
         }
     }
@@ -297,15 +300,17 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             }
         }
 
-        // Keep old-zoom tiles that overlap the visible area (placeholder background)
-        for (const auto& [key, tex] : m_tileTextures) {
-            if (key.zoom == m_zoom) continue;
-            double scale = pow(2.0, m_zoom - key.zoom);
-            double tileX = key.x * scale;
-            double tileY = key.y * scale;
-            if (tileX + scale > xMin && tileX < xMax &&
-                tileY + scale > yMin && tileY < yMax) {
-                nearbyKeys.insert(key);
+        // Only keep old-zoom tiles if current zoom has missing tiles
+        if (!allCurrentTilesLoaded) {
+            for (const auto& [key, tex] : m_tileTextures) {
+                if (key.zoom == m_zoom) continue;
+                double scale = pow(2.0, m_zoom - key.zoom);
+                double tileX = key.x * scale;
+                double tileY = key.y * scale;
+                if (tileX + scale > xMin && tileX < xMax &&
+                    tileY + scale > yMin && tileY < yMax) {
+                    nearbyKeys.insert(key);
+                }
             }
         }
 
