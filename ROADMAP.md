@@ -132,31 +132,31 @@ Wire up individual tile fetching, decoding, and GPU upload with proper threading
 
 Sub-pixel smooth panning with incremental edge-tile fetching.
 
-- [ ] Track center as fractional tile coordinates (`double m_centerTileX, m_centerTileY`) — update continuously during drag via pixel delta → tile delta conversion
-- [ ] On each frame during drag: recalculate visible tile set, kick off downloads for any new tiles that scrolled into view
-- [ ] Keep existing tiles in the GPU registry as long as they're nearby — don't evict on every pan
-- [ ] No full re-render on drag end — panning is continuous, tiles load incrementally as the viewport moves
+- [x] Track center as fractional tile coordinates (`double m_centerTileX, m_centerTileY`) — update continuously during drag via pixel delta → tile delta conversion
+- [x] On each frame during drag: recalculate visible tile set, kick off downloads for any new tiles that scrolled into view
+- [x] Keep existing tiles in the GPU registry as long as they're nearby — don't evict on every pan
+- [x] No full re-render on drag end — panning is continuous, tiles load incrementally as the viewport moves
 - [ ] Tile clipping: when a tile is partially off-screen, clip via UV coordinates (existing pattern)
 
 ### Stage 7 — Zoom
 
 Scroll-wheel zoom with tile-level transitions.
 
-- [ ] `ImGui::GetIO().MouseWheel` on the map canvas increments/decrements zoom level (clamped 1–17)
-- [ ] On zoom change: recalculate visible tile set at new zoom level, start fetching new tiles
+- [x] `ImGui::GetIO().MouseWheel` on the map canvas increments/decrements zoom level (clamped 1–17)
+- [x] On zoom change: recalculate visible tile set at new zoom level, start fetching new tiles
 - [ ] While new-zoom tiles load, scale the old-zoom tiles as a placeholder (render at 2x or 0.5x size via adjusted screen rects)
-- [ ] Once all new-zoom tiles arrive, drop old-zoom textures from the registry
+- [x] Once all new-zoom tiles arrive, drop old-zoom textures from the registry
 - [ ] Expose zoom level to React via an `onZoomChange` callback
 
 ### Stage 8 — Optimization & Resource Management
 
 VRAM and memory management for long panning sessions.
 
-- [ ] GPU texture eviction: discard textures for tiles more than 2 tile-widths outside the viewport
+- [x] GPU texture eviction: discard textures for tiles more than 2 tile-widths outside the viewport
 - [ ] VRAM budget tracking: cap total uploaded textures (e.g., 512 tiles × 256×256×4 ≈ 128MB) with LRU eviction
 - [ ] Prefetching: when panning in a direction, preemptively fetch 1 row/column of tiles ahead of the viewport edge
-- [ ] `TileCache` tuning: increase `maxEntries` for tile-grid use (many more individual tiles than monolithic renders)
-- [ ] Deduplicate in-flight requests: if a tile download is already pending, don't queue a duplicate
+- [ ] `TileCache` tuning: increase `maxEntries` via `TileCache::configure()` at MapView init (default 256 is low for tile-grid); expose `configure()` via NAPI for runtime tuning from JS; consider multi-zoom-level prefetching to warm cache for adjacent zoom levels
+- [x] Deduplicate in-flight requests: if a tile download is already pending, don't queue a duplicate
 
 ### Stage 9 — Map Overlays & u-center lite Integration
 

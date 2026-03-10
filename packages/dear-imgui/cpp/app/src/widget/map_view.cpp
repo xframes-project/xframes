@@ -157,6 +157,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::BeginGroup();
 
     ImGui::InvisibleButton("##map_canvas", ImVec2(viewW, viewH));
+    ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
 
     const ImVec2 p0 = ImGui::GetItemRectMin();
 
