@@ -335,11 +335,10 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     FetchMissingTiles(xMin, xMax, yMin, yMax);
 
     // Attribution overlay
-    {
-        const char* attribution = "\xC2\xA9 OpenStreetMap contributors";
+    if (!m_attribution.empty()) {
         ImFont* font = ImGui::GetIO().FontDefault;
         float fontSize = font->LegacySize;
-        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, attribution);
+        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, m_attribution.c_str());
 
         float pad = 4.0f;
         ImVec2 boxP1(p1.x - 2.0f, p1.y - 2.0f);
@@ -347,12 +346,37 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         drawList->AddRectFilled(boxP0, boxP1, IM_COL32(255, 255, 255, 180), 2.0f);
         drawList->AddText(font, fontSize, ImVec2(boxP0.x + pad, boxP0.y + pad),
-                          IM_COL32(0, 0, 0, 200), attribution);
+                          IM_COL32(0, 0, 0, 200), m_attribution.c_str());
     }
 
     ImGui::PopClipRect();
     ImGui::EndGroup();
     ImGui::PopID();
+}
+
+void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
+    StyledWidget::Patch(widgetPatchDef, view);
+
+    if (widgetPatchDef.contains("tileUrlTemplate") && widgetPatchDef["tileUrlTemplate"].is_string()) {
+        m_tileUrlTemplate = widgetPatchDef["tileUrlTemplate"].template get<std::string>();
+#ifndef __EMSCRIPTEN__
+        for (auto& [key, tex] : m_tileTextures) {
+            glDeleteTextures(1, &tex.textureView);
+        }
+#endif
+        m_tileTextures.clear();
+    }
+    if (widgetPatchDef.contains("attribution") && widgetPatchDef["attribution"].is_string()) {
+        m_attribution = widgetPatchDef["attribution"].template get<std::string>();
+    }
+    if (widgetPatchDef.contains("tileRequestHeaders") && widgetPatchDef["tileRequestHeaders"].is_object()) {
+        m_tileRequestHeaders.clear();
+        for (auto& [key, val] : widgetPatchDef["tileRequestHeaders"].items()) {
+            if (val.is_string()) {
+                m_tileRequestHeaders[key] = val.template get<std::string>();
+            }
+        }
+    }
 }
 
 bool MapView::HasInternalOps() {

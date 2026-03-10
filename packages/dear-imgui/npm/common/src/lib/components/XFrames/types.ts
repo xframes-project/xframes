@@ -161,6 +161,9 @@ export type WidgetPropsMap = {
     };
     ItemTooltip: WidgetStyleProps;
     MapView: WidgetStyleProps & {
+        tileUrlTemplate?: string;
+        tileRequestHeaders?: Record<string, string>;
+        attribution?: string;
         onChange?: (event: MapZoomChangeEvent) => void;
     };
     MultiSlider: WidgetStyleProps & {

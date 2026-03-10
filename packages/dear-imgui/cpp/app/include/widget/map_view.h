@@ -46,6 +46,7 @@ private:
     static constexpr int TILE_SIZE = 256;
     std::string m_tileUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     std::unordered_map<std::string, std::string> m_tileRequestHeaders;
+    std::string m_attribution = "\xC2\xA9 OpenStreetMap contributors";
 
     // GPU texture registry (render thread only)
     std::unordered_map<TileKey, Texture, TileKeyHash> m_tileTextures;
@@ -69,7 +70,23 @@ private:
 public:
     static std::unique_ptr<MapView> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
-        return std::make_unique<MapView>(view, id, maybeStyle);
+        auto widget = std::make_unique<MapView>(view, id, maybeStyle);
+
+        if (widgetDef.contains("tileUrlTemplate") && widgetDef["tileUrlTemplate"].is_string()) {
+            widget->m_tileUrlTemplate = widgetDef["tileUrlTemplate"].template get<std::string>();
+        }
+        if (widgetDef.contains("attribution") && widgetDef["attribution"].is_string()) {
+            widget->m_attribution = widgetDef["attribution"].template get<std::string>();
+        }
+        if (widgetDef.contains("tileRequestHeaders") && widgetDef["tileRequestHeaders"].is_object()) {
+            for (auto& [key, val] : widgetDef["tileRequestHeaders"].items()) {
+                if (val.is_string()) {
+                    widget->m_tileRequestHeaders[key] = val.template get<std::string>();
+                }
+            }
+        }
+
+        return widget;
     }
 
     bool HasCustomWidth() override;
@@ -81,6 +98,7 @@ public:
     }
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
+    void Patch(const json& widgetPatchDef, XFrames* view) override;
     bool HasInternalOps() override;
     void HandleInternalOp(const json& opDef) override;
 };
