@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <imgui.h>
 #include <thread>
 #include <yoga/YGNodeLayout.h>
@@ -157,6 +158,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     ImGui::InvisibleButton("##map_canvas", ImVec2(viewW, viewH));
 
+    const ImVec2 p0 = ImGui::GetItemRectMin();
+
     bool isDragging = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
 
     if (isDragging) {
@@ -176,14 +179,48 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     if (m_wasDragging && !isDragging) {
         m_wasDragging = false;
+    }
 
-        // Fetch any new tiles that scrolled into view
-        int xMin = static_cast<int>(floor(m_centerTileX - (viewW / 2.0) / TILE_SIZE));
-        int xMax = static_cast<int>(ceil(m_centerTileX + (viewW / 2.0) / TILE_SIZE));
-        int yMin = static_cast<int>(floor(m_centerTileY - (viewH / 2.0) / TILE_SIZE));
-        int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
+    // Mouse wheel zoom (centered on cursor)
+    if (ImGui::IsItemHovered()) {
+        float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel != 0.0f) {
+            int newZoom = std::clamp(m_zoom + static_cast<int>(wheel), 1, 17);
+            if (newZoom != m_zoom) {
+                ImVec2 mousePos = ImGui::GetIO().MousePos;
+                float mx = mousePos.x - p0.x;
+                float my = mousePos.y - p0.y;
 
-        FetchMissingTiles(xMin, xMax, yMin, yMax);
+                // Mouse position in tile coords at current zoom
+                double mouseTileX = m_centerTileX + (mx - viewW / 2.0) / TILE_SIZE;
+                double mouseTileY = m_centerTileY + (my - viewH / 2.0) / TILE_SIZE;
+
+                // Convert to lon/lat (zoom-independent)
+                double mouseLon = xToLon(mouseTileX, m_zoom);
+                double mouseLat = yToLat(mouseTileY, m_zoom);
+
+                m_zoom = newZoom;
+
+                // Recompute at new zoom
+                double newMouseTileX = lonToX(mouseLon, m_zoom);
+                double newMouseTileY = latToY(mouseLat, m_zoom);
+
+                // Adjust center so cursor stays on same geo location
+                m_centerTileX = newMouseTileX - (mx - viewW / 2.0) / TILE_SIZE;
+                m_centerTileY = newMouseTileY - (my - viewH / 2.0) / TILE_SIZE;
+
+                m_centerLon = xToLon(m_centerTileX, m_zoom);
+                m_centerLat = yToLat(m_centerTileY, m_zoom);
+
+                // Clear old-zoom textures
+#ifndef __EMSCRIPTEN__
+                for (auto& [key, tex] : m_tileTextures) {
+                    glDeleteTextures(1, &tex.textureView);
+                }
+#endif
+                m_tileTextures.clear();
+            }
+        }
     }
 
     if (!ImGui::IsItemVisible()) {
@@ -192,7 +229,6 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         return;
     }
 
-    const ImVec2 p0 = ImGui::GetItemRectMin();
     const ImVec2 p1 = ImGui::GetItemRectMax();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -233,6 +269,37 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             }
         }
     }
+
+    // GPU texture eviction: keep only tiles near visible area at current zoom
+#ifndef __EMSCRIPTEN__
+    {
+        std::set<TileKey> nearbyKeys;
+        for (int x = xMin - 2; x < xMax + 2; x++) {
+            for (int y = std::max(0, yMin - 2); y < std::min(maxTiles, yMax + 2); y++) {
+                int wrappedX = ((x % maxTiles) + maxTiles) % maxTiles;
+                nearbyKeys.insert(TileKey{wrappedX, y, m_zoom});
+            }
+        }
+
+        std::vector<TileKey> toEvict;
+        for (const auto& [key, tex] : m_tileTextures) {
+            if (!nearbyKeys.count(key)) {
+                toEvict.push_back(key);
+            }
+        }
+
+        for (const auto& key : toEvict) {
+            auto it = m_tileTextures.find(key);
+            if (it != m_tileTextures.end()) {
+                glDeleteTextures(1, &it->second.textureView);
+                m_tileTextures.erase(it);
+            }
+        }
+    }
+#endif
+
+    // Always fetch missing visible tiles (handles drag, zoom, initial render)
+    FetchMissingTiles(xMin, xMax, yMin, yMax);
 
     ImGui::PopClipRect();
     ImGui::EndGroup();
