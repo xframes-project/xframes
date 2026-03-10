@@ -2,7 +2,13 @@
 #include <thread>
 #include <yoga/YGNodeLayout.h>
 
-#include "mapgenerator.h"
+#ifndef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#include "stb_image.h"
+#endif
+
+#include "shared.h"
+#include "tiledownloader.h"
 #include "widget/map_view.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
@@ -15,119 +21,223 @@ bool MapView::HasCustomHeight() {
     return false;
 }
 
+std::string MapView::BuildTileUrl(int x, int y, int zoom) {
+    return replaceTokens(m_tileUrlTemplate, [&](const std::string& token) -> std::optional<std::string> {
+        if (token == "z") return std::to_string(zoom);
+        if (token == "x") return std::to_string(x);
+        if (token == "y") return std::to_string(y);
+        return std::nullopt;
+    });
+}
+
+void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
+    int maxTiles = 1 << m_zoom;
+
+    std::vector<TileKey> toFetch;
+
+    {
+        std::lock_guard<std::mutex> lock(m_inflightMutex);
+        for (int x = xMin; x < xMax; x++) {
+            for (int y = yMin; y < yMax; y++) {
+                if (y < 0 || y >= maxTiles) continue;
+
+                int wrappedX = ((x % maxTiles) + maxTiles) % maxTiles;
+                TileKey key{wrappedX, y, m_zoom};
+
+                if (m_tileTextures.contains(key)) continue;
+                if (m_inflightKeys.contains(key)) continue;
+
+                m_inflightKeys.insert(key);
+                toFetch.push_back(key);
+            }
+        }
+    }
+
+    if (toFetch.empty()) return;
+
+#ifndef __EMSCRIPTEN__
+    auto headers = m_tileRequestHeaders;
+    auto tileUrlTemplate = m_tileUrlTemplate;
+    int zoom = m_zoom;
+
+    std::thread([this, toFetch = std::move(toFetch), headers, tileUrlTemplate, zoom]() {
+        auto& cache = TileCache::getGlobalInstance();
+
+        for (const auto& key : toFetch) {
+            std::string url = replaceTokens(tileUrlTemplate, [&](const std::string& token) -> std::optional<std::string> {
+                if (token == "z") return std::to_string(key.zoom);
+                if (token == "x") return std::to_string(key.x);
+                if (token == "y") return std::to_string(key.y);
+                return std::nullopt;
+            });
+
+            std::vector<unsigned char> pngData;
+
+            // Check cache first
+            auto cached = cache.get(url);
+            if (cached) {
+                pngData = std::move(*cached);
+            } else {
+                fetchTile(url, headers, [&](bool success, std::vector<uint8_t> data) {
+                    if (success) {
+                        pngData.assign(data.begin(), data.end());
+                    }
+                });
+                if (!pngData.empty()) {
+                    cache.put(url, pngData.data(), pngData.size());
+                }
+            }
+
+            if (!pngData.empty()) {
+                std::lock_guard<std::mutex> lock(m_pendingMutex);
+                m_pendingTiles.push_back(PendingTile{key, std::move(pngData)});
+            }
+
+            // Remove from inflight regardless of success
+            {
+                std::lock_guard<std::mutex> lock(m_inflightMutex);
+                m_inflightKeys.erase(key);
+            }
+        }
+    }).detach();
+#endif
+}
+
 void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
+    // Upload pending tiles to GPU (render thread)
 #ifndef __EMSCRIPTEN__
     {
         std::lock_guard<std::mutex> lock(m_pendingMutex);
-        if (m_pendingTexture) {
-            GLuint textureId = m_view->m_renderer->LoadTexture(
-                m_pendingTexture->data.data(),
-                static_cast<int>(m_pendingTexture->data.size())
+        for (auto& pending : m_pendingTiles) {
+            // Skip if we already have this tile (e.g. from a duplicate fetch)
+            if (m_tileTextures.contains(pending.key)) continue;
+
+            int w = 0, h = 0;
+            unsigned char* pixels = stbi_load_from_memory(
+                pending.pngData.data(),
+                static_cast<int>(pending.pngData.size()),
+                &w, &h, nullptr, 4
             );
-            if (textureId != 0) {
-                auto tex = std::make_unique<Texture>();
-                tex->textureView = textureId;
-                tex->width = m_pendingTexture->width;
-                tex->height = m_pendingTexture->height;
-                m_textures[0] = std::move(tex);
-                m_offset = m_pendingTexture->offset;
+
+            if (pixels) {
+                GLuint texId = 0;
+                glGenTextures(1, &texId);
+                glBindTexture(GL_TEXTURE_2D, texId);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+                stbi_image_free(pixels);
+
+                if (glGetError() == GL_NO_ERROR) {
+                    Texture tex;
+                    tex.textureView = texId;
+                    tex.width = w;
+                    tex.height = h;
+                    m_tileTextures[pending.key] = tex;
+                } else {
+                    glDeleteTextures(1, &texId);
+                }
             }
-            m_pendingTexture.reset();
         }
+        m_pendingTiles.clear();
     }
 #endif
 
-    if (m_textures.contains(0)) {
+    if (!m_initialized) return;
 
-        auto imageSize = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
+    float viewW = YGNodeLayoutGetWidth(m_layoutNode->m_node);
+    float viewH = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
-        if (imageSize.x != 0 && imageSize.y != 0) {
-            ImGui::PushID(m_id);
-            // ImGui::Text("offset: %f, %f", m_offset.x, m_offset.y);
+    if (viewW <= 0 || viewH <= 0) return;
 
-            ImGui::BeginGroup();
+    ImGui::PushID(m_id);
+    ImGui::BeginGroup();
 
-            ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImGui::InvisibleButton("##map_canvas", ImVec2(viewW, viewH));
 
-            double boxWidthPct = imageSize.x / m_textures[0]->width;
-            double boxHeightPct = imageSize.y / m_textures[0]->height;
+    bool isDragging = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
 
-            ImGui::InvisibleButton("##map_canvas", imageSize);
+    if (isDragging) {
+        float dx = ImGui::GetIO().MouseDelta.x;
+        float dy = ImGui::GetIO().MouseDelta.y;
 
-            bool isDragging = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+        // Convert pixel delta to tile coordinate delta
+        m_centerTileX -= static_cast<double>(dx) / TILE_SIZE;
+        m_centerTileY -= static_cast<double>(dy) / TILE_SIZE;
 
-            if (isDragging) {
-                m_offset.x += ImGui::GetIO().MouseDelta.x;
-                m_offset.y += ImGui::GetIO().MouseDelta.y;
+        // Update lon/lat from tile coords
+        m_centerLon = xToLon(m_centerTileX, m_zoom);
+        m_centerLat = yToLat(m_centerTileY, m_zoom);
 
-                if (m_offset.x < 0) {
-                    m_offset.x = 0;
-                }
+        m_wasDragging = true;
+    }
 
-                if (m_offset.y < 0) {
-                    m_offset.y = 0;
-                }
+    if (m_wasDragging && !isDragging) {
+        m_wasDragging = false;
 
-                if (m_offset.x > (m_textures[0]->width - imageSize.x)) {
-                    m_offset.x = m_textures[0]->width - imageSize.x;
-                }
+        // Fetch any new tiles that scrolled into view
+        int xMin = static_cast<int>(floor(m_centerTileX - (viewW / 2.0) / TILE_SIZE));
+        int xMax = static_cast<int>(ceil(m_centerTileX + (viewW / 2.0) / TILE_SIZE));
+        int yMin = static_cast<int>(floor(m_centerTileY - (viewH / 2.0) / TILE_SIZE));
+        int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
 
-                if (m_offset.y > (m_textures[0]->height - imageSize.y)) {
-                    m_offset.y = m_textures[0]->height - imageSize.y;
-                }
+        FetchMissingTiles(xMin, xMax, yMin, yMax);
+    }
 
-                m_wasDragging = true;
+    if (!ImGui::IsItemVisible()) {
+        ImGui::EndGroup();
+        ImGui::PopID();
+        return;
+    }
+
+    const ImVec2 p0 = ImGui::GetItemRectMin();
+    const ImVec2 p1 = ImGui::GetItemRectMax();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+    ImGui::PushClipRect(p0, p1, true);
+
+    // Compute visible tile range
+    int xMin = static_cast<int>(floor(m_centerTileX - (viewW / 2.0) / TILE_SIZE));
+    int xMax = static_cast<int>(ceil(m_centerTileX + (viewW / 2.0) / TILE_SIZE));
+    int yMin = static_cast<int>(floor(m_centerTileY - (viewH / 2.0) / TILE_SIZE));
+    int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
+
+    int maxTiles = 1 << m_zoom;
+
+    for (int x = xMin; x < xMax; x++) {
+        for (int y = yMin; y < yMax; y++) {
+            if (y < 0 || y >= maxTiles) continue;
+
+            int wrappedX = ((x % maxTiles) + maxTiles) % maxTiles;
+            TileKey key{wrappedX, y, m_zoom};
+
+            // Screen position of this tile
+            float px = static_cast<float>(round((x - m_centerTileX) * TILE_SIZE + viewW / 2.0));
+            float py = static_cast<float>(round((y - m_centerTileY) * TILE_SIZE + viewH / 2.0));
+
+            ImVec2 tileP0(p0.x + px, p0.y + py);
+            ImVec2 tileP1(p0.x + px + TILE_SIZE, p0.y + py + TILE_SIZE);
+
+            auto it = m_tileTextures.find(key);
+            if (it != m_tileTextures.end()) {
+                drawList->AddImage(
+                    (void*)(intptr_t)it->second.textureView,
+                    tileP0, tileP1,
+                    ImVec2(0, 0), ImVec2(1, 1)
+                );
+            } else {
+                // Placeholder: gray rect
+                drawList->AddRectFilled(tileP0, tileP1, IM_COL32(200, 200, 200, 255));
             }
-
-            if (m_wasDragging && !isDragging) {
-                m_wasDragging = false;
-
-                // Convert pixel offset from texture center to new lat/lon
-                float viewCenterX = m_offset.x + imageSize.x / 2.0f;
-                float viewCenterY = m_offset.y + imageSize.y / 2.0f;
-                float texCenterX = m_textures[0]->width / 2.0f;
-                float texCenterY = m_textures[0]->height / 2.0f;
-
-                float deltaPixelsX = viewCenterX - texCenterX;
-                float deltaPixelsY = viewCenterY - texCenterY;
-
-                int tileSize = 256;
-                double centerTileX = lonToX(m_centerLon, m_zoom);
-                double centerTileY = latToY(m_centerLat, m_zoom);
-
-                double newTileX = centerTileX + static_cast<double>(deltaPixelsX) / tileSize;
-                double newTileY = centerTileY + static_cast<double>(deltaPixelsY) / tileSize;
-
-                double newLon = xToLon(newTileX, m_zoom);
-                double newLat = yToLat(newTileY, m_zoom);
-
-                json reRenderOp = {{"op", "render"}, {"centerX", newLon}, {"centerY", newLat}, {"zoom", m_zoom}};
-                HandleInternalOp(reRenderOp);
-            }
-
-            if (!ImGui::IsItemVisible()) {
-                // Skip rendering as ImDrawList elements are not clipped.
-                ImGui::EndGroup();
-                ImGui::PopID();
-                return;
-            }
-
-            const ImVec2 p0 = ImGui::GetItemRectMin();
-            const ImVec2 p1 = ImGui::GetItemRectMax();
-
-            ImGui::PushClipRect(p0, p1, true);
-
-            ImVec2 uvMin = ImVec2(m_offset.x / m_textures[0]->width, m_offset.y / m_textures[0]->height);
-            ImVec2 uvMax = ImVec2((m_offset.x / m_textures[0]->width) + boxWidthPct, (m_offset.y / m_textures[0]->height) + boxHeightPct);
-
-            drawList->AddImage((void*)m_textures[0]->textureView, p0, p1, uvMin, uvMax);
-            ImGui::PopClipRect();
-
-            ImGui::EndGroup();
-            ImGui::PopID();
         }
     }
-};
+
+    ImGui::PopClipRect();
+    ImGui::EndGroup();
+    ImGui::PopID();
+}
 
 bool MapView::HasInternalOps() {
     return true;
@@ -142,63 +252,40 @@ void MapView::HandleInternalOp(const json& opDef) {
             && opDef.contains("centerY") && opDef["centerY"].is_number()
             && opDef.contains("zoom") && opDef["zoom"].is_number()) {
 
-            auto centerX = opDef["centerX"].template get<double>();
-            auto centerY = opDef["centerY"].template get<double>();
+            auto lon = opDef["centerX"].template get<double>();
+            auto lat = opDef["centerY"].template get<double>();
             auto zoom = opDef["zoom"].template get<int>();
 
-            m_centerLon = centerX;
-            m_centerLat = centerY;
-            m_zoom = zoom;
-
-            int mapWidth = static_cast<int>(YGNodeLayoutGetWidth(m_layoutNode->m_node));
-            int mapHeight = static_cast<int>(YGNodeLayoutGetHeight(m_layoutNode->m_node));
-
-            if (mapWidth <= 0) mapWidth = 600;
-            if (mapHeight <= 0) mapHeight = 600;
-
-            int texWidth = mapWidth * BUFFER_MULTIPLIER;
-            int texHeight = mapHeight * BUFFER_MULTIPLIER;
-
-            MapGeneratorOptions options;
-            options.m_width = texWidth;
-            options.m_height = texHeight;
-            options.m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
-
-            // Compute centered offset — applied when texture arrives (no flicker)
-            ImVec2 centeredOffset(
-                static_cast<float>((texWidth - mapWidth) / 2),
-                static_cast<float>((texHeight - mapHeight) / 2)
-            );
-
-            m_mapGeneratorJobCounter++;
-
-            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this, texWidth, texHeight, centeredOffset] (void* data, const size_t numBytes) {
-#ifdef __EMSCRIPTEN__
-                Texture texture{};
-                const bool ret = m_view->m_renderer->LoadTexture(data, static_cast<int>(numBytes), &texture);
-                IM_ASSERT(ret);
-                m_textures[0] = std::make_unique<Texture>(texture);
-#else
-                {
-                    std::lock_guard<std::mutex> lock(m_pendingMutex);
-                    m_pendingTexture = PendingTexture{
-                        std::vector<unsigned char>(
-                            static_cast<unsigned char*>(data),
-                            static_cast<unsigned char*>(data) + numBytes
-                        ),
-                        texWidth,
-                        texHeight,
-                        centeredOffset
-                    };
+            // If zoom changed, clear all tile textures
+            if (zoom != m_zoom) {
+                // TODO: Stage 8 — proper VRAM eviction. For now, delete all GL textures.
+#ifndef __EMSCRIPTEN__
+                for (auto& [key, tex] : m_tileTextures) {
+                    glDeleteTextures(1, &tex.textureView);
                 }
 #endif
-            });
+                m_tileTextures.clear();
+            }
 
-            // Run tile download on background thread to avoid blocking the render loop
-            auto job = m_mapGeneratorJobs[m_mapGeneratorJobCounter].get();
-            std::thread([job, centerX, centerY, zoom]() {
-                job->Render(std::make_tuple(centerX, centerY), zoom);
-            }).detach();
+            m_centerLon = lon;
+            m_centerLat = lat;
+            m_zoom = zoom;
+            m_centerTileX = lonToX(lon, zoom);
+            m_centerTileY = latToY(lat, zoom);
+            m_initialized = true;
+
+            // Compute visible tile range
+            float viewW = YGNodeLayoutGetWidth(m_layoutNode->m_node);
+            float viewH = YGNodeLayoutGetHeight(m_layoutNode->m_node);
+            if (viewW <= 0) viewW = 600;
+            if (viewH <= 0) viewH = 600;
+
+            int xMin = static_cast<int>(floor(m_centerTileX - (viewW / 2.0) / TILE_SIZE));
+            int xMax = static_cast<int>(ceil(m_centerTileX + (viewW / 2.0) / TILE_SIZE));
+            int yMin = static_cast<int>(floor(m_centerTileY - (viewH / 2.0) / TILE_SIZE));
+            int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
+
+            FetchMissingTiles(xMin, xMax, yMin, yMax);
         }
     }
-};
+}
