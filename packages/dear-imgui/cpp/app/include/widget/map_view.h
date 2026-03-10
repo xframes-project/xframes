@@ -25,6 +25,7 @@ private:
         std::vector<unsigned char> data;
         int width;
         int height;
+        ImVec2 offset;
     };
     std::mutex m_pendingMutex;
     std::optional<PendingTexture> m_pendingTexture;

@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <thread>
 #include <yoga/YGNodeLayout.h>
 
 #include "mapgenerator.h"
@@ -29,6 +30,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 tex->width = m_pendingTexture->width;
                 tex->height = m_pendingTexture->height;
                 m_textures[0] = std::move(tex);
+                m_offset = m_pendingTexture->offset;
             }
             m_pendingTexture.reset();
         }
@@ -162,13 +164,15 @@ void MapView::HandleInternalOp(const json& opDef) {
             options.m_height = texHeight;
             options.m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
 
-            // Center viewport in the oversized texture
-            m_offset.x = static_cast<float>((texWidth - mapWidth) / 2);
-            m_offset.y = static_cast<float>((texHeight - mapHeight) / 2);
+            // Compute centered offset — applied when texture arrives (no flicker)
+            ImVec2 centeredOffset(
+                static_cast<float>((texWidth - mapWidth) / 2),
+                static_cast<float>((texHeight - mapHeight) / 2)
+            );
 
             m_mapGeneratorJobCounter++;
 
-            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this, texWidth, texHeight] (void* data, const size_t numBytes) {
+            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this, texWidth, texHeight, centeredOffset] (void* data, const size_t numBytes) {
 #ifdef __EMSCRIPTEN__
                 Texture texture{};
                 const bool ret = m_view->m_renderer->LoadTexture(data, static_cast<int>(numBytes), &texture);
@@ -183,13 +187,18 @@ void MapView::HandleInternalOp(const json& opDef) {
                             static_cast<unsigned char*>(data) + numBytes
                         ),
                         texWidth,
-                        texHeight
+                        texHeight,
+                        centeredOffset
                     };
                 }
 #endif
             });
 
-            m_mapGeneratorJobs[m_mapGeneratorJobCounter]->Render(std::make_tuple(centerX, centerY), zoom);
+            // Run tile download on background thread to avoid blocking the render loop
+            auto job = m_mapGeneratorJobs[m_mapGeneratorJobCounter].get();
+            std::thread([job, centerX, centerY, zoom]() {
+                job->Render(std::make_tuple(centerX, centerY), zoom);
+            }).detach();
         }
     }
 };
