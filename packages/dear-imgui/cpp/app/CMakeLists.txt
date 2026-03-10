@@ -39,6 +39,10 @@ set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
 file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
 
+# Generate endianness.h for leptonica (x64 is little-endian)
+file(WRITE "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/endianness.h" "#define L_LITTLE_ENDIAN\n")
+add_compile_definitions(HAVE_LIBJPEG HAVE_LIBTIFF HAVE_LIBPNG NOMINMAX)
+
 set(OSM_STATIC_MAP_GENERATOR_SRC
         ${DEPS}/osm-static-map-generator/cpp/shared.cpp
         ${DEPS}/osm-static-map-generator/cpp/tiledownloader.cpp

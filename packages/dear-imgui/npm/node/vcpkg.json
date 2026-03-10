@@ -6,6 +6,11 @@
     "ada-url",
     "fmt",
     "opengl-registry",
-    "glfw3"
+    "glfw3",
+    "nlohmann-json",
+    "libjpeg-turbo",
+    "libpng",
+    "tiff",
+    "curl"
   ]
 }

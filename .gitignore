@@ -154,3 +154,5 @@ xframes.mjs
 xframes.wasm
 xframes.data
 xframes.worker.mjs
+
+*.dll

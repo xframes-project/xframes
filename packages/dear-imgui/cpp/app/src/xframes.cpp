@@ -29,9 +29,7 @@
 #include "color_helpers.h"
 #include "implot_renderer.h"
 
-#ifdef __EMSCRIPTEN__
 #include "widget/map_view.h"
-#endif
 
 #include "widget/button.h"
 #include "widget/color_indicator.h"
@@ -145,9 +143,7 @@ void XFrames::SetUpElementCreatorFunctions() {
 
     m_element_init_fn["di-image"] = &makeWidget<Image>;
 
-#ifdef __EMSCRIPTEN__
     m_element_init_fn["map-view"] = &makeWidget<MapView>;
-#endif
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;
     m_element_init_fn["plot-heatmap"] = &makeWidget<PlotHeatmap>;

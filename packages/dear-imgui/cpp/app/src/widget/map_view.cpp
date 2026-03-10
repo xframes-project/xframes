@@ -15,6 +15,26 @@ bool MapView::HasCustomHeight() {
 }
 
 void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
+#ifndef __EMSCRIPTEN__
+    {
+        std::lock_guard<std::mutex> lock(m_pendingMutex);
+        if (m_pendingTexture) {
+            GLuint textureId = m_view->m_renderer->LoadTexture(
+                m_pendingTexture->data.data(),
+                static_cast<int>(m_pendingTexture->data.size())
+            );
+            if (textureId != 0) {
+                auto tex = std::make_unique<Texture>();
+                tex->textureView = textureId;
+                tex->width = m_pendingTexture->width;
+                tex->height = m_pendingTexture->height;
+                m_textures[0] = std::move(tex);
+            }
+            m_pendingTexture.reset();
+        }
+    }
+#endif
+
     if (m_textures.contains(0)) {
 
         auto imageSize = ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
@@ -80,7 +100,6 @@ bool MapView::HasInternalOps() {
     return true;
 }
 
-// void XFrames::RenderMap(int id, double centerX, double centerY, int zoom)
 void MapView::HandleInternalOp(const json& opDef) {
     if (opDef.contains("op") && opDef["op"].is_string()) {
         auto op = opDef["op"].template get<std::string>();
@@ -94,24 +113,38 @@ void MapView::HandleInternalOp(const json& opDef) {
             auto centerY = opDef["centerY"].template get<double>();
             auto zoom = opDef["zoom"].template get<int>();
 
+            int mapWidth = static_cast<int>(YGNodeLayoutGetWidth(m_layoutNode->m_node));
+            int mapHeight = static_cast<int>(YGNodeLayoutGetHeight(m_layoutNode->m_node));
+
+            if (mapWidth <= 0) mapWidth = 600;
+            if (mapHeight <= 0) mapHeight = 600;
+
             MapGeneratorOptions options;
-            options.m_width = 600;
-            options.m_height = 600;
+            options.m_width = mapWidth;
+            options.m_height = mapHeight;
+            options.m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
 
             m_mapGeneratorJobCounter++;
 
-            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this] (const void* data, const size_t numBytes) {
+            m_mapGeneratorJobs[m_mapGeneratorJobCounter] = std::make_unique<MapGenerator>(options, [this, mapWidth, mapHeight] (void* data, const size_t numBytes) {
+#ifdef __EMSCRIPTEN__
                 Texture texture{};
-
                 const bool ret = m_view->m_renderer->LoadTexture(data, static_cast<int>(numBytes), &texture);
                 IM_ASSERT(ret);
-
-                // TODO: add proper texture management
                 m_textures[0] = std::make_unique<Texture>(texture);
-
-                printf("Loaded texture, width: %d, height: %d\n", m_textures[0]->width, m_textures[0]->height);
-
-                // TODO: remove job from map
+#else
+                {
+                    std::lock_guard<std::mutex> lock(m_pendingMutex);
+                    m_pendingTexture = PendingTexture{
+                        std::vector<unsigned char>(
+                            static_cast<unsigned char*>(data),
+                            static_cast<unsigned char*>(data) + numBytes
+                        ),
+                        mapWidth,
+                        mapHeight
+                    };
+                }
+#endif
             });
 
             m_mapGeneratorJobs[m_mapGeneratorJobCounter]->Render(std::make_tuple(centerX, centerY), zoom);

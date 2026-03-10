@@ -11,6 +11,7 @@ import {
   PlotCandlestickImperativeHandle,
   PlotHistogramImperativeHandle,
   PlotPieChartImperativeHandle,
+  MapImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
   InputTextChangeEvent,
@@ -178,8 +179,10 @@ export const Dashboard = () => {
   const candlestickRef = useRef<PlotCandlestickImperativeHandle>(null);
   const histogramRef = useRef<PlotHistogramImperativeHandle>(null);
   const pieChartRef = useRef<PlotPieChartImperativeHandle>(null);
+  const mapRef = useRef<MapImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
+  const [mapZoom, setMapZoom] = useState(13);
   const [frequency, setFrequency] = useState(3);
   const [themeIndex, setThemeIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
@@ -282,6 +285,16 @@ export const Dashboard = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Render initial map (London)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.render(-0.1276, 51.5074, mapZoom);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Load candlestick data
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -349,6 +362,16 @@ export const Dashboard = () => {
     setInputValue("");
     setSelectedCategory("All");
     setFeatureEnabled(false);
+  }, []);
+
+  const handleRenderMap = useCallback(() => {
+    if (mapRef.current) {
+      mapRef.current.render(-0.1276, 51.5074, mapZoom);
+    }
+  }, [mapZoom]);
+
+  const handleZoomChange = useCallback((event: SliderChangeEvent) => {
+    setMapZoom(event.nativeEvent.value);
   }, []);
 
   const handleTabClose = useCallback((event: TabItemChangeEvent) => {
@@ -571,7 +594,31 @@ export const Dashboard = () => {
           </XFrames.Node>
         </XFrames.Node>
 
-        {/* Sixth row: Tabs demo */}
+        {/* Sixth row: Map View */}
+        <XFrames.Node style={{ ...styles.row, height: 400 }}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Map View (London)" />
+            <XFrames.MapView
+              ref={mapRef}
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Map Controls" />
+            <XFrames.UnformattedText text="Center: -0.1276, 51.5074 (London)" />
+            <XFrames.UnformattedText text={`Zoom: ${mapZoom}`} />
+            <XFrames.Slider
+              defaultValue={13}
+              min={1}
+              max={17}
+              onChange={handleZoomChange}
+            />
+            <XFrames.Button label="Render Map" onClick={handleRenderMap} />
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Seventh row: Tabs demo */}
         <XFrames.Node style={{ ...styles.row, height: 200 }}>
           <XFrames.Node style={styles.leftColumn}>
             <XFrames.UnformattedText text="Tabs (reorderable + closeable)" />

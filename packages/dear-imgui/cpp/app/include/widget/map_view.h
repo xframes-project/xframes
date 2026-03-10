@@ -1,3 +1,5 @@
+#include <mutex>
+#include <vector>
 #include "mapgenerator.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
@@ -10,6 +12,16 @@ private:
     std::unordered_map<int, std::unique_ptr<MapGenerator>> m_mapGeneratorJobs;
 
     std::unordered_map<int, std::unique_ptr<Texture>> m_textures;
+
+#ifndef __EMSCRIPTEN__
+    struct PendingTexture {
+        std::vector<unsigned char> data;
+        int width;
+        int height;
+    };
+    std::mutex m_pendingMutex;
+    std::optional<PendingTexture> m_pendingTexture;
+#endif
 
 public:
     static std::unique_ptr<MapView> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {

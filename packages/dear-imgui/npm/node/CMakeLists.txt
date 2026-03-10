@@ -34,12 +34,30 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(PNG REQUIRED)
+find_package(TIFF REQUIRED)
+find_package(CURL REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 include_directories(${CMAKE_JS_INC})
 
 file(GLOB YOGA_SRC CONFIGURE_DEPENDS
         ${DEPS}/yoga/yoga/*.cpp
         ${DEPS}/yoga/yoga/**/*.cpp)
+
+file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
+
+# Generate endianness.h for leptonica (x64 is little-endian)
+file(WRITE "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/endianness.h" "#define L_LITTLE_ENDIAN\n")
+add_compile_definitions(HAVE_LIBJPEG HAVE_LIBTIFF HAVE_LIBPNG NOMINMAX)
+
+set(OSM_STATIC_MAP_GENERATOR_SRC
+        ${DEPS}/osm-static-map-generator/cpp/shared.cpp
+        ${DEPS}/osm-static-map-generator/cpp/tiledownloader.cpp
+        ${DEPS}/osm-static-map-generator/cpp/mapgenerator.cpp
+        ${DEPS}/osm-static-map-generator/cpp/tilecache.cpp
+)
 
 add_library(${PROJECT_NAME} SHARED
         ${DEPS}/css-color-parser-cpp/csscolorparser.hpp
@@ -84,6 +102,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/image.cpp
         ${APP}/src/widget/input_text.cpp
         ${APP}/src/widget/item_tooltip.cpp
+        ${APP}/src/widget/map_view.cpp
         ${APP}/src/widget/multi_slider.cpp
         ${APP}/src/widget/plot_bar.cpp
         ${APP}/src/widget/plot_candlestick.cpp
@@ -106,6 +125,9 @@ add_library(${PROJECT_NAME} SHARED
 
         ./src/xframes-node.cpp
 
+        ${OSM_STATIC_MAP_GENERATOR_SRC}
+        ${LEPTONICA_SRC}
+
         ${SOURCE_FILES}
         ${CMAKE_JS_SRC}
 )
@@ -115,6 +137,11 @@ target_link_libraries(${PROJECT_NAME}
         ${CMAKE_JS_LIB}
         ada::ada
         fmt::fmt
+        nlohmann_json::nlohmann_json
+        JPEG::JPEG
+        PNG::PNG
+        TIFF::TIFF
+        CURL::libcurl
 
         glfw
         OpenGL::GL
@@ -147,6 +174,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${DEPS}/json/include
         ${DEPS}/yoga
         ${DEPS}/glfw/include
+        ${DEPS}/osm-static-map-generator/cpp
+        ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
 )
 
 # define NAPI_VERSION
