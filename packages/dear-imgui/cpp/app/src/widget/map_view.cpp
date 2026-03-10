@@ -220,6 +220,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 }
 #endif
                 m_tileTextures.clear();
+
+                view->m_onNumericValueChange(m_id, static_cast<float>(m_zoom));
             }
         }
     }

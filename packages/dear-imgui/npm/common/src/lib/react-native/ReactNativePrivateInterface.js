@@ -23,7 +23,7 @@ const attributesForElements = {
     indent: [],
     "input-text": ["defaultValue", "hint", "multiline", "password", "readOnly", "numericOnly", "onChange"],
     "item-tooltip": [],
-    "map-view": [],
+    "map-view": ["onChange"],
     "multi-slider": [
         "numValues",
         "label",

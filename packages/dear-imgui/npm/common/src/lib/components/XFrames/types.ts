@@ -73,6 +73,8 @@ export type ComboChangeEvent = SyntheticEvent<WidgetReactElement<"Combo">, { val
 
 export type SliderChangeEvent = SyntheticEvent<WidgetReactElement<"Slider">, { value: number }>;
 
+export type MapZoomChangeEvent = SyntheticEvent<WidgetReactElement<"MapView">, { value: number }>;
+
 export type MultiSliderChangeEvent<T extends Primitive = Primitive> = SyntheticEvent<
     WidgetReactElement<"MultiSlider">,
     { values: T[] }
@@ -158,7 +160,9 @@ export type WidgetPropsMap = {
         onChange?: (event: InputTextChangeEvent) => void;
     };
     ItemTooltip: WidgetStyleProps;
-    MapView: WidgetStyleProps;
+    MapView: WidgetStyleProps & {
+        onChange?: (event: MapZoomChangeEvent) => void;
+    };
     MultiSlider: WidgetStyleProps & {
         numValues: 2 | 3 | 4;
         defaultValues?: number[];

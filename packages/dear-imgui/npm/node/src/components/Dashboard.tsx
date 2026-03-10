@@ -17,6 +17,7 @@ import {
   InputTextChangeEvent,
   ComboChangeEvent,
   SliderChangeEvent,
+  MapZoomChangeEvent,
   CheckboxChangeEvent,
   TableRowClickEvent,
   TableItemActionEvent,
@@ -374,6 +375,10 @@ export const Dashboard = () => {
     setMapZoom(event.nativeEvent.value);
   }, []);
 
+  const handleMapZoomChange = useCallback((event: MapZoomChangeEvent) => {
+    setMapZoom(event.nativeEvent.value);
+  }, []);
+
   const handleTabClose = useCallback((event: TabItemChangeEvent) => {
     if (!event.nativeEvent.value) {
       setShowNotesTab(false);
@@ -601,6 +606,7 @@ export const Dashboard = () => {
             <XFrames.MapView
               ref={mapRef}
               style={styles.plotArea}
+              onChange={handleMapZoomChange}
             />
           </XFrames.Node>
 

@@ -7,7 +7,7 @@ export type MapImperativeHandle = {
 };
 
 export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]>(
-    ({ style, hoverStyle, activeStyle, disabledStyle }: WidgetPropsMap["MapView"], ref) => {
+    ({ style, hoverStyle, activeStyle, disabledStyle, onChange }: WidgetPropsMap["MapView"], ref) => {
         const widgetRegistratonService = useWidgetRegistrationService();
         const idRef = useRef(widgetRegistratonService.generateId());
 
@@ -34,6 +34,7 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}
                 disabledStyle={disabledStyle}
+                onChange={onChange}
             />
         );
     },

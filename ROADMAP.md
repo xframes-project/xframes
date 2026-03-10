@@ -146,7 +146,7 @@ Scroll-wheel zoom with tile-level transitions.
 - [x] On zoom change: recalculate visible tile set at new zoom level, start fetching new tiles
 - [ ] While new-zoom tiles load, scale the old-zoom tiles as a placeholder (render at 2x or 0.5x size via adjusted screen rects)
 - [x] Once all new-zoom tiles arrive, drop old-zoom textures from the registry
-- [ ] Expose zoom level to React via an `onZoomChange` callback
+- [x] Expose zoom level to React via an `onZoomChange` callback
 
 ### Stage 8 — Optimization & Resource Management
 
