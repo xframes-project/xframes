@@ -182,6 +182,37 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         m_wasDragging = false;
     }
 
+    // Double-click to zoom in (centered on click point)
+    if (ImGui::IsItemHovered() && !m_wasDragging && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        int newZoom = std::clamp(m_zoom + 1, 1, 17);
+        if (newZoom != m_zoom) {
+            ImVec2 mousePos = ImGui::GetIO().MousePos;
+            float mx = mousePos.x - p0.x;
+            float my = mousePos.y - p0.y;
+
+            double mouseTileX = m_centerTileX + (mx - viewW / 2.0) / TILE_SIZE;
+            double mouseTileY = m_centerTileY + (my - viewH / 2.0) / TILE_SIZE;
+
+            double mouseLon = xToLon(mouseTileX, m_zoom);
+            double mouseLat = yToLat(mouseTileY, m_zoom);
+
+            m_zoom = newZoom;
+            m_lastZoomChangeTime = std::chrono::steady_clock::now();
+            m_zoomDebouncing = true;
+
+            double newMouseTileX = lonToX(mouseLon, m_zoom);
+            double newMouseTileY = latToY(mouseLat, m_zoom);
+
+            m_centerTileX = newMouseTileX - (mx - viewW / 2.0) / TILE_SIZE;
+            m_centerTileY = newMouseTileY - (my - viewH / 2.0) / TILE_SIZE;
+
+            m_centerLon = xToLon(m_centerTileX, m_zoom);
+            m_centerLat = yToLat(m_centerTileY, m_zoom);
+
+            view->m_onNumericValueChange(m_id, static_cast<float>(m_zoom));
+        }
+    }
+
     // Mouse wheel zoom (centered on cursor)
     if (ImGui::IsItemHovered()) {
         float wheel = ImGui::GetIO().MouseWheel;
