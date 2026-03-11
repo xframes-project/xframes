@@ -7,7 +7,8 @@ export type MapImperativeHandle = {
 };
 
 export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]>(
-    ({ style, hoverStyle, activeStyle, disabledStyle, onChange }: WidgetPropsMap["MapView"], ref) => {
+    ({ style, hoverStyle, activeStyle, disabledStyle, onChange,
+       tileUrlTemplate, tileRequestHeaders, attribution, minZoom, maxZoom }: WidgetPropsMap["MapView"], ref) => {
         const widgetRegistratonService = useWidgetRegistrationService();
         const idRef = useRef(widgetRegistratonService.generateId());
 
@@ -35,6 +36,11 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
                 activeStyle={activeStyle}
                 disabledStyle={disabledStyle}
                 onChange={onChange}
+                tileUrlTemplate={tileUrlTemplate}
+                tileRequestHeaders={tileRequestHeaders}
+                attribution={attribution}
+                minZoom={minZoom}
+                maxZoom={maxZoom}
             />
         );
     },

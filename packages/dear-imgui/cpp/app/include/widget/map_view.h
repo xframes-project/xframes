@@ -41,6 +41,8 @@ private:
     double m_centerLon = 0.0;
     double m_centerLat = 0.0;
     int m_zoom = 1;
+    int m_minZoom = 1;
+    int m_maxZoom = 17;
     bool m_wasDragging = false;
     bool m_initialized = false;
 
@@ -89,6 +91,13 @@ public:
                     widget->m_tileRequestHeaders[key] = val.template get<std::string>();
                 }
             }
+        }
+
+        if (widgetDef.contains("minZoom") && widgetDef["minZoom"].is_number_integer()) {
+            widget->m_minZoom = widgetDef["minZoom"].template get<int>();
+        }
+        if (widgetDef.contains("maxZoom") && widgetDef["maxZoom"].is_number_integer()) {
+            widget->m_maxZoom = widgetDef["maxZoom"].template get<int>();
         }
 
         return widget;

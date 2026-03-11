@@ -23,7 +23,7 @@ const attributesForElements = {
     indent: [],
     "input-text": ["defaultValue", "hint", "multiline", "password", "readOnly", "numericOnly", "onChange"],
     "item-tooltip": [],
-    "map-view": ["onChange", "tileUrlTemplate", "tileRequestHeaders", "attribution"],
+    "map-view": ["onChange", "tileUrlTemplate", "tileRequestHeaders", "attribution", "minZoom", "maxZoom"],
     "multi-slider": [
         "numValues",
         "label",

@@ -611,6 +611,8 @@ export const Dashboard = () => {
             <XFrames.MapView
               ref={mapRef}
               style={styles.plotArea}
+              minZoom={3}
+              maxZoom={15}
               onChange={handleMapZoomChange}
             />
           </XFrames.Node>
@@ -622,8 +624,8 @@ export const Dashboard = () => {
             <XFrames.Slider
               ref={zoomSliderRef}
               defaultValue={13}
-              min={1}
-              max={17}
+              min={3}
+              max={15}
               onChange={handleZoomChange}
             />
             <XFrames.Button label="Render Map" onClick={handleRenderMap} />

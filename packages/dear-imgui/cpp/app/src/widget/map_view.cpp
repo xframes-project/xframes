@@ -184,7 +184,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     // Double-click to zoom in (centered on click point)
     if (ImGui::IsItemHovered() && !m_wasDragging && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-        int newZoom = std::clamp(m_zoom + 1, 1, 17);
+        int newZoom = std::clamp(m_zoom + 1, m_minZoom, m_maxZoom);
         if (newZoom != m_zoom) {
             ImVec2 mousePos = ImGui::GetIO().MousePos;
             float mx = mousePos.x - p0.x;
@@ -217,7 +217,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (ImGui::IsItemHovered()) {
         float wheel = ImGui::GetIO().MouseWheel;
         if (wheel != 0.0f) {
-            int newZoom = std::clamp(m_zoom + static_cast<int>(wheel), 1, 17);
+            int newZoom = std::clamp(m_zoom + static_cast<int>(wheel), m_minZoom, m_maxZoom);
             if (newZoom != m_zoom) {
                 ImVec2 mousePos = ImGui::GetIO().MousePos;
                 float mx = mousePos.x - p0.x;
@@ -418,6 +418,12 @@ void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
             }
         }
     }
+    if (widgetPatchDef.contains("minZoom") && widgetPatchDef["minZoom"].is_number_integer()) {
+        m_minZoom = widgetPatchDef["minZoom"].template get<int>();
+    }
+    if (widgetPatchDef.contains("maxZoom") && widgetPatchDef["maxZoom"].is_number_integer()) {
+        m_maxZoom = widgetPatchDef["maxZoom"].template get<int>();
+    }
 }
 
 bool MapView::HasInternalOps() {
@@ -439,7 +445,7 @@ void MapView::HandleInternalOp(const json& opDef) {
 
             m_centerLon = lon;
             m_centerLat = lat;
-            m_zoom = zoom;
+            m_zoom = std::clamp(zoom, m_minZoom, m_maxZoom);
             m_centerTileX = lonToX(lon, zoom);
             m_centerTileY = latToY(lat, zoom);
 

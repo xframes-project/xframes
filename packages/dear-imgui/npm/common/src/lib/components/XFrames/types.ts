@@ -164,6 +164,8 @@ export type WidgetPropsMap = {
         tileUrlTemplate?: string;
         tileRequestHeaders?: Record<string, string>;
         attribution?: string;
+        minZoom?: number;
+        maxZoom?: number;
         onChange?: (event: MapZoomChangeEvent) => void;
     };
     MultiSlider: WidgetStyleProps & {
