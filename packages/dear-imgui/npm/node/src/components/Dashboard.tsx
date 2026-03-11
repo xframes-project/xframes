@@ -206,106 +206,71 @@ export const Dashboard = () => {
 
   // Load initial table data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (tableRef.current) {
-        tableRef.current.setTableData(cityData);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
+    tableRef.current?.setTableData(cityData);
   }, []);
 
   // Load bar chart data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (barRef.current) {
-        barRef.current.setData([
-          { x: 1, y: 45 },
-          { x: 2, y: 72 },
-          { x: 3, y: 58 },
-          { x: 4, y: 91 },
-          { x: 5, y: 36 },
-          { x: 6, y: 67 },
-          { x: 7, y: 83 },
-        ]);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
+    barRef.current?.setData([
+      { x: 1, y: 45 },
+      { x: 2, y: 72 },
+      { x: 3, y: 58 },
+      { x: 4, y: 91 },
+      { x: 5, y: 36 },
+      { x: 6, y: 67 },
+      { x: 7, y: 83 },
+    ]);
   }, []);
 
   // Load scatter plot data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (scatterRef.current) {
-        const data = [];
-        for (let i = 0; i < 100; i++) {
-          data.push({
-            x: Math.cos(i * 0.1) * 10 + Math.random() * 4 - 2,
-            y: Math.sin(i * 0.1) * 10 + Math.random() * 4 - 2,
-          });
-        }
-        scatterRef.current.setData(data);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
+    const data = [];
+    for (let i = 0; i < 100; i++) {
+      data.push({
+        x: Math.cos(i * 0.1) * 10 + Math.random() * 4 - 2,
+        y: Math.sin(i * 0.1) * 10 + Math.random() * 4 - 2,
+      });
+    }
+    scatterRef.current?.setData(data);
   }, []);
 
   // Load heatmap data (8x8 gradient)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (heatmapRef.current) {
-        const rows = 8;
-        const cols = 8;
-        const values: number[] = [];
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            values.push(Math.sin(r * 0.5) * Math.cos(c * 0.5) * 50 + 50);
-          }
-        }
-        heatmapRef.current.setData(rows, cols, values);
+    const rows = 8;
+    const cols = 8;
+    const values: number[] = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        values.push(Math.sin(r * 0.5) * Math.cos(c * 0.5) * 50 + 50);
       }
-    }, 100);
-    return () => clearTimeout(timer);
+    }
+    heatmapRef.current?.setData(rows, cols, values);
   }, []);
 
   // Load histogram data (normal distribution via Box-Muller)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (histogramRef.current) {
-        const values: number[] = [];
-        for (let i = 0; i < 500; i++) {
-          const u1 = Math.random();
-          const u2 = Math.random();
-          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-          values.push(z * 15 + 50);
-        }
-        histogramRef.current.setData(values);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
+    const values: number[] = [];
+    for (let i = 0; i < 500; i++) {
+      const u1 = Math.random();
+      const u2 = Math.random();
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      values.push(z * 15 + 50);
+    }
+    histogramRef.current?.setData(values);
   }, []);
 
   // Load pie chart data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (pieChartRef.current) {
-        pieChartRef.current.setData([
-          { label: "Desktop", value: 62 },
-          { label: "Mobile", value: 28 },
-          { label: "Tablet", value: 10 },
-        ]);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
+    pieChartRef.current?.setData([
+      { label: "Desktop", value: 62 },
+      { label: "Mobile", value: 28 },
+      { label: "Tablet", value: 10 },
+    ]);
   }, []);
 
   // Render initial map (London)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.render(-0.1276, 51.5074, mapZoom);
-      }
-    }, 500);
-    return () => clearTimeout(timer);
+    mapRef.current?.render(-0.1276, 51.5074, mapZoom);
   }, []);
 
   // Sync markers when checkboxes change
@@ -319,12 +284,7 @@ export const Dashboard = () => {
 
   // Load candlestick data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (candlestickRef.current) {
-        candlestickRef.current.setData(generateCandlestickData());
-      }
-    }, 100);
-    return () => clearTimeout(timer);
+    candlestickRef.current?.setData(generateCandlestickData());
   }, []);
 
   // Live sine wave plot
