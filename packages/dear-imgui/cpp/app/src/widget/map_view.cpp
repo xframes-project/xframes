@@ -516,6 +516,26 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                           IM_COL32(255, 255, 255, 220), statsText.c_str());
     }
 
+    // Render polylines
+    for (const auto& polyline : m_polylines) {
+        if (polyline.points.size() < 2) continue;
+
+        std::vector<ImVec2> screenPoints;
+        screenPoints.reserve(polyline.points.size());
+
+        for (const auto& [lat, lon] : polyline.points) {
+            double tileX = lonToX(lon, m_zoom);
+            double tileY = latToY(lat, m_zoom);
+            float px = static_cast<float>(round((tileX - m_centerTileX) * TILE_SIZE + viewW / 2.0));
+            float py = static_cast<float>(round((tileY - m_centerTileY) * TILE_SIZE + viewH / 2.0));
+            screenPoints.emplace_back(p0.x + px, p0.y + py);
+        }
+
+        ImU32 col = ImColor(polyline.color);
+        drawList->AddPolyline(screenPoints.data(), static_cast<int>(screenPoints.size()),
+                              col, ImDrawFlags_None, polyline.thickness);
+    }
+
     // Render pin markers
     for (const auto& marker : m_markers) {
         double markerTileX = lonToX(marker.lon, m_zoom);
@@ -786,6 +806,28 @@ void MapView::HandleInternalOp(const json& opDef) {
             }
         } else if (op == "clearMarkers") {
             m_markers.clear();
+        } else if (op == "setPolylines" && opDef.contains("polylines") && opDef["polylines"].is_array()) {
+            m_polylines.clear();
+            for (auto& [key, item] : opDef["polylines"].items()) {
+                if (item.is_object() && item.contains("points") && item["points"].is_array()) {
+                    MapPolyline pl;
+                    for (auto& [pk, pt] : item["points"].items()) {
+                        if (pt.is_object() && pt.contains("lat") && pt.contains("lon")) {
+                            pl.points.emplace_back(pt["lat"].get<double>(), pt["lon"].get<double>());
+                        }
+                    }
+                    if (item.contains("color")) {
+                        auto c = extractColor(item["color"]);
+                        if (c.has_value()) pl.color = c.value();
+                    }
+                    if (item.contains("thickness") && item["thickness"].is_number()) {
+                        pl.thickness = item["thickness"].get<float>();
+                    }
+                    m_polylines.push_back(std::move(pl));
+                }
+            }
+        } else if (op == "clearPolylines") {
+            m_polylines.clear();
         }
     }
 }

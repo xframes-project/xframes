@@ -99,6 +99,14 @@ private:
     };
     std::vector<MapMarker> m_markers;
 
+    // Polyline overlays
+    struct MapPolyline {
+        std::vector<std::pair<double, double>> points; // lat, lon pairs
+        ImVec4 color{0.0f, 0.5f, 1.0f, 1.0f}; // default blue
+        float thickness = 2.0f;
+    };
+    std::vector<MapPolyline> m_polylines;
+
     // Helpers
     void FetchMissingTiles(int xMin, int xMax, int yMin, int yMax);
     std::string BuildTileUrl(int x, int y, int zoom);

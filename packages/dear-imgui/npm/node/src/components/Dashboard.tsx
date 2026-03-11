@@ -203,6 +203,7 @@ export const Dashboard = () => {
   const [showLondon, setShowLondon] = useState(true);
   const [showBuckingham, setShowBuckingham] = useState(true);
   const [showOxford, setShowOxford] = useState(true);
+  const [showPolyline, setShowPolyline] = useState(true);
 
   // Load initial table data
   useEffect(() => {
@@ -281,6 +282,20 @@ export const Dashboard = () => {
     );
     mapRef.current.setMarkers(markers);
   }, [showLondon, showBuckingham, showOxford]);
+
+  // Sync polyline when checkbox changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (showPolyline) {
+      mapRef.current.setPolylines([{
+        points: MAP_MARKERS.map(m => ({ lat: m.lat, lon: m.lon })),
+        color: "#FF8800",
+        thickness: 3,
+      }]);
+    } else {
+      mapRef.current.clearPolylines();
+    }
+  }, [showPolyline]);
 
   // Load candlestick data
   useEffect(() => {
@@ -629,6 +644,8 @@ export const Dashboard = () => {
             <XFrames.Checkbox label="London" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowLondon(e.nativeEvent.value)} />
             <XFrames.Checkbox label="Buckingham Palace" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowBuckingham(e.nativeEvent.value)} />
             <XFrames.Checkbox label="Oxford Circus" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowOxford(e.nativeEvent.value)} />
+            <XFrames.UnformattedText text="Overlays:" />
+            <XFrames.Checkbox label="Route polyline" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowPolyline(e.nativeEvent.value)} />
           </XFrames.Node>
         </XFrames.Node>
 

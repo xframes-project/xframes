@@ -374,6 +374,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    setMapPolylines(id: string, polylines: { points: { lat: number; lon: number }[]; color?: string; thickness?: number }[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setPolylines", polylines }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    clearMapPolylines(id: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "clearPolylines" }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     appendTextToClippedMultiLineTextRenderer(id: string, text: string) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

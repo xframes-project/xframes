@@ -161,7 +161,7 @@ VRAM and memory management for long panning sessions.
 ### Stage 9 — Map Overlays & u-center lite Integration
 
 - [x] Pin marker overlay (render markers at given lat/lon coordinates on top of the tile grid)
-- [ ] Route/polyline overlay (connect sequential positions)
+- [x] Route/polyline overlay (connect sequential positions)
 - [ ] Wire into u-center lite Position Tracking panel (Phase 3) — live position dot on map updated from NAV-PVT messages
 - [ ] Map center follows GPS fix when in "follow" mode
 

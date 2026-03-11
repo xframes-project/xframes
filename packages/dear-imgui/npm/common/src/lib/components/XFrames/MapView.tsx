@@ -18,11 +18,19 @@ export type MapMarker = {
     radius?: number;
 };
 
+export type MapPolyline = {
+    points: { lat: number; lon: number }[];
+    color?: string;
+    thickness?: number;
+};
+
 export type MapImperativeHandle = {
     render: (centerX: number, centerY: number, zoom: number) => void;
     prefetchTiles: (minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) => void;
     setMarkers: (markers: MapMarker[]) => void;
     clearMarkers: () => void;
+    setPolylines: (polylines: MapPolyline[]) => void;
+    clearPolylines: () => void;
 };
 
 export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]>(
@@ -50,6 +58,12 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
                     },
                     clearMarkers() {
                         widgetRegistratonService.clearMapMarkers(idRef.current);
+                    },
+                    setPolylines(polylines: MapPolyline[]) {
+                        widgetRegistratonService.setMapPolylines(idRef.current, polylines);
+                    },
+                    clearPolylines() {
+                        widgetRegistratonService.clearMapPolylines(idRef.current);
                     },
                 };
             },
