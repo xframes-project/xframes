@@ -283,15 +283,26 @@ export const Dashboard = () => {
     mapRef.current.setMarkers(markers);
   }, [showLondon, showBuckingham, showOxford]);
 
-  // Sync polyline when checkbox changes
+  // Simulated GPS trail: initialize an empty polyline then append points on a timer
   useEffect(() => {
     if (!mapRef.current) return;
     if (showPolyline) {
+      // Create an empty polyline with a 500-point sliding window
       mapRef.current.setPolylines([{
-        points: MAP_MARKERS.map(m => ({ lat: m.lat, lon: m.lon })),
+        points: [],
         color: "#FF8800",
         thickness: 3,
+        pointsLimit: 500,
       }]);
+      // Simulate a random walk around London
+      let lat = 51.5074;
+      let lon = -0.1276;
+      const interval = setInterval(() => {
+        lat += (Math.random() - 0.5) * 0.0004;
+        lon += (Math.random() - 0.5) * 0.0004;
+        mapRef.current?.appendPolylinePoint(0, lat, lon);
+      }, 100);
+      return () => clearInterval(interval);
     } else {
       mapRef.current.clearPolylines();
     }
@@ -645,7 +656,7 @@ export const Dashboard = () => {
             <XFrames.Checkbox label="Buckingham Palace" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowBuckingham(e.nativeEvent.value)} />
             <XFrames.Checkbox label="Oxford Circus" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowOxford(e.nativeEvent.value)} />
             <XFrames.UnformattedText text="Overlays:" />
-            <XFrames.Checkbox label="Route polyline" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowPolyline(e.nativeEvent.value)} />
+            <XFrames.Checkbox label="GPS trail (simulated)" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowPolyline(e.nativeEvent.value)} />
           </XFrames.Node>
         </XFrames.Node>
 

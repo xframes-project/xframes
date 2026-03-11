@@ -823,11 +823,26 @@ void MapView::HandleInternalOp(const json& opDef) {
                     if (item.contains("thickness") && item["thickness"].is_number()) {
                         pl.thickness = item["thickness"].get<float>();
                     }
+                    if (item.contains("pointsLimit") && item["pointsLimit"].is_number_integer()) {
+                        pl.pointsLimit = item["pointsLimit"].get<size_t>();
+                    }
                     m_polylines.push_back(std::move(pl));
                 }
             }
         } else if (op == "clearPolylines") {
             m_polylines.clear();
+        } else if (op == "appendPolylinePoint"
+            && opDef.contains("polylineIndex") && opDef["polylineIndex"].is_number_integer()
+            && opDef.contains("lat") && opDef["lat"].is_number()
+            && opDef.contains("lon") && opDef["lon"].is_number()) {
+            auto idx = opDef["polylineIndex"].get<int>();
+            if (idx >= 0 && idx < static_cast<int>(m_polylines.size())) {
+                auto& pl = m_polylines[idx];
+                if (pl.pointsLimit > 0 && pl.points.size() >= pl.pointsLimit) {
+                    pl.points.erase(pl.points.begin());
+                }
+                pl.points.emplace_back(opDef["lat"].get<double>(), opDef["lon"].get<double>());
+            }
         }
     }
 }

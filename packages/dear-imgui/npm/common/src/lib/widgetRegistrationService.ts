@@ -402,6 +402,20 @@ export class WidgetRegistrationService {
         }
     }
 
+    appendMapPolylinePoint(id: string, polylineIndex: number, lat: number, lon: number) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "appendPolylinePoint", polylineIndex, lat, lon }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     appendTextToClippedMultiLineTextRenderer(id: string, text: string) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

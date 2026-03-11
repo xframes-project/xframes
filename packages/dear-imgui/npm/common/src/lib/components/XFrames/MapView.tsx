@@ -22,6 +22,7 @@ export type MapPolyline = {
     points: { lat: number; lon: number }[];
     color?: string;
     thickness?: number;
+    pointsLimit?: number;
 };
 
 export type MapImperativeHandle = {
@@ -31,6 +32,7 @@ export type MapImperativeHandle = {
     clearMarkers: () => void;
     setPolylines: (polylines: MapPolyline[]) => void;
     clearPolylines: () => void;
+    appendPolylinePoint: (polylineIndex: number, lat: number, lon: number) => void;
 };
 
 export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]>(
@@ -64,6 +66,9 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
                     },
                     clearPolylines() {
                         widgetRegistratonService.clearMapPolylines(idRef.current);
+                    },
+                    appendPolylinePoint(polylineIndex: number, lat: number, lon: number) {
+                        widgetRegistratonService.appendMapPolylinePoint(idRef.current, polylineIndex, lat, lon);
                     },
                 };
             },

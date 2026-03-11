@@ -104,6 +104,7 @@ private:
         std::vector<std::pair<double, double>> points; // lat, lon pairs
         ImVec4 color{0.0f, 0.5f, 1.0f, 1.0f}; // default blue
         float thickness = 2.0f;
+        size_t pointsLimit = 0; // 0 = no limit; >0 = FIFO cap
     };
     std::vector<MapPolyline> m_polylines;
 
