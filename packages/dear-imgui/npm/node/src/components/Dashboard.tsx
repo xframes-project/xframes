@@ -28,6 +28,12 @@ import {
 } from "@xframes/common";
 import { theme1, theme2, theme3 } from "../themes";
 
+const MAP_MARKERS = [
+  { lat: 51.5074, lon: -0.1276, color: "#FF3333", label: "London", radius: 10 },
+  { lat: 51.5014, lon: -0.1419, color: "#3366FF", label: "Buckingham Palace" },
+  { lat: 51.5155, lon: -0.1419, color: "#33CC33", label: "Oxford Circus" },
+];
+
 const themeList = [
   { name: "Dark", theme: theme2 },
   { name: "Light", theme: theme1 },
@@ -194,6 +200,9 @@ export const Dashboard = () => {
   const [featureEnabled, setFeatureEnabled] = useState(false);
   const [selectedColor, setSelectedColor] = useState("");
   const [showNotesTab, setShowNotesTab] = useState(true);
+  const [showLondon, setShowLondon] = useState(true);
+  const [showBuckingham, setShowBuckingham] = useState(true);
+  const [showOxford, setShowOxford] = useState(true);
 
   // Load initial table data
   useEffect(() => {
@@ -294,15 +303,19 @@ export const Dashboard = () => {
     const timer = setTimeout(() => {
       if (mapRef.current) {
         mapRef.current.render(-0.1276, 51.5074, mapZoom);
-        mapRef.current.setMarkers([
-          { lat: 51.5074, lon: -0.1276, color: "#FF3333", label: "London", radius: 10 },
-          { lat: 51.5014, lon: -0.1419, color: "#3366FF", label: "Buckingham Palace" },
-          { lat: 51.5155, lon: -0.1419, color: "#33CC33", label: "Oxford Circus" },
-        ]);
       }
     }, 500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Sync markers when checkboxes change
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const markers = MAP_MARKERS.filter((_, i) =>
+      [showLondon, showBuckingham, showOxford][i]
+    );
+    mapRef.current.setMarkers(markers);
+  }, [showLondon, showBuckingham, showOxford]);
 
   // Load candlestick data
   useEffect(() => {
@@ -652,6 +665,10 @@ export const Dashboard = () => {
             />
             <XFrames.Button label="Render Map" onClick={handleRenderMap} />
             <XFrames.Button label="Prefetch London (z10-14)" onClick={handlePrefetch} />
+            <XFrames.UnformattedText text="Markers:" />
+            <XFrames.Checkbox label="London" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowLondon(e.nativeEvent.value)} />
+            <XFrames.Checkbox label="Buckingham Palace" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowBuckingham(e.nativeEvent.value)} />
+            <XFrames.Checkbox label="Oxford Circus" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowOxford(e.nativeEvent.value)} />
           </XFrames.Node>
         </XFrames.Node>
 
