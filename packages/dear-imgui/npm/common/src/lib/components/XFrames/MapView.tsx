@@ -2,6 +2,14 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { WidgetPropsMap } from "./types";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
+/**
+ * WARNING: prefetchTiles() bulk-downloads map tiles for offline use.
+ * This violates the tile usage policy of OpenStreetMap's default tile servers
+ * (tile.openstreetmap.org). Only use prefetchTiles() with a tile server that
+ * explicitly permits bulk downloading (e.g. a self-hosted server or a
+ * commercial provider whose terms allow it). Set `tileUrlTemplate` accordingly.
+ * See: https://operations.osmfoundation.org/policies/tiles/
+ */
 export type MapImperativeHandle = {
     render: (centerX: number, centerY: number, zoom: number) => void;
     prefetchTiles: (minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) => void;

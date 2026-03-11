@@ -393,7 +393,9 @@ export const Dashboard = () => {
   }, []);
 
   const handlePrefetch = useCallback(() => {
-    // Prefetch tiles around London area, zoom 10-14
+    // WARNING: Bulk downloading tiles violates OpenStreetMap's default tile server
+    // usage policy. Only use prefetchTiles() with a server that permits it.
+    // See: https://operations.osmfoundation.org/policies/tiles/
     mapRef.current?.prefetchTiles(-0.5, 51.3, 0.2, 51.7, 10, 14);
   }, []);
 

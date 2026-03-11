@@ -528,6 +528,9 @@ void MapView::HandleInternalOp(const json& opDef) {
             int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
 
             FetchMissingTiles(xMin, xMax, yMin, yMax);
+        // WARNING: Bulk tile downloading violates the usage policy of OpenStreetMap's
+        // default tile servers (tile.openstreetmap.org). Only use this with a tile server
+        // that permits it. See: https://operations.osmfoundation.org/policies/tiles/
         } else if (op == "prefetch"
             && opDef.contains("minLon") && opDef["minLon"].is_number()
             && opDef.contains("minLat") && opDef["minLat"].is_number()
