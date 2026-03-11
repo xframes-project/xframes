@@ -178,11 +178,23 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 stbi_image_free(pixels);
 
                 if (glGetError() == GL_NO_ERROR) {
+                    // Evict LRU tiles if over budget
+                    while (m_tileTextures.size() >= MAX_GPU_TILES) {
+                        auto& oldestKey = m_textureLruOrder.back();
+                        auto evictIt = m_tileTextures.find(oldestKey);
+                        if (evictIt != m_tileTextures.end()) {
+                            glDeleteTextures(1, &evictIt->second.first.textureView);
+                            m_tileTextures.erase(evictIt);
+                        }
+                        m_textureLruOrder.pop_back();
+                    }
+
                     Texture tex;
                     tex.textureView = texId;
                     tex.width = w;
                     tex.height = h;
-                    m_tileTextures[pending.key] = tex;
+                    m_textureLruOrder.push_front(pending.key);
+                    m_tileTextures[pending.key] = { tex, m_textureLruOrder.begin() };
                 } else {
                     glDeleteTextures(1, &texId);
                 }
@@ -317,7 +329,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     int maxTiles = 1 << m_zoom;
 
     // Render old-zoom tiles as scaled placeholders (background layer)
-    for (const auto& [key, tex] : m_tileTextures) {
+    for (auto& [key, entry] : m_tileTextures) {
         if (key.zoom == m_zoom) continue;
 
         double scale = pow(2.0, m_zoom - key.zoom);
@@ -335,7 +347,9 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         ImVec2 uv0(0, 0), uv1(1, 1);
         if (ClipTileToViewport(p0, p1, tileP0, tileP1, uv0, uv1)) {
-            drawList->AddImage((void*)(intptr_t)tex.textureView, tileP0, tileP1, uv0, uv1);
+            // Promote to front of LRU
+            m_textureLruOrder.splice(m_textureLruOrder.begin(), m_textureLruOrder, entry.second);
+            drawList->AddImage((void*)(intptr_t)entry.first.textureView, tileP0, tileP1, uv0, uv1);
         }
     }
 
@@ -357,10 +371,12 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
             auto it = m_tileTextures.find(key);
             if (it != m_tileTextures.end()) {
+                // Promote to front of LRU
+                m_textureLruOrder.splice(m_textureLruOrder.begin(), m_textureLruOrder, it->second.second);
                 ImVec2 uv0(0, 0), uv1(1, 1);
                 if (ClipTileToViewport(p0, p1, tileP0, tileP1, uv0, uv1)) {
                     drawList->AddImage(
-                        (void*)(intptr_t)it->second.textureView,
+                        (void*)(intptr_t)it->second.first.textureView,
                         tileP0, tileP1, uv0, uv1
                     );
                 }
@@ -389,7 +405,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         // Only keep old-zoom tiles if current zoom has missing tiles
         if (!allCurrentTilesLoaded) {
-            for (const auto& [key, tex] : m_tileTextures) {
+            for (const auto& [key, entry] : m_tileTextures) {
                 if (key.zoom == m_zoom) continue;
                 double scale = pow(2.0, m_zoom - key.zoom);
                 double tileX = key.x * scale;
@@ -402,7 +418,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
 
         std::vector<TileKey> toEvict;
-        for (const auto& [key, tex] : m_tileTextures) {
+        for (const auto& [key, entry] : m_tileTextures) {
             if (!nearbyKeys.count(key)) {
                 toEvict.push_back(key);
             }
@@ -411,7 +427,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         for (const auto& key : toEvict) {
             auto it = m_tileTextures.find(key);
             if (it != m_tileTextures.end()) {
-                glDeleteTextures(1, &it->second.textureView);
+                glDeleteTextures(1, &it->second.first.textureView);
+                m_textureLruOrder.erase(it->second.second);
                 m_tileTextures.erase(it);
             }
         }
@@ -462,7 +479,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     // Cache stats overlay (top-right, only when disk cache is enabled)
     if (m_diskCache.isEnabled()) {
-        std::string statsText = "Mem: " + std::to_string(m_cacheStats.memoryHits) +
+        std::string statsText = "GPU: " + std::to_string(m_tileTextures.size()) + "/" + std::to_string(MAX_GPU_TILES) +
+                                " Mem: " + std::to_string(m_cacheStats.memoryHits) +
                                 " Disk: " + std::to_string(m_cacheStats.diskHits) +
                                 " Net: " + std::to_string(m_cacheStats.networkFetches);
 
@@ -522,11 +540,12 @@ void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("tileUrlTemplate") && widgetPatchDef["tileUrlTemplate"].is_string()) {
         m_tileUrlTemplate = widgetPatchDef["tileUrlTemplate"].template get<std::string>();
 #ifndef __EMSCRIPTEN__
-        for (auto& [key, tex] : m_tileTextures) {
-            glDeleteTextures(1, &tex.textureView);
+        for (auto& [key, entry] : m_tileTextures) {
+            glDeleteTextures(1, &entry.first.textureView);
         }
 #endif
         m_tileTextures.clear();
+        m_textureLruOrder.clear();
     }
     if (widgetPatchDef.contains("attribution") && widgetPatchDef["attribution"].is_string()) {
         m_attribution = widgetPatchDef["attribution"].template get<std::string>();

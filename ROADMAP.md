@@ -112,21 +112,21 @@ The [osm-static-map-generator](https://github.com/andreamancuso/osm-static-map-g
 
 Replace the monolithic composited-PNG approach with individual tile textures rendered in a grid. This eliminates visual jumps on pan and enables incremental tile loading.
 
-- [ ] Define `TileKey` struct (`int x, y, zoom`) and `TileEntry` struct (raw PNG bytes + decode state)
-- [ ] Create GPU texture registry: `std::unordered_map<TileKey, GLuint>` for uploaded textures, separate from the existing `TileCache` (which stores raw PNG bytes)
-- [ ] Implement visible-tile calculation in MapView: given center (lon, lat), zoom, and viewport size, compute the set of `TileKey`s that overlap the viewport (port the grid math from `MapGenerator::DrawLayer()`)
-- [ ] Implement per-tile screen positioning: `TileKey` → screen rect `(x0, y0, x1, y1)` using the `XToPx`/`YToPx` pattern from MapGenerator
-- [ ] Render loop: iterate visible tiles, call `ImDrawList::AddImage()` once per tile with its GL texture and screen rect
+- [x] Define `TileKey` struct (`int x, y, zoom`) and `TileEntry` struct (raw PNG bytes + decode state)
+- [x] Create GPU texture registry: `std::unordered_map<TileKey, GLuint>` for uploaded textures, separate from the existing `TileCache` (which stores raw PNG bytes)
+- [x] Implement visible-tile calculation in MapView: given center (lon, lat), zoom, and viewport size, compute the set of `TileKey`s that overlap the viewport (port the grid math from `MapGenerator::DrawLayer()`)
+- [x] Implement per-tile screen positioning: `TileKey` → screen rect `(x0, y0, x1, y1)` using the `XToPx`/`YToPx` pattern from MapGenerator
+- [x] Render loop: iterate visible tiles, call `ImDrawList::AddImage()` once per tile with its GL texture and screen rect
 
 ### Stage 5 — Tile Download & Decode Pipeline
 
 Wire up individual tile fetching, decoding, and GPU upload with proper threading.
 
-- [ ] Create a `TileGridDownloader` class (or extend `TileDownloader`) that accepts a list of `TileKey`s, checks `TileCache` first, then downloads missing tiles via libcurl multi (desktop) or Emscripten Fetch (WASM)
-- [ ] Background thread: download + decode tiles (PNG bytes → RGBA pixels via `stbi_load_from_memory`, avoiding Leptonica entirely for decode-only)
-- [ ] Render-thread upload: pending decoded tiles are picked up each frame and uploaded via `glTexImage2D` (same mutex + pending-queue pattern as current `PendingTexture`)
-- [ ] Populate the GPU texture registry as tiles arrive — partial renders are fine (show available tiles, leave gaps for pending ones)
-- [ ] Placeholder tile: render a solid gray rect for tiles not yet loaded
+- [x] Create a `TileGridDownloader` class (or extend `TileDownloader`) that accepts a list of `TileKey`s, checks `TileCache` first, then downloads missing tiles via libcurl multi (desktop) or Emscripten Fetch (WASM)
+- [x] Background thread: download + decode tiles (PNG bytes → RGBA pixels via `stbi_load_from_memory`, avoiding Leptonica entirely for decode-only)
+- [x] Render-thread upload: pending decoded tiles are picked up each frame and uploaded via `glTexImage2D` (same mutex + pending-queue pattern as current `PendingTexture`)
+- [x] Populate the GPU texture registry as tiles arrive — partial renders are fine (show available tiles, leave gaps for pending ones)
+- [x] Placeholder tile: render a solid gray rect for tiles not yet loaded
 
 ### Stage 6 — Smooth Panning
 
@@ -144,7 +144,7 @@ Scroll-wheel zoom with tile-level transitions.
 
 - [x] `ImGui::GetIO().MouseWheel` on the map canvas increments/decrements zoom level (clamped 1–17)
 - [x] On zoom change: recalculate visible tile set at new zoom level, start fetching new tiles
-- [ ] While new-zoom tiles load, scale the old-zoom tiles as a placeholder (render at 2x or 0.5x size via adjusted screen rects)
+- [x] While new-zoom tiles load, scale the old-zoom tiles as a placeholder (render at 2x or 0.5x size via adjusted screen rects)
 - [x] Once all new-zoom tiles arrive, drop old-zoom textures from the registry
 - [x] Expose zoom level to React via an `onZoomChange` callback
 

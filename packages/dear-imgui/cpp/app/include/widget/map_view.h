@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <list>
 #include <mutex>
 #include <set>
 #include <vector>
@@ -53,8 +54,10 @@ private:
     std::unordered_map<std::string, std::string> m_tileRequestHeaders;
     std::string m_attribution = "\xC2\xA9 OpenStreetMap contributors";
 
-    // GPU texture registry (render thread only)
-    std::unordered_map<TileKey, Texture, TileKeyHash> m_tileTextures;
+    // GPU texture registry with LRU eviction (render thread only)
+    static constexpr int MAX_GPU_TILES = 512;
+    std::list<TileKey> m_textureLruOrder;  // most recent at front
+    std::unordered_map<TileKey, std::pair<Texture, std::list<TileKey>::iterator>, TileKeyHash> m_tileTextures;
 
     // Pending tiles from background download thread
     struct PendingTile {
