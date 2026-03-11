@@ -10,9 +10,19 @@ import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistratio
  * commercial provider whose terms allow it). Set `tileUrlTemplate` accordingly.
  * See: https://operations.osmfoundation.org/policies/tiles/
  */
+export type MapMarker = {
+    lat: number;
+    lon: number;
+    color?: string;
+    label?: string;
+    radius?: number;
+};
+
 export type MapImperativeHandle = {
     render: (centerX: number, centerY: number, zoom: number) => void;
     prefetchTiles: (minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) => void;
+    setMarkers: (markers: MapMarker[]) => void;
+    clearMarkers: () => void;
 };
 
 export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]>(
@@ -34,6 +44,12 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
                     },
                     prefetchTiles(minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) {
                         widgetRegistratonService.prefetchMapTiles(idRef.current, minLon, minLat, maxLon, maxLat, minZoom, maxZoom);
+                    },
+                    setMarkers(markers: MapMarker[]) {
+                        widgetRegistratonService.setMapMarkers(idRef.current, markers);
+                    },
+                    clearMarkers() {
+                        widgetRegistratonService.clearMapMarkers(idRef.current);
                     },
                 };
             },

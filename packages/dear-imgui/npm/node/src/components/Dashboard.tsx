@@ -294,6 +294,11 @@ export const Dashboard = () => {
     const timer = setTimeout(() => {
       if (mapRef.current) {
         mapRef.current.render(-0.1276, 51.5074, mapZoom);
+        mapRef.current.setMarkers([
+          { lat: 51.5074, lon: -0.1276, color: "#FF3333", label: "London", radius: 10 },
+          { lat: 51.5014, lon: -0.1419, color: "#3366FF", label: "Buckingham Palace" },
+          { lat: 51.5155, lon: -0.1419, color: "#33CC33", label: "Oxford Circus" },
+        ]);
       }
     }, 500);
     return () => clearTimeout(timer);

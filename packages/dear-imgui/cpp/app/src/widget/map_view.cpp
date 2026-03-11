@@ -516,6 +516,37 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                           IM_COL32(255, 255, 255, 220), statsText.c_str());
     }
 
+    // Render pin markers
+    for (const auto& marker : m_markers) {
+        double markerTileX = lonToX(marker.lon, m_zoom);
+        double markerTileY = latToY(marker.lat, m_zoom);
+
+        float px = static_cast<float>(round((markerTileX - m_centerTileX) * TILE_SIZE + viewW / 2.0));
+        float py = static_cast<float>(round((markerTileY - m_centerTileY) * TILE_SIZE + viewH / 2.0));
+
+        ImVec2 screenPos(p0.x + px, p0.y + py);
+
+        // Skip if outside viewport (with radius margin)
+        if (screenPos.x + marker.radius < p0.x || screenPos.x - marker.radius > p1.x ||
+            screenPos.y + marker.radius < p0.y || screenPos.y - marker.radius > p1.y) continue;
+
+        ImU32 col = ImColor(marker.color);
+        drawList->AddCircleFilled(screenPos, marker.radius, col);
+        drawList->AddCircle(screenPos, marker.radius, IM_COL32(0, 0, 0, 180), 0, 1.5f);
+
+        if (!marker.label.empty()) {
+            ImFont* font = ImGui::GetIO().FontDefault;
+            float fontSize = font->LegacySize;
+            ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, marker.label.c_str());
+            ImVec2 textPos(screenPos.x - textSize.x / 2, screenPos.y - marker.radius - textSize.y - 2);
+            drawList->AddRectFilled(
+                ImVec2(textPos.x - 2, textPos.y - 1),
+                ImVec2(textPos.x + textSize.x + 2, textPos.y + textSize.y + 1),
+                IM_COL32(0, 0, 0, 160), 2.0f);
+            drawList->AddText(font, fontSize, textPos, IM_COL32(255, 255, 255, 240), marker.label.c_str());
+        }
+    }
+
     // Coordinate overlay (bottom-left, only when hovered)
     if (ImGui::IsItemHovered()) {
         ImVec2 mousePos = ImGui::GetIO().MousePos;
@@ -733,6 +764,28 @@ void MapView::HandleInternalOp(const json& opDef) {
                 m_prefetching = false;
             }).detach();
 #endif
+        } else if (op == "setMarkers" && opDef.contains("markers") && opDef["markers"].is_array()) {
+            m_markers.clear();
+            for (auto& [key, item] : opDef["markers"].items()) {
+                if (item.is_object() && item.contains("lat") && item.contains("lon")) {
+                    MapMarker m;
+                    m.lat = item["lat"].template get<double>();
+                    m.lon = item["lon"].template get<double>();
+                    if (item.contains("color")) {
+                        auto c = extractColor(item["color"]);
+                        if (c.has_value()) m.color = c.value();
+                    }
+                    if (item.contains("label") && item["label"].is_string()) {
+                        m.label = item["label"].template get<std::string>();
+                    }
+                    if (item.contains("radius") && item["radius"].is_number()) {
+                        m.radius = item["radius"].template get<float>();
+                    }
+                    m_markers.push_back(m);
+                }
+            }
+        } else if (op == "clearMarkers") {
+            m_markers.clear();
         }
     }
 }

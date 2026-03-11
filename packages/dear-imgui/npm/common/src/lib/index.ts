@@ -46,7 +46,7 @@ import { attachSubComponents } from "./attachSubComponents";
 import ReactFabricProdInitialiser from "./react-native/ReactFabric-prod";
 import ReactNativePrivateInterface from "./react-native/ReactNativePrivateInterface";
 import { TreeViewItem } from "./components/XFrames/TreeView";
-import { MapImperativeHandle } from "./components/XFrames/MapView";
+import { MapImperativeHandle, MapMarker } from "./components/XFrames/MapView";
 import { ImageImperativeHandle } from "./components/XFrames/Image";
 import { WidgetRegistrationServiceContext } from "./contexts/widgetRegistrationServiceContext";
 import { useWidgetEventManagement } from "./hooks/useWidgetEventManagement";
@@ -57,6 +57,7 @@ import { useXFramesWasm } from "./hooks/useXFramesWasm";
 export {
     WidgetReactElement,
     MapImperativeHandle,
+    MapMarker,
     ImageImperativeHandle,
     faIconKeys,
     TreeViewItem,

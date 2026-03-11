@@ -346,6 +346,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    setMapMarkers(id: string, markers: { lat: number; lon: number; color?: string; label?: string; radius?: number }[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setMarkers", markers }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    clearMapMarkers(id: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "clearMarkers" }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     appendTextToClippedMultiLineTextRenderer(id: string, text: string) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

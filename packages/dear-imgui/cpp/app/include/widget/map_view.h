@@ -12,6 +12,7 @@
 #include "disk_tile_cache.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
+#include "color_helpers.h"
 
 struct TileKey {
     int x, y, zoom;
@@ -88,6 +89,15 @@ private:
     std::atomic<bool> m_prefetching{false};
     std::atomic<int> m_prefetchCompleted{0};
     std::atomic<int> m_prefetchTotal{0};
+
+    // Pin markers
+    struct MapMarker {
+        double lat, lon;
+        ImVec4 color{1.0f, 0.0f, 0.0f, 1.0f}; // default red
+        std::string label;
+        float radius = 8.0f;
+    };
+    std::vector<MapMarker> m_markers;
 
     // Helpers
     void FetchMissingTiles(int xMin, int xMax, int yMin, int yMax);
