@@ -49,6 +49,10 @@ private:
     bool m_wasDragging = false;
     bool m_initialized = false;
 
+    // Pan direction for directional prefetching (-1, 0, or 1)
+    int m_panDirX = 0;
+    int m_panDirY = 0;
+
     static constexpr int TILE_SIZE = 256;
     std::string m_tileUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     std::unordered_map<std::string, std::string> m_tileRequestHeaders;

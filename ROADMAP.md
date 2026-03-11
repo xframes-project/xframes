@@ -153,8 +153,8 @@ Scroll-wheel zoom with tile-level transitions.
 VRAM and memory management for long panning sessions.
 
 - [x] GPU texture eviction: discard textures for tiles more than 2 tile-widths outside the viewport
-- [ ] VRAM budget tracking: cap total uploaded textures (e.g., 512 tiles × 256×256×4 ≈ 128MB) with LRU eviction
-- [ ] Prefetching: when panning in a direction, preemptively fetch 1 row/column of tiles ahead of the viewport edge
+- [x] VRAM budget tracking: cap total uploaded textures (e.g., 512 tiles × 256×256×4 ≈ 128MB) with LRU eviction
+- [x] Prefetching: when panning in a direction, preemptively fetch 1 row/column of tiles ahead of the viewport edge
 - [ ] `TileCache` tuning: increase `maxEntries` via `TileCache::configure()` at MapView init (default 256 is low for tile-grid); expose `configure()` via NAPI for runtime tuning from JS; consider multi-zoom-level prefetching to warm cache for adjacent zoom levels
 - [x] Deduplicate in-flight requests: if a tile download is already pending, don't queue a duplicate
 

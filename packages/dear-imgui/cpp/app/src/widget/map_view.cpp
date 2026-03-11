@@ -225,6 +225,12 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         float dx = ImGui::GetIO().MouseDelta.x;
         float dy = ImGui::GetIO().MouseDelta.y;
 
+        // Track pan direction for prefetching (center moves opposite to drag)
+        if (dx > 0.5f) m_panDirX = -1;
+        else if (dx < -0.5f) m_panDirX = 1;
+        if (dy > 0.5f) m_panDirY = -1;
+        else if (dy < -0.5f) m_panDirY = 1;
+
         // Convert pixel delta to tile coordinate delta
         m_centerTileX -= static_cast<double>(dx) / TILE_SIZE;
         m_centerTileY -= static_cast<double>(dy) / TILE_SIZE;
@@ -238,6 +244,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     if (m_wasDragging && !isDragging) {
         m_wasDragging = false;
+        m_panDirX = 0;
+        m_panDirY = 0;
     }
 
     // Double-click to zoom in (centered on click point)
@@ -435,15 +443,21 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     }
 #endif
 
+    // Expand fetch range in pan direction for prefetching
+    int fetchXMin = xMin + std::min(m_panDirX, 0);
+    int fetchXMax = xMax + std::max(m_panDirX, 0);
+    int fetchYMin = yMin + std::min(m_panDirY, 0);
+    int fetchYMax = yMax + std::max(m_panDirY, 0);
+
     // Debounce tile fetches during rapid zoom (150ms after last scroll)
     if (m_zoomDebouncing) {
         auto elapsed = std::chrono::steady_clock::now() - m_lastZoomChangeTime;
         if (elapsed >= std::chrono::milliseconds(150)) {
             m_zoomDebouncing = false;
-            FetchMissingTiles(xMin, xMax, yMin, yMax);
+            FetchMissingTiles(fetchXMin, fetchXMax, fetchYMin, fetchYMax);
         }
     } else {
-        FetchMissingTiles(xMin, xMax, yMin, yMax);
+        FetchMissingTiles(fetchXMin, fetchXMax, fetchYMin, fetchYMax);
     }
 
     // Attribution overlay
