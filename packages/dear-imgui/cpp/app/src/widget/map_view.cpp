@@ -445,6 +445,33 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                           IM_COL32(255, 255, 255, 220), statsText.c_str());
     }
 
+    // Coordinate overlay (bottom-left, only when hovered)
+    if (ImGui::IsItemHovered()) {
+        ImVec2 mousePos = ImGui::GetIO().MousePos;
+        float mx = mousePos.x - p0.x;
+        float my = mousePos.y - p0.y;
+
+        double mouseTileX = m_centerTileX + (mx - viewW / 2.0) / TILE_SIZE;
+        double mouseTileY = m_centerTileY + (my - viewH / 2.0) / TILE_SIZE;
+        double mouseLon = xToLon(mouseTileX, m_zoom);
+        double mouseLat = yToLat(mouseTileY, m_zoom);
+
+        char coordText[64];
+        snprintf(coordText, sizeof(coordText), "%.4f, %.4f", mouseLat, mouseLon);
+
+        ImFont* font = ImGui::GetIO().FontDefault;
+        float fontSize = font->LegacySize;
+        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, coordText);
+
+        float pad = 4.0f;
+        ImVec2 boxP0(p0.x + 2.0f, p1.y - textSize.y - pad * 2 - 2.0f);
+        ImVec2 boxP1(boxP0.x + textSize.x + pad * 2, p1.y - 2.0f);
+
+        drawList->AddRectFilled(boxP0, boxP1, IM_COL32(0, 0, 0, 160), 2.0f);
+        drawList->AddText(font, fontSize, ImVec2(boxP0.x + pad, boxP0.y + pad),
+                          IM_COL32(255, 255, 255, 220), coordText);
+    }
+
     ImGui::PopClipRect();
     ImGui::EndGroup();
     ImGui::PopID();
