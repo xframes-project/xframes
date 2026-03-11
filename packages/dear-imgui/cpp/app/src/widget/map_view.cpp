@@ -390,6 +390,22 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                           IM_COL32(0, 0, 0, 200), m_attribution.c_str());
     }
 
+    // Loading indicator
+    if (!allCurrentTilesLoaded) {
+        const char* loadingText = "Loading...";
+        ImFont* font = ImGui::GetIO().FontDefault;
+        float fontSize = font->LegacySize;
+        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, loadingText);
+
+        float pad = 4.0f;
+        ImVec2 boxP0(p0.x + 2.0f, p0.y + 2.0f);
+        ImVec2 boxP1(boxP0.x + textSize.x + pad * 2, boxP0.y + textSize.y + pad * 2);
+
+        drawList->AddRectFilled(boxP0, boxP1, IM_COL32(0, 0, 0, 160), 2.0f);
+        drawList->AddText(font, fontSize, ImVec2(boxP0.x + pad, boxP0.y + pad),
+                          IM_COL32(255, 255, 255, 220), loadingText);
+    }
+
     ImGui::PopClipRect();
     ImGui::EndGroup();
     ImGui::PopID();
