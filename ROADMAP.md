@@ -136,7 +136,7 @@ Sub-pixel smooth panning with incremental edge-tile fetching.
 - [x] On each frame during drag: recalculate visible tile set, kick off downloads for any new tiles that scrolled into view
 - [x] Keep existing tiles in the GPU registry as long as they're nearby — don't evict on every pan
 - [x] No full re-render on drag end — panning is continuous, tiles load incrementally as the viewport moves
-- [ ] Tile clipping: when a tile is partially off-screen, clip via UV coordinates (existing pattern)
+- [x] Tile clipping: when a tile is partially off-screen, clip via UV coordinates (existing pattern)
 
 ### Stage 7 — Zoom
 

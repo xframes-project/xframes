@@ -14,6 +14,37 @@
 #include "xframes.h"
 #include "imgui_renderer.h"
 
+// Clamp tile rect to viewport, adjust UVs to match the visible portion.
+// Returns false if the tile is entirely outside the viewport.
+static bool ClipTileToViewport(
+    const ImVec2& viewP0, const ImVec2& viewP1,
+    ImVec2& tileP0, ImVec2& tileP1,
+    ImVec2& uvP0, ImVec2& uvP1)
+{
+    float tileW = tileP1.x - tileP0.x;
+    float tileH = tileP1.y - tileP0.y;
+    if (tileW <= 0 || tileH <= 0) return false;
+
+    float clippedX0 = std::max(tileP0.x, viewP0.x);
+    float clippedY0 = std::max(tileP0.y, viewP0.y);
+    float clippedX1 = std::min(tileP1.x, viewP1.x);
+    float clippedY1 = std::min(tileP1.y, viewP1.y);
+
+    if (clippedX0 >= clippedX1 || clippedY0 >= clippedY1) return false;
+
+    float uvW = uvP1.x - uvP0.x;
+    float uvH = uvP1.y - uvP0.y;
+
+    uvP1.x = uvP0.x + uvW * (clippedX1 - tileP0.x) / tileW;
+    uvP1.y = uvP0.y + uvH * (clippedY1 - tileP0.y) / tileH;
+    uvP0.x = uvP0.x + uvW * (clippedX0 - tileP0.x) / tileW;
+    uvP0.y = uvP0.y + uvH * (clippedY0 - tileP0.y) / tileH;
+
+    tileP0 = ImVec2(clippedX0, clippedY0);
+    tileP1 = ImVec2(clippedX1, clippedY1);
+    return true;
+}
+
 bool MapView::HasCustomWidth() {
     return false;
 }
@@ -302,8 +333,10 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         ImVec2 tileP1(p0.x + px + static_cast<float>(tileWorldSize),
                       p0.y + py + static_cast<float>(tileWorldSize));
 
-        drawList->AddImage((void*)(intptr_t)tex.textureView, tileP0, tileP1,
-                           ImVec2(0, 0), ImVec2(1, 1));
+        ImVec2 uv0(0, 0), uv1(1, 1);
+        if (ClipTileToViewport(p0, p1, tileP0, tileP1, uv0, uv1)) {
+            drawList->AddImage((void*)(intptr_t)tex.textureView, tileP0, tileP1, uv0, uv1);
+        }
     }
 
     bool allCurrentTilesLoaded = true;
@@ -324,14 +357,20 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
             auto it = m_tileTextures.find(key);
             if (it != m_tileTextures.end()) {
-                drawList->AddImage(
-                    (void*)(intptr_t)it->second.textureView,
-                    tileP0, tileP1,
-                    ImVec2(0, 0), ImVec2(1, 1)
-                );
+                ImVec2 uv0(0, 0), uv1(1, 1);
+                if (ClipTileToViewport(p0, p1, tileP0, tileP1, uv0, uv1)) {
+                    drawList->AddImage(
+                        (void*)(intptr_t)it->second.textureView,
+                        tileP0, tileP1, uv0, uv1
+                    );
+                }
             } else {
-                // Placeholder: gray rect
-                drawList->AddRectFilled(tileP0, tileP1, IM_COL32(200, 200, 200, 255));
+                // Placeholder: gray rect (clamp to viewport)
+                ImVec2 clampedP0(std::max(tileP0.x, p0.x), std::max(tileP0.y, p0.y));
+                ImVec2 clampedP1(std::min(tileP1.x, p1.x), std::min(tileP1.y, p1.y));
+                if (clampedP0.x < clampedP1.x && clampedP0.y < clampedP1.y) {
+                    drawList->AddRectFilled(clampedP0, clampedP1, IM_COL32(200, 200, 200, 255));
+                }
                 allCurrentTilesLoaded = false;
             }
         }
