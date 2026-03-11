@@ -80,6 +80,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/color_helpers.cpp
         ${APP}/src/yoga_helpers.cpp
         ${APP}/src/imgui_helpers.cpp
+        ${APP}/src/disk_tile_cache.cpp
 
         ${APP}/src/element/layout_node.cpp
         ${APP}/src/element/element.cpp

@@ -104,7 +104,7 @@ The Table widget supports sorting, per-column filtering, row selection, column r
 
 **Flag logic:** When `hideable` is set on the table, columns are hideable by default (the `NoHide` flag is dropped). Use `noHide: true` on individual columns to pin them. When `hideable` is not set, all columns get `NoHide` automatically (original behavior).
 
-**Event callbacks:** `onSort`, `onFilter`, `onRowClick`, `onItemAction` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 14 arguments (indices 0–13).
+**Event callbacks:** `onSort`, `onFilter`, `onRowClick`, `onItemAction`, `onPrefetchProgress` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 15 arguments (indices 0–14).
 
 **Context menu:** Set `contextMenuItems` prop (array of `{ id, label }`) to show a right-click context menu on table rows. `onItemAction` fires with `{ rowIndex, actionId }` when a menu item is clicked.
 

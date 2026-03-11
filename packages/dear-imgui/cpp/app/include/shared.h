@@ -33,6 +33,7 @@ using OnTableSortCallback = void (*)(int id, int columnIndex, int sortDirection)
 using OnTableFilterCallback = void (*)(int id, int columnIndex, const std::string& filterText);
 using OnTableRowClickCallback = void (*)(int id, int rowIndex);
 using OnTableItemActionCallback = void (*)(int id, int rowIndex, const std::string& actionId);
+using OnPrefetchProgressCallback = void (*)(int id, int completed, int total);
 
 std::optional<float> charPercentageToFloat(const char* input);
 

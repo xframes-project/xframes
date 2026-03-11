@@ -19,6 +19,7 @@ import {
   ComboChangeEvent,
   SliderChangeEvent,
   MapZoomChangeEvent,
+  PrefetchProgressEvent,
   CheckboxChangeEvent,
   TableRowClickEvent,
   TableItemActionEvent,
@@ -384,6 +385,18 @@ export const Dashboard = () => {
     zoomSliderRef.current?.setValue(event.nativeEvent.value);
   }, []);
 
+  const handlePrefetchProgress = useCallback((event: PrefetchProgressEvent) => {
+    const { completed, total } = event.nativeEvent;
+    if (completed === total) {
+      console.log(`Prefetch complete: ${total} tiles`);
+    }
+  }, []);
+
+  const handlePrefetch = useCallback(() => {
+    // Prefetch tiles around London area, zoom 10-14
+    mapRef.current?.prefetchTiles(-0.5, 51.3, 0.2, 51.7, 10, 14);
+  }, []);
+
   const handleTabClose = useCallback((event: TabItemChangeEvent) => {
     if (!event.nativeEvent.value) {
       setShowNotesTab(false);
@@ -613,7 +626,9 @@ export const Dashboard = () => {
               style={styles.plotArea}
               minZoom={3}
               maxZoom={15}
+              cachePath="./tile_cache"
               onChange={handleMapZoomChange}
+              onPrefetchProgress={handlePrefetchProgress}
             />
           </XFrames.Node>
 
@@ -629,6 +644,7 @@ export const Dashboard = () => {
               onChange={handleZoomChange}
             />
             <XFrames.Button label="Render Map" onClick={handleRenderMap} />
+            <XFrames.Button label="Prefetch London (z10-14)" onClick={handlePrefetch} />
           </XFrames.Node>
         </XFrames.Node>
 

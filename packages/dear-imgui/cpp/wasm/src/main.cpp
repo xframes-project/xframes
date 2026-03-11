@@ -178,6 +178,15 @@ class WasmRunner {
             );
         }
 
+        static void OnPrefetchProgress(int const id, int const completed, int const total) {
+            EM_ASM_ARGS(
+                { Module.eventHandlers.onPrefetchProgress($0, $1, $2); },
+                id,
+                completed,
+                total
+            );
+        }
+
         void run(std::string& canvasSelector, std::string& rawFontDefs, std::optional<std::string>& rawStyleOverridesDefs) {
             m_xframes = new XFrames("XFrames", rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
@@ -198,7 +207,8 @@ class WasmRunner {
                 OnTableSort,
                 OnTableFilter,
                 OnTableRowClick,
-                OnTableItemAction);
+                OnTableItemAction,
+                OnPrefetchProgress);
             m_renderer->Init(canvasSelector);
         }
 

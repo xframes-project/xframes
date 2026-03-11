@@ -75,6 +75,11 @@ export type SliderChangeEvent = SyntheticEvent<WidgetReactElement<"Slider">, { v
 
 export type MapZoomChangeEvent = SyntheticEvent<WidgetReactElement<"MapView">, { value: number }>;
 
+export type PrefetchProgressEvent = SyntheticEvent<
+    WidgetReactElement<"MapView">,
+    { completed: number; total: number }
+>;
+
 export type MultiSliderChangeEvent<T extends Primitive = Primitive> = SyntheticEvent<
     WidgetReactElement<"MultiSlider">,
     { values: T[] }
@@ -166,7 +171,9 @@ export type WidgetPropsMap = {
         attribution?: string;
         minZoom?: number;
         maxZoom?: number;
+        cachePath?: string;
         onChange?: (event: MapZoomChangeEvent) => void;
+        onPrefetchProgress?: (event: PrefetchProgressEvent) => void;
     };
     MultiSlider: WidgetStyleProps & {
         numValues: 2 | 3 | 4;

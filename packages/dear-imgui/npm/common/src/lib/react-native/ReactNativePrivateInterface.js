@@ -23,7 +23,7 @@ const attributesForElements = {
     indent: [],
     "input-text": ["defaultValue", "hint", "multiline", "password", "readOnly", "numericOnly", "onChange"],
     "item-tooltip": [],
-    "map-view": ["onChange", "tileUrlTemplate", "tileRequestHeaders", "attribution", "minZoom", "maxZoom"],
+    "map-view": ["onChange", "onPrefetchProgress", "tileUrlTemplate", "tileRequestHeaders", "attribution", "minZoom", "maxZoom", "cachePath"],
     "multi-slider": [
         "numValues",
         "label",
@@ -119,6 +119,7 @@ export default {
                 onFilter: { registrationName: "onFilter" },
                 onRowClick: { registrationName: "onRowClick" },
                 onItemAction: { registrationName: "onItemAction" },
+                onPrefetchProgress: { registrationName: "onPrefetchProgress" },
             },
             get(elementType, ...unknownArgs) {
                 if (attributesForElementsMap[elementType] === undefined) {

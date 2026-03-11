@@ -60,8 +60,9 @@ void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
     auto headers = m_tileRequestHeaders;
     auto tileUrlTemplate = m_tileUrlTemplate;
     int zoom = m_zoom;
+    bool diskCacheEnabled = m_diskCache.isEnabled();
 
-    std::thread([this, toFetch = std::move(toFetch), headers, tileUrlTemplate, zoom]() {
+    std::thread([this, toFetch = std::move(toFetch), headers, tileUrlTemplate, zoom, diskCacheEnabled]() {
         auto& cache = TileCache::getGlobalInstance();
 
         for (const auto& key : toFetch) {
@@ -74,11 +75,21 @@ void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
 
             std::vector<unsigned char> pngData;
 
-            // Check cache first
+            // Three-tier cache: memory → disk → network
             auto cached = cache.get(url);
             if (cached) {
                 pngData = std::move(*cached);
-            } else {
+                m_cacheStats.memoryHits++;
+            } else if (diskCacheEnabled) {
+                auto diskCached = m_diskCache.get(key.x, key.y, key.zoom);
+                if (diskCached) {
+                    pngData = std::move(*diskCached);
+                    cache.put(url, pngData.data(), pngData.size());
+                    m_cacheStats.diskHits++;
+                }
+            }
+
+            if (pngData.empty()) {
                 fetchTile(url, headers, [&](bool success, std::vector<uint8_t> data) {
                     if (success) {
                         pngData.assign(data.begin(), data.end());
@@ -86,6 +97,10 @@ void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
                 });
                 if (!pngData.empty()) {
                     cache.put(url, pngData.data(), pngData.size());
+                    if (diskCacheEnabled) {
+                        m_diskCache.put(key.x, key.y, key.zoom, pngData.data(), pngData.size());
+                    }
+                    m_cacheStats.networkFetches++;
                 }
             }
 
@@ -406,6 +421,30 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                           IM_COL32(255, 255, 255, 220), loadingText);
     }
 
+    // Cache stats overlay (top-right, only when disk cache is enabled)
+    if (m_diskCache.isEnabled()) {
+        std::string statsText = "Mem: " + std::to_string(m_cacheStats.memoryHits) +
+                                " Disk: " + std::to_string(m_cacheStats.diskHits) +
+                                " Net: " + std::to_string(m_cacheStats.networkFetches);
+
+        if (m_prefetching.load()) {
+            statsText += "  Prefetching " + std::to_string(m_prefetchCompleted.load()) +
+                         "/" + std::to_string(m_prefetchTotal.load());
+        }
+
+        ImFont* font = ImGui::GetIO().FontDefault;
+        float fontSize = font->LegacySize;
+        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, statsText.c_str());
+
+        float pad = 4.0f;
+        ImVec2 boxP1(p1.x - 2.0f, p0.y + textSize.y + pad * 2 + 2.0f);
+        ImVec2 boxP0(boxP1.x - textSize.x - pad * 2, p0.y + 2.0f);
+
+        drawList->AddRectFilled(boxP0, boxP1, IM_COL32(0, 0, 0, 160), 2.0f);
+        drawList->AddText(font, fontSize, ImVec2(boxP0.x + pad, boxP0.y + pad),
+                          IM_COL32(255, 255, 255, 220), statsText.c_str());
+    }
+
     ImGui::PopClipRect();
     ImGui::EndGroup();
     ImGui::PopID();
@@ -439,6 +478,13 @@ void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
     }
     if (widgetPatchDef.contains("maxZoom") && widgetPatchDef["maxZoom"].is_number_integer()) {
         m_maxZoom = widgetPatchDef["maxZoom"].template get<int>();
+    }
+    if (widgetPatchDef.contains("cachePath") && widgetPatchDef["cachePath"].is_string()) {
+        auto newPath = widgetPatchDef["cachePath"].template get<std::string>();
+        if (newPath != m_cachePath) {
+            m_cachePath = newPath;
+            m_diskCache.configure(m_cachePath);
+        }
     }
 }
 
@@ -482,6 +528,109 @@ void MapView::HandleInternalOp(const json& opDef) {
             int yMax = static_cast<int>(ceil(m_centerTileY + (viewH / 2.0) / TILE_SIZE));
 
             FetchMissingTiles(xMin, xMax, yMin, yMax);
+        } else if (op == "prefetch"
+            && opDef.contains("minLon") && opDef["minLon"].is_number()
+            && opDef.contains("minLat") && opDef["minLat"].is_number()
+            && opDef.contains("maxLon") && opDef["maxLon"].is_number()
+            && opDef.contains("maxLat") && opDef["maxLat"].is_number()
+            && opDef.contains("minZoom") && opDef["minZoom"].is_number_integer()
+            && opDef.contains("maxZoom") && opDef["maxZoom"].is_number_integer()) {
+
+            if (!m_diskCache.isEnabled()) return;
+            if (m_prefetching.load()) return;
+
+            auto minLon = opDef["minLon"].template get<double>();
+            auto minLat = opDef["minLat"].template get<double>();
+            auto maxLon = opDef["maxLon"].template get<double>();
+            auto maxLat = opDef["maxLat"].template get<double>();
+            auto prefetchMinZoom = opDef["minZoom"].template get<int>();
+            auto prefetchMaxZoom = opDef["maxZoom"].template get<int>();
+
+            prefetchMinZoom = std::clamp(prefetchMinZoom, m_minZoom, m_maxZoom);
+            prefetchMaxZoom = std::clamp(prefetchMaxZoom, m_minZoom, m_maxZoom);
+            if (prefetchMinZoom > prefetchMaxZoom) return;
+
+            // Enumerate all tiles across zoom levels
+            struct TileRange { int x, y, zoom; };
+            std::vector<TileRange> tilesToFetch;
+
+            for (int z = prefetchMinZoom; z <= prefetchMaxZoom; z++) {
+                int xMin = static_cast<int>(floor(lonToX(minLon, z)));
+                int xMax = static_cast<int>(floor(lonToX(maxLon, z)));
+                int yMin = static_cast<int>(floor(latToY(maxLat, z)));  // lat is inverted
+                int yMax = static_cast<int>(floor(latToY(minLat, z)));
+
+                int maxTile = 1 << z;
+                for (int x = xMin; x <= xMax; x++) {
+                    for (int y = yMin; y <= yMax; y++) {
+                        if (y < 0 || y >= maxTile) continue;
+                        int wrappedX = ((x % maxTile) + maxTile) % maxTile;
+                        // Skip tiles already on disk
+                        if (m_diskCache.get(wrappedX, y, z).has_value()) continue;
+                        tilesToFetch.push_back({wrappedX, y, z});
+                    }
+                }
+            }
+
+            int total = static_cast<int>(tilesToFetch.size());
+            if (total == 0) {
+                // All tiles already cached, fire completion
+                m_view->m_onPrefetchProgress(m_id, 0, 0);
+                return;
+            }
+
+            m_prefetching = true;
+            m_prefetchCompleted = 0;
+            m_prefetchTotal = total;
+
+#ifndef __EMSCRIPTEN__
+            auto headers = m_tileRequestHeaders;
+            auto tileUrlTemplate = m_tileUrlTemplate;
+            auto onProgress = m_view->m_onPrefetchProgress;
+            int widgetId = m_id;
+
+            std::thread([this, tilesToFetch = std::move(tilesToFetch), headers, tileUrlTemplate, onProgress, widgetId, total]() {
+                auto& cache = TileCache::getGlobalInstance();
+                int completed = 0;
+
+                for (const auto& tile : tilesToFetch) {
+                    std::string url = replaceTokens(tileUrlTemplate, [&](const std::string& token) -> std::optional<std::string> {
+                        if (token == "z") return std::to_string(tile.zoom);
+                        if (token == "x") return std::to_string(tile.x);
+                        if (token == "y") return std::to_string(tile.y);
+                        return std::nullopt;
+                    });
+
+                    std::vector<unsigned char> pngData;
+
+                    // Check memory cache first
+                    auto cached = cache.get(url);
+                    if (cached) {
+                        pngData = std::move(*cached);
+                    }
+
+                    if (pngData.empty()) {
+                        fetchTile(url, headers, [&](bool success, std::vector<uint8_t> data) {
+                            if (success) {
+                                pngData.assign(data.begin(), data.end());
+                            }
+                        });
+                    }
+
+                    if (!pngData.empty()) {
+                        cache.put(url, pngData.data(), pngData.size());
+                        m_diskCache.put(tile.x, tile.y, tile.zoom, pngData.data(), pngData.size());
+                        m_cacheStats.networkFetches++;
+                    }
+
+                    completed++;
+                    m_prefetchCompleted = completed;
+                    onProgress(widgetId, completed, total);
+                }
+
+                m_prefetching = false;
+            }).detach();
+#endif
         }
     }
 }

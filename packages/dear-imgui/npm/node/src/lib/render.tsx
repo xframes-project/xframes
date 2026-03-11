@@ -155,6 +155,14 @@ export const render = (
     );
   };
 
+  const onPrefetchProgress = (id: number, completed: number, total: number) => {
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+      id,
+      "onPrefetchProgress",
+      { completed, total }
+    );
+  };
+
   xframes.init(
     assetsBasePath,
     JSON.stringify(fontDefs),
@@ -169,7 +177,8 @@ export const render = (
     onTableSort,
     onTableFilter,
     onTableRowClick,
-    onTableItemAction
+    onTableItemAction,
+    onPrefetchProgress
   );
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <mutex>
 #include <set>
@@ -7,6 +8,7 @@
 #include "shared.h"
 #include "tiledownloader.h"
 #include "tilecache.h"
+#include "disk_tile_cache.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
 
@@ -70,6 +72,16 @@ private:
     std::mutex m_inflightMutex;
     std::set<TileKey> m_inflightKeys;
 
+    // Disk tile cache + stats
+    DiskTileCache m_diskCache;
+    TileCacheStats m_cacheStats;
+    std::string m_cachePath;
+
+    // Prefetch state
+    std::atomic<bool> m_prefetching{false};
+    std::atomic<int> m_prefetchCompleted{0};
+    std::atomic<int> m_prefetchTotal{0};
+
     // Helpers
     void FetchMissingTiles(int xMin, int xMax, int yMin, int yMax);
     std::string BuildTileUrl(int x, int y, int zoom);
@@ -98,6 +110,10 @@ public:
         }
         if (widgetDef.contains("maxZoom") && widgetDef["maxZoom"].is_number_integer()) {
             widget->m_maxZoom = widgetDef["maxZoom"].template get<int>();
+        }
+        if (widgetDef.contains("cachePath") && widgetDef["cachePath"].is_string()) {
+            widget->m_cachePath = widgetDef["cachePath"].template get<std::string>();
+            widget->m_diskCache.configure(widget->m_cachePath);
         }
 
         return widget;

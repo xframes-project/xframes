@@ -96,6 +96,7 @@ class XFrames {
         OnTableFilterCallback m_onTableFilter;
         OnTableRowClickCallback m_onTableRowClick;
         OnTableItemActionCallback m_onTableItemAction;
+        OnPrefetchProgressCallback m_onPrefetchProgress;
 
         XFrames(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
 
@@ -120,7 +121,8 @@ class XFrames {
             OnTableSortCallback onTableSortFn,
             OnTableFilterCallback onTableFilterFn,
             OnTableRowClickCallback onTableRowClickFn,
-            OnTableItemActionCallback onTableItemActionFn
+            OnTableItemActionCallback onTableItemActionFn,
+            OnPrefetchProgressCallback onPrefetchProgressFn
         );
 
         void PrepareForRender();

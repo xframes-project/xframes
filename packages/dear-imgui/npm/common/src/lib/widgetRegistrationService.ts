@@ -332,6 +332,20 @@ export class WidgetRegistrationService {
         }
     }
 
+    prefetchMapTiles(id: string, minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "prefetch", minLon, minLat, maxLon, maxLat, minZoom, maxZoom }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     appendTextToClippedMultiLineTextRenderer(id: string, text: string) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

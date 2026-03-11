@@ -78,6 +78,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnTableFilter;
         Napi::ThreadSafeFunction m_tsfnOnTableRowClick;
         Napi::ThreadSafeFunction m_tsfnOnTableItemAction;
+        Napi::ThreadSafeFunction m_tsfnOnPrefetchProgress;
 
         static Runner* instance;
 
@@ -108,6 +109,7 @@ class Runner {
             m_tsfnOnTableFilter.Release();
             m_tsfnOnTableRowClick.Release();
             m_tsfnOnTableItemAction.Release();
+            m_tsfnOnPrefetchProgress.Release();
         }
 
         static void OnInit() {
@@ -262,6 +264,19 @@ class Runner {
             }
         }
 
+        static void OnPrefetchProgress(int id, int completed, int total) {
+            auto pRunner = getInstance();
+            auto callback = [id, completed, total](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, completed), Napi::Number::New(env, total)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnPrefetchProgress.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
         // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
         void SetHandlers(
             const Napi::CallbackInfo& info,
@@ -275,7 +290,8 @@ class Runner {
             Napi::Function onTableSort,
             Napi::Function onTableFilter,
             Napi::Function onTableRowClick,
-            Napi::Function onTableItemAction
+            Napi::Function onTableItemAction,
+            Napi::Function onPrefetchProgress
             ) {
             Napi::Env env = info.Env();
 
@@ -355,6 +371,13 @@ class Runner {
                     "onTableItemAction",
                     0,
                     1);
+
+            m_tsfnOnPrefetchProgress = Napi::ThreadSafeFunction::New(
+                    env,
+                    onPrefetchProgress,
+                    "onPrefetchProgress",
+                    0,
+                    1);
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -392,7 +415,8 @@ class Runner {
                 OnTableSort,
                 OnTableFilter,
                 OnTableRowClick,
-                OnTableItemAction
+                OnTableItemAction,
+                OnPrefetchProgress
             );
         }
 
@@ -708,14 +732,15 @@ Napi::ThreadSafeFunction tsfn;
  * [11] OnTableFilter function
  * [12] OnTableRowClick function
  * [13] OnTableItemAction function
+ * [14] OnPrefetchProgress function
  */
 static Napi::Value init(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
 
     Napi::Env env = info.Env();
 
-    if (info.Length() < 14) {
-        throw Napi::TypeError::New(env, "Expected fourteen arguments");
+    if (info.Length() < 15) {
+        throw Napi::TypeError::New(env, "Expected fifteen arguments");
     } else if (!info[0].IsString()) {
         throw Napi::TypeError::New(env, "Expected first arg to be string");
     } else if (!info[1].IsString()) {
@@ -744,6 +769,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected thirteenth arg to be function");
     } else if (!info[13].IsFunction()) {
         throw Napi::TypeError::New(env, "Expected fourteenth arg to be function");
+    } else if (!info[14].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected fifteenth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
@@ -761,6 +788,7 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     const auto onTableFilter = info[11].As<Napi::Function>();
     const auto onTableRowClick = info[12].As<Napi::Function>();
     const auto onTableItemAction = info[13].As<Napi::Function>();
+    const auto onPrefetchProgress = info[14].As<Napi::Function>();
 
     pRunner->SetHandlers(
         info,
@@ -774,7 +802,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         onTableSort,
         onTableFilter,
         onTableRowClick,
-        onTableItemAction
+        onTableItemAction,
+        onPrefetchProgress
     );
 
     pRunner->init();

@@ -51,6 +51,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/color_helpers.cpp
     ${XFRAMES_BASE_PATH}/src/imgui_helpers.cpp
     ${XFRAMES_BASE_PATH}/src/yoga_helpers.cpp
+    ${XFRAMES_BASE_PATH}/src/disk_tile_cache.cpp
     ${XFRAMES_BASE_PATH}/src/element/layout_node.cpp
     ${XFRAMES_BASE_PATH}/src/element/element.cpp
     ${XFRAMES_BASE_PATH}/src/widget/widget.cpp

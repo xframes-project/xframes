@@ -283,7 +283,8 @@ void XFrames::SetEventHandlers(
     const OnTableSortCallback onTableSortFn,
     const OnTableFilterCallback onTableFilterFn,
     const OnTableRowClickCallback onTableRowClickFn,
-    const OnTableItemActionCallback onTableItemActionFn
+    const OnTableItemActionCallback onTableItemActionFn,
+    const OnPrefetchProgressCallback onPrefetchProgressFn
 ) {
     m_onInit = onInitFn;
     m_onInputTextChange = onInputTextChangeFn;
@@ -296,6 +297,7 @@ void XFrames::SetEventHandlers(
     m_onTableFilter = onTableFilterFn;
     m_onTableRowClick = onTableRowClickFn;
     m_onTableItemAction = onTableItemActionFn;
+    m_onPrefetchProgress = onPrefetchProgressFn;
 
     Widget::onInputTextChange_ = onInputTextChangeFn;
 };

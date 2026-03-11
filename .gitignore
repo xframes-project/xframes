@@ -156,3 +156,4 @@ xframes.data
 xframes.worker.mjs
 
 *.dll
+*.png
