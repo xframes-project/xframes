@@ -25,6 +25,17 @@ export type MapPolyline = {
     pointsLimit?: number;
 };
 
+export type MapOverlay = {
+    lat: number;
+    lon: number;
+    radiusMeters: number;
+    radiusMinorMeters?: number;
+    rotation?: number;
+    fillColor?: string;
+    strokeColor?: string;
+    strokeThickness?: number;
+};
+
 export type MapImperativeHandle = {
     render: (centerX: number, centerY: number, zoom: number) => void;
     prefetchTiles: (minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) => void;
@@ -33,6 +44,8 @@ export type MapImperativeHandle = {
     setPolylines: (polylines: MapPolyline[]) => void;
     clearPolylines: () => void;
     appendPolylinePoint: (polylineIndex: number, lat: number, lon: number) => void;
+    setOverlays: (overlays: MapOverlay[]) => void;
+    clearOverlays: () => void;
 };
 
 export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]>(
@@ -69,6 +82,12 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
                     },
                     appendPolylinePoint(polylineIndex: number, lat: number, lon: number) {
                         widgetRegistratonService.appendMapPolylinePoint(idRef.current, polylineIndex, lat, lon);
+                    },
+                    setOverlays(overlays: MapOverlay[]) {
+                        widgetRegistratonService.setMapOverlays(idRef.current, overlays);
+                    },
+                    clearOverlays() {
+                        widgetRegistratonService.clearMapOverlays(idRef.current);
                     },
                 };
             },

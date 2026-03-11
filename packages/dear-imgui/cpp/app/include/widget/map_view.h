@@ -108,6 +108,18 @@ private:
     };
     std::vector<MapPolyline> m_polylines;
 
+    // Accuracy overlays (circles / ellipses)
+    struct MapOverlay {
+        double lat, lon;
+        double radiusMeters = 10.0;           // circle radius or ellipse semi-major axis
+        double radiusMinorMeters = 0.0;       // 0 = circle; >0 = ellipse semi-minor axis
+        float rotation = 0.0f;                // ellipse rotation in degrees
+        ImVec4 fillColor{0.0f, 0.5f, 1.0f, 0.25f};
+        ImVec4 strokeColor{0.0f, 0.5f, 1.0f, 0.8f};
+        float strokeThickness = 1.5f;
+    };
+    std::vector<MapOverlay> m_overlays;
+
     // Helpers
     void FetchMissingTiles(int xMin, int xMax, int yMin, int yMax);
     std::string BuildTileUrl(int x, int y, int zoom);

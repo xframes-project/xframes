@@ -402,6 +402,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    setMapOverlays(id: string, overlays: { lat: number; lon: number; radiusMeters: number; radiusMinorMeters?: number; rotation?: number; fillColor?: string; strokeColor?: string; strokeThickness?: number }[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setOverlays", overlays }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    clearMapOverlays(id: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "clearOverlays" }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     appendMapPolylinePoint(id: string, polylineIndex: number, lat: number, lon: number) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

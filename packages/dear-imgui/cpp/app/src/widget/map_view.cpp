@@ -536,6 +536,31 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                               col, ImDrawFlags_None, polyline.thickness);
     }
 
+    // Render accuracy overlays (circles / ellipses)
+    for (const auto& overlay : m_overlays) {
+        double tileX = lonToX(overlay.lon, m_zoom);
+        double tileY = latToY(overlay.lat, m_zoom);
+        float px = static_cast<float>(round((tileX - m_centerTileX) * TILE_SIZE + viewW / 2.0));
+        float py = static_cast<float>(round((tileY - m_centerTileY) * TILE_SIZE + viewH / 2.0));
+        ImVec2 center(p0.x + px, p0.y + py);
+
+        float majorPx = static_cast<float>(meterToPixel(overlay.radiusMeters, m_zoom, overlay.lat));
+        if (majorPx < 1.0f) continue;
+
+        ImU32 fillCol = ImColor(overlay.fillColor);
+        ImU32 strokeCol = ImColor(overlay.strokeColor);
+
+        if (overlay.radiusMinorMeters <= 0.0) {
+            drawList->AddCircleFilled(center, majorPx, fillCol);
+            drawList->AddCircle(center, majorPx, strokeCol, 0, overlay.strokeThickness);
+        } else {
+            float minorPx = static_cast<float>(meterToPixel(overlay.radiusMinorMeters, m_zoom, overlay.lat));
+            float rotRad = overlay.rotation * (static_cast<float>(M_PI) / 180.0f);
+            drawList->AddEllipseFilled(center, ImVec2(majorPx, minorPx), fillCol, rotRad);
+            drawList->AddEllipse(center, ImVec2(majorPx, minorPx), strokeCol, rotRad, 0, overlay.strokeThickness);
+        }
+    }
+
     // Render pin markers
     for (const auto& marker : m_markers) {
         double markerTileX = lonToX(marker.lon, m_zoom);
@@ -831,6 +856,33 @@ void MapView::HandleInternalOp(const json& opDef) {
             }
         } else if (op == "clearPolylines") {
             m_polylines.clear();
+        } else if (op == "setOverlays" && opDef.contains("overlays") && opDef["overlays"].is_array()) {
+            m_overlays.clear();
+            for (auto& [key, item] : opDef["overlays"].items()) {
+                if (item.is_object() && item.contains("lat") && item.contains("lon") && item.contains("radiusMeters")) {
+                    MapOverlay o;
+                    o.lat = item["lat"].get<double>();
+                    o.lon = item["lon"].get<double>();
+                    o.radiusMeters = item["radiusMeters"].get<double>();
+                    if (item.contains("radiusMinorMeters") && item["radiusMinorMeters"].is_number())
+                        o.radiusMinorMeters = item["radiusMinorMeters"].get<double>();
+                    if (item.contains("rotation") && item["rotation"].is_number())
+                        o.rotation = item["rotation"].get<float>();
+                    if (item.contains("fillColor")) {
+                        auto c = extractColor(item["fillColor"]);
+                        if (c.has_value()) o.fillColor = c.value();
+                    }
+                    if (item.contains("strokeColor")) {
+                        auto c = extractColor(item["strokeColor"]);
+                        if (c.has_value()) o.strokeColor = c.value();
+                    }
+                    if (item.contains("strokeThickness") && item["strokeThickness"].is_number())
+                        o.strokeThickness = item["strokeThickness"].get<float>();
+                    m_overlays.push_back(o);
+                }
+            }
+        } else if (op == "clearOverlays") {
+            m_overlays.clear();
         } else if (op == "appendPolylinePoint"
             && opDef.contains("polylineIndex") && opDef["polylineIndex"].is_number_integer()
             && opDef.contains("lat") && opDef["lat"].is_number()

@@ -204,6 +204,7 @@ export const Dashboard = () => {
   const [showBuckingham, setShowBuckingham] = useState(true);
   const [showOxford, setShowOxford] = useState(true);
   const [showPolyline, setShowPolyline] = useState(true);
+  const [showOverlays, setShowOverlays] = useState(true);
 
   // Load initial table data
   useEffect(() => {
@@ -307,6 +308,31 @@ export const Dashboard = () => {
       mapRef.current.clearPolylines();
     }
   }, [showPolyline]);
+
+  // Accuracy overlays: circle (hAcc) + ellipse (NAV-PL)
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (showOverlays) {
+      mapRef.current.setOverlays([
+        {
+          lat: 51.5074, lon: -0.1276,
+          radiusMeters: 200,
+          fillColor: "rgba(0,128,255,0.2)",
+          strokeColor: "rgba(0,128,255,0.7)",
+        },
+        {
+          lat: 51.5074, lon: -0.1276,
+          radiusMeters: 500,
+          radiusMinorMeters: 200,
+          rotation: 30,
+          fillColor: "rgba(255,100,0,0.15)",
+          strokeColor: "rgba(255,100,0,0.6)",
+        },
+      ]);
+    } else {
+      mapRef.current.clearOverlays();
+    }
+  }, [showOverlays]);
 
   // Load candlestick data
   useEffect(() => {
@@ -657,6 +683,7 @@ export const Dashboard = () => {
             <XFrames.Checkbox label="Oxford Circus" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowOxford(e.nativeEvent.value)} />
             <XFrames.UnformattedText text="Overlays:" />
             <XFrames.Checkbox label="GPS trail (simulated)" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowPolyline(e.nativeEvent.value)} />
+            <XFrames.Checkbox label="Accuracy overlays" defaultChecked onChange={(e: CheckboxChangeEvent) => setShowOverlays(e.nativeEvent.value)} />
           </XFrames.Node>
         </XFrames.Node>
 
