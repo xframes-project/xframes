@@ -4,7 +4,21 @@ Please note that only Chrome, Edge and [Firefox Nightlies](https://www.mozilla.o
 
 ## Building instructions
 
-We provide instructions for manual setup on Windows as well as a devcontainer configuration. We recommend to use the Dev Container approach or JetBrain's CLion:
+### Docker-based build (recommended)
+
+Requires only [Docker](https://www.docker.com/products/docker-desktop/) installed. Works on Windows (Git Bash), macOS, and Linux:
+
+```bash
+./packages/dear-imgui/cpp/wasm/build-wasm-docker.sh
+```
+
+First run will be slow (vcpkg bootstrap + dependency install). Subsequent runs use cached dependencies.
+
+Output: `packages/dear-imgui/npm/wasm/src/lib/xframes.mjs`
+
+---
+
+We also provide instructions for manual setup on Windows as well as a devcontainer configuration. We recommend to use the Dev Container approach or JetBrain's CLion:
 
 ![React Dear Imgui Electron demo](/screenshots/dear-imgui/clion-toolchain.png?raw=true)
 

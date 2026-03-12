@@ -58,6 +58,20 @@ endif()
 
 if(IMGUI_BUILD_WGPU_BINDING)
     target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+    if(EMSCRIPTEN)
+        # emsdk 5.x: -sUSE_WEBGPU=1 removed, use --use-port=emdawnwebgpu (Dawn WebGPU)
+        # emsdk 3.x: -sUSE_WEBGPU=1 still works (old Emscripten WebGPU)
+        if(EMSCRIPTEN_VERSION VERSION_GREATER_EQUAL "4.0.10")
+            target_compile_options(${PROJECT_NAME} PUBLIC "--use-port=emdawnwebgpu")
+            target_link_options(${PROJECT_NAME} PUBLIC "--use-port=emdawnwebgpu")
+            # Force Dawn backend: imgui's auto-detection has a version comparison bug
+            # where emsdk 5.0.x (TINY < 10) incorrectly selects the old WGPU backend
+            target_compile_definitions(${PROJECT_NAME} PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
+        else()
+            target_compile_options(${PROJECT_NAME} PUBLIC "-sUSE_WEBGPU=1")
+            target_link_options(${PROJECT_NAME} PUBLIC "-sUSE_WEBGPU=1")
+        endif()
+    endif()
 endif()
 
 if(IMGUI_BUILD_GLFW_BINDING)

@@ -37,6 +37,7 @@ set(OSM_STATIC_MAP_GENERATOR_SRC
     ${DEPS}/osm-static-map-generator/cpp/shared.cpp
     ${DEPS}/osm-static-map-generator/cpp/tiledownloader.cpp
     ${DEPS}/osm-static-map-generator/cpp/mapgenerator.cpp
+    ${DEPS}/osm-static-map-generator/cpp/tilecache.cpp
 )
 
 # Copied from yoga's CMakeLists.txt
@@ -96,6 +97,16 @@ file(GLOB LIBTIFF_SRC CONFIGURE_DEPENDS
         ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff/tif*.c)
 list(REMOVE_ITEM LIBTIFF_SRC ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff/tif_win32.c)
 
+# Configure libtiff submodule to generate tiffconf.h and tif_config.h
+set(LIBTIFF_DIR ${DEPS}/osm-static-map-generator/cpp/deps/libtiff)
+if(NOT EXISTS "${LIBTIFF_DIR}/build-wasm/libtiff/tiffconf.h")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -S "${LIBTIFF_DIR}" -B "${LIBTIFF_DIR}/build-wasm"
+            -DCMAKE_TOOLCHAIN_FILE=$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
+        WORKING_DIRECTORY "${LIBTIFF_DIR}"
+    )
+endif()
+
 if (DEFINED EMSCRIPTEN)
 	add_executable(xframes
         src/main.cpp
@@ -112,7 +123,14 @@ if (DEFINED EMSCRIPTEN)
     # -c -fexperimental-library
 
 	set_target_properties(xframes PROPERTIES COMPILE_FLAGS "-O3 -Wall -Wformat -Wno-implicit-int -s DISABLE_EXCEPTION_CATCHING=0 --use-port=libjpeg --use-port=libpng")
-    set_target_properties(xframes PROPERTIES LINK_FLAGS "--no-heap-copy --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets -O3 -lembind --emit-tsd interface.d.ts --use-port=libjpeg --use-port=libpng -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s WASM=1 -s USE_GLFW=3 -s USE_WEBGPU=1 -sFETCH -s NO_EXIT_RUNTIME=0 -s STANDALONE_WASM=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
+    # emsdk 5.x: --use-port=emdawnwebgpu replaces -s USE_WEBGPU=1
+    # emsdk 3.x: -s USE_WEBGPU=1 still works
+    if(EMSCRIPTEN_VERSION VERSION_GREATER_EQUAL "4.0.10")
+        set(WEBGPU_FLAG "--use-port=emdawnwebgpu")
+    else()
+        set(WEBGPU_FLAG "-s USE_WEBGPU=1")
+    endif()
+    set_target_properties(xframes PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets -O3 -lembind --use-port=libjpeg --use-port=libpng ${WEBGPU_FLAG} -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3 -sFETCH -s NO_EXIT_RUNTIME=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
     set_target_properties(xframes PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../npm/wasm/src/lib)
 
     # Reinstate line below once ReactivePlusPlus 2.1.2 gets released (preferably in the vcpkg repo)
@@ -136,6 +154,7 @@ target_include_directories(
     ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
+    ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/build-wasm/libtiff
 )
 
 target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt)

@@ -55,9 +55,9 @@ class ImGuiRenderer {
         WGPUQueue m_queue;
         WGPUSurface m_wgpu_surface;
         WGPUTextureFormat m_wgpu_preferred_fmt = WGPUTextureFormat_RGBA8Unorm;
-        WGPUSwapChain m_wgpu_swap_chain;
-        int m_wgpu_swap_chain_width = 0;
-        int m_wgpu_swap_chain_height = 0;
+        WGPUSurfaceConfiguration m_wgpu_surface_config = {};
+        int m_wgpu_surface_width = 0;
+        int m_wgpu_surface_height = 0;
     #else
         ImVec4 m_clearColor;
     #endif
@@ -112,9 +112,7 @@ class ImGuiRenderer {
     #ifdef __EMSCRIPTEN__
         bool InitWGPU();
         void RenderDrawData(WGPURenderPassEncoder pass);
-        void CreateSwapChain(int width, int height);
-        void SetDeviceAndStart(WGPUDevice& cDevice);
-        void RequestDevice(wgpu::Instance wgpuInstance, ImGuiRenderer* glWasmInstance);
+        void ConfigureSurface(int width, int height);
         virtual void Init(std::string& cs);
     #else
         void RenderDrawData();

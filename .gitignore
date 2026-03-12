@@ -148,6 +148,7 @@ dist
 vcpkg_installed/
 
 build/
+build-wasm/
 
 Makefile
 xframes.mjs

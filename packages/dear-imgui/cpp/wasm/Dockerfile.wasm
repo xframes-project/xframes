@@ -1,0 +1,3 @@
+FROM emscripten/emsdk:5.0.2
+RUN apt-get update -qq && apt-get install -y -qq pkg-config ninja-build && rm -rf /var/lib/apt/lists/*
+WORKDIR /src/packages/dear-imgui/cpp/wasm

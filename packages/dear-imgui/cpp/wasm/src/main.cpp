@@ -475,13 +475,11 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("NoNav", ImGuiWindowFlags_NoNav)
         .value("NoDecoration", ImGuiWindowFlags_NoDecoration)
         .value("NoInputs", ImGuiWindowFlags_NoInputs)
-        // Deprecated
-        .value("AlwaysUseWindowPadding", ImGuiWindowFlags_AlwaysUseWindowPadding)
         ;
 
     emscripten::enum_<ImGuiChildFlags_>("ImGuiChildFlags")
         .value("None", ImGuiChildFlags_None)
-        .value("Border", ImGuiChildFlags_Border)
+        .value("Border", ImGuiChildFlags_Borders)
         .value("AlwaysUseWindowPadding", ImGuiChildFlags_AlwaysUseWindowPadding)
         .value("ResizeX", ImGuiChildFlags_ResizeX)
         .value("ResizeY", ImGuiChildFlags_ResizeY)
@@ -536,8 +534,6 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("NavLeftJumpsBackHere", ImGuiTreeNodeFlags_NavLeftJumpsBackHere)
         // .value("ImGuiTreeNodeFlags_NoScrollOnOpen", ImGuiTreeNodeFlags_NoScrollOnOpen) WIP
         .value("CollapsingHeader", ImGuiTreeNodeFlags_CollapsingHeader)
-        // Renamed in 1.89.7
-        .value("AllowItemOverlap", ImGuiTreeNodeFlags_AllowItemOverlap)
         ;
 
     emscripten::enum_<ImGuiPopupFlags_>("ImGuiPopupFlags")
@@ -546,7 +542,6 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("MouseButtonRight", ImGuiPopupFlags_MouseButtonRight)
         .value("MouseButtonMiddle", ImGuiPopupFlags_MouseButtonMiddle)
         .value("MouseButtonMask_", ImGuiPopupFlags_MouseButtonMask_)
-        .value("MouseButtonDefault_", ImGuiPopupFlags_MouseButtonDefault_)
         .value("NoReopen", ImGuiPopupFlags_NoReopen)
         // .value("NoReopenAlwaysNavInit", ImGuiPopupFlags_NoReopenAlwaysNavInit)
         .value("NoOpenOverExistingPopup", ImGuiPopupFlags_NoOpenOverExistingPopup)
@@ -563,8 +558,6 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("AllowDoubleClick", ImGuiSelectableFlags_AllowDoubleClick)
         .value("Disabled", ImGuiSelectableFlags_Disabled)
         .value("AllowOverlap", ImGuiSelectableFlags_AllowOverlap)
-        // Deprecated
-        .value("ImGuiSelectableFlags_AllowItemOverlap", ImGuiSelectableFlags_AllowItemOverlap)
         ;
 
     emscripten::enum_<ImGuiComboFlags_>("ImGuiComboFlags")
@@ -670,7 +663,7 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("COUNT", ImGuiDataType_COUNT)
         ;
 
-    emscripten::enum_<ImGuiDir_>("ImGuiDir")
+    emscripten::enum_<ImGuiDir>("ImGuiDir")
         .value("None", ImGuiDir_None)
         .value("Left", ImGuiDir_Left)
         .value("Right", ImGuiDir_Right)
@@ -679,7 +672,7 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("COUNT", ImGuiDir_COUNT)
         ;
 
-    emscripten::enum_<ImGuiSortDirection_>("ImGuiSortDirection")
+    emscripten::enum_<ImGuiSortDirection>("ImGuiSortDirection")
         .value("None", ImGuiSortDirection_None)
         .value("Ascending", ImGuiSortDirection_Ascending)
         .value("Descending", ImGuiSortDirection_Descending)
@@ -846,26 +839,6 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("Mask_", ImGuiMod_Mask_)
         ;
 
-    emscripten::enum_<ImGuiNavInput>("ImGuiNavInput")
-        .value("Activate", ImGuiNavInput_Activate)
-        .value("Cancel", ImGuiNavInput_Cancel)
-        .value("Input", ImGuiNavInput_Input)
-        .value("Menu", ImGuiNavInput_Menu)
-        .value("DpadLeft", ImGuiNavInput_DpadLeft)
-        .value("DpadRight", ImGuiNavInput_DpadRight)
-        .value("DpadUp", ImGuiNavInput_DpadUp)
-        .value("DpadDown", ImGuiNavInput_DpadDown)
-        .value("LStickLeft", ImGuiNavInput_LStickLeft)
-        .value("LStickRight", ImGuiNavInput_LStickRight)
-        .value("LStickUp", ImGuiNavInput_LStickUp)
-        .value("LStickDown", ImGuiNavInput_LStickDown)
-        .value("FocusPrev", ImGuiNavInput_FocusPrev)
-        .value("FocusNext", ImGuiNavInput_FocusNext)
-        .value("TweakSlow", ImGuiNavInput_TweakSlow)
-        .value("TweakFast", ImGuiNavInput_TweakFast)
-        .value("COUNT", ImGuiNavInput_COUNT)
-        ;
-
     emscripten::enum_<ImGuiConfigFlags_>("ImGuiConfigFlags")
         .value("None", ImGuiConfigFlags_None)
         .value("NavEnableKeyboard", ImGuiConfigFlags_NavEnableKeyboard)
@@ -892,7 +865,6 @@ EMSCRIPTEN_BINDINGS(my_module) {
         .value("MouseButtonRight", ImGuiButtonFlags_MouseButtonRight)
         .value("MouseButtonMiddle", ImGuiButtonFlags_MouseButtonMiddle)
         .value("MouseButtonMask_", ImGuiButtonFlags_MouseButtonMask_)
-        .value("MouseButtonDefault_", ImGuiButtonFlags_MouseButtonDefault_)
         ;
 
     emscripten::enum_<ImGuiColorEditFlags_>("ImGuiColorEditFlags")
