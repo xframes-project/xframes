@@ -29,6 +29,7 @@ target_sources(
 )
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
+target_compile_definitions(${PROJECT_NAME} PRIVATE NDEBUG)
 
 if(IMGUI_BUILD_ALLEGRO5_BINDING)
     find_package(Allegro CONFIG REQUIRED)

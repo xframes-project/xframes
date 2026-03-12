@@ -143,7 +143,7 @@ if (DEFINED EMSCRIPTEN)
     else()
         set(WEBGPU_FLAG "-s USE_WEBGPU=1")
     endif()
-    set_target_properties(xframes PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets ${OPT_LEVEL} -lembind --use-port=libjpeg --use-port=libpng ${WEBGPU_FLAG} -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3 -sFETCH -s NO_EXIT_RUNTIME=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
+    set_target_properties(xframes PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets ${OPT_LEVEL} -lembind --use-port=libjpeg --use-port=libpng ${WEBGPU_FLAG} -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3 -sFETCH -s NO_EXIT_RUNTIME=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1 -sASYNCIFY")
     set_target_properties(xframes PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../npm/wasm/src/lib)
 
     # Reinstate line below once ReactivePlusPlus 2.1.2 gets released (preferably in the vcpkg repo)
@@ -170,4 +170,5 @@ target_include_directories(
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/build-wasm/libtiff
 )
 
+target_compile_definitions(xframes PRIVATE NDEBUG)
 target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt)

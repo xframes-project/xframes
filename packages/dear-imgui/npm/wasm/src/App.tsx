@@ -5,7 +5,7 @@ import getWasmModule from "./lib/xframes.mjs";
 import wasmDataPackage from "./lib/xframes.data";
 
 import { XFramesStyleForPatching } from "@xframes/common";
-import { TradingGuiDemo } from "./components/TradingGuiDemo/TradingGuiDemo";
+import { Dashboard } from "./components/Dashboard";
 import { XFrames } from "./lib";
 import { GetWasmModule } from "./lib/wasm-app-types";
 import { theme2 } from "./themes";
@@ -39,8 +39,7 @@ function App() {
         defaultFont={defaultFont}
         styleOverrides={styleOverrides}
       >
-        {/* <XFrameDemo /> */}
-        <TradingGuiDemo />
+        <Dashboard />
       </XFrames>
     </div>
   );

@@ -87,7 +87,20 @@ void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
 
     if (toFetch.empty()) return;
 
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+    auto headers = m_tileRequestHeaders;
+    for (const auto& key : toFetch) {
+        std::string url = BuildTileUrl(key.x, key.y, key.zoom);
+        fetchTile(url, headers, [this, key](bool success, std::vector<uint8_t> data) {
+            if (success && !data.empty()) {
+                std::lock_guard<std::mutex> lock(m_pendingMutex);
+                m_pendingTiles.push_back(PendingTile{key, {data.begin(), data.end()}});
+            }
+            std::lock_guard<std::mutex> lock(m_inflightMutex);
+            m_inflightKeys.erase(key);
+        });
+    }
+#else
     auto headers = m_tileRequestHeaders;
     auto tileUrlTemplate = m_tileUrlTemplate;
     int zoom = m_zoom;
@@ -152,7 +165,35 @@ void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
 
 void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     // Upload pending tiles to GPU (render thread)
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+    {
+        std::lock_guard<std::mutex> lock(m_pendingMutex);
+        for (auto& pending : m_pendingTiles) {
+            if (m_tileTextures.contains(pending.key)) continue;
+
+            Texture tex;
+            if (view->m_renderer->LoadTexture(
+                    pending.pngData.data(),
+                    static_cast<int>(pending.pngData.size()),
+                    &tex)) {
+                // Evict LRU tiles if over budget
+                while (m_tileTextures.size() >= MAX_GPU_TILES) {
+                    auto& oldestKey = m_textureLruOrder.back();
+                    auto evictIt = m_tileTextures.find(oldestKey);
+                    if (evictIt != m_tileTextures.end()) {
+                        wgpuTextureViewRelease(evictIt->second.first.textureView);
+                        m_tileTextures.erase(evictIt);
+                    }
+                    m_textureLruOrder.pop_back();
+                }
+
+                m_textureLruOrder.push_front(pending.key);
+                m_tileTextures[pending.key] = { tex, m_textureLruOrder.begin() };
+            }
+        }
+        m_pendingTiles.clear();
+    }
+#else
     {
         std::lock_guard<std::mutex> lock(m_pendingMutex);
         for (auto& pending : m_pendingTiles) {
@@ -401,6 +442,8 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     }
 
     // GPU texture eviction: keep current-zoom nearby tiles + old-zoom tiles overlapping viewport
+    // Desktop only — on WASM, upload-time LRU eviction is sufficient;
+    // post-render eviction would release texture views still pending in ImGui's draw list.
 #ifndef __EMSCRIPTEN__
     {
         std::set<TileKey> nearbyKeys;
@@ -629,11 +672,13 @@ void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
 
     if (widgetPatchDef.contains("tileUrlTemplate") && widgetPatchDef["tileUrlTemplate"].is_string()) {
         m_tileUrlTemplate = widgetPatchDef["tileUrlTemplate"].template get<std::string>();
-#ifndef __EMSCRIPTEN__
         for (auto& [key, entry] : m_tileTextures) {
+#ifdef __EMSCRIPTEN__
+            wgpuTextureViewRelease(entry.first.textureView);
+#else
             glDeleteTextures(1, &entry.first.textureView);
-        }
 #endif
+        }
         m_tileTextures.clear();
         m_textureLruOrder.clear();
     }

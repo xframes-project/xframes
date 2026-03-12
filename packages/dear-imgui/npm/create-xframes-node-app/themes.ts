@@ -109,7 +109,7 @@ export const theme2: XFramesStyleForPatching = {
     [ImGuiCol.ScrollbarGrabActive]: [theme2Colors.darkestGrey, 1],
     [ImGuiCol.CheckMark]: [theme2Colors.green, 1],
     [ImGuiCol.SliderGrab]: [theme2Colors.green, 1],
-    [ImGuiCol.SliderGrabActive]: [theme2Colors.lightGrey, 1],
+    [ImGuiCol.SliderGrabActive]: ["#a0ffb0", 1],
     [ImGuiCol.Button]: [theme2Colors.black, 1],
     [ImGuiCol.ButtonHovered]: [theme2Colors.darkerGrey, 1],
     [ImGuiCol.ButtonActive]: [theme2Colors.black, 1],
