@@ -101,7 +101,7 @@ public:
             return snprintf(buff, size,"0");
         }
 
-        return snprintf(buff, size, "%.*f", reinterpret_cast<intptr_t>(decimalPlaces), value);
+        return snprintf(buff, size, "%.*f", static_cast<int>(reinterpret_cast<intptr_t>(decimalPlaces)), value);
     };
 
     bool HasCustomWidth() override;

@@ -173,9 +173,9 @@ class Table final : public StyledWidget {
 
         void Patch(const json& widgetPatchDef, XFrames* view) override;
 
-        bool HasInternalOps();
+        bool HasInternalOps() override;
 
-        void HandleInternalOp(const json& opDef);
+        void HandleInternalOp(const json& opDef) override;
 
         void SetColumns(const json& columnsDef) {
             m_data.clear();

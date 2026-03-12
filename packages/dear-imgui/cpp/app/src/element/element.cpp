@@ -315,8 +315,9 @@ bool Element::HasStyle(ElementState state) {
 
 // todo: copy approach to styled_widgets.cpp ?
 const std::optional<ElementStyleParts>& Element::GetElementStyleParts(ElementState state) const {
+    static const std::optional<ElementStyleParts> s_empty = std::nullopt;
     if (!m_elementStyle.has_value()) {
-        return std::nullopt;
+        return s_empty;
     }
 
     switch (state) {

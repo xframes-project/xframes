@@ -17,6 +17,19 @@ endif()
 
 project(xframes LANGUAGES C CXX)
 
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+endif()
+
+option(XFRAMES_FAST_BUILD "Use -O0 instead of -O3 for faster dev builds" OFF)
+if(XFRAMES_FAST_BUILD)
+    set(OPT_LEVEL "-O0")
+else()
+    set(OPT_LEVEL "-O3")
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 
 find_package(OpenGL REQUIRED)
@@ -122,7 +135,7 @@ if (DEFINED EMSCRIPTEN)
     # https://github.com/emscripten-core/emscripten/issues/18476
     # -c -fexperimental-library
 
-	set_target_properties(xframes PROPERTIES COMPILE_FLAGS "-O3 -Wall -Wformat -Wno-implicit-int -s DISABLE_EXCEPTION_CATCHING=0 --use-port=libjpeg --use-port=libpng")
+	set_target_properties(xframes PROPERTIES COMPILE_FLAGS "${OPT_LEVEL} -Wall -Wformat -Wno-implicit-int -s DISABLE_EXCEPTION_CATCHING=0 --use-port=libjpeg --use-port=libpng")
     # emsdk 5.x: --use-port=emdawnwebgpu replaces -s USE_WEBGPU=1
     # emsdk 3.x: -s USE_WEBGPU=1 still works
     if(EMSCRIPTEN_VERSION VERSION_GREATER_EQUAL "4.0.10")
@@ -130,7 +143,7 @@ if (DEFINED EMSCRIPTEN)
     else()
         set(WEBGPU_FLAG "-s USE_WEBGPU=1")
     endif()
-    set_target_properties(xframes PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets -O3 -lembind --use-port=libjpeg --use-port=libpng ${WEBGPU_FLAG} -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3 -sFETCH -s NO_EXIT_RUNTIME=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
+    set_target_properties(xframes PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets ${OPT_LEVEL} -lembind --use-port=libjpeg --use-port=libpng ${WEBGPU_FLAG} -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3 -sFETCH -s NO_EXIT_RUNTIME=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1")
     set_target_properties(xframes PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../npm/wasm/src/lib)
 
     # Reinstate line below once ReactivePlusPlus 2.1.2 gets released (preferably in the vcpkg repo)

@@ -61,6 +61,9 @@ class Element {
         std::optional<ElementStyle> m_elementStyle;
 
         Element(XFrames* view, int id, bool isRoot, bool cull, bool trackMouseClickEvents);
+        virtual ~Element() = default;
+        Element(Element&&) = default;
+        Element& operator=(Element&&) = default;
 
         static std::unique_ptr<Element> makeElement(const json& val, XFrames* view);
 

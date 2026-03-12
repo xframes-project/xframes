@@ -76,7 +76,7 @@ class WasmRunner {
         }
 
         static void OnTextChanged(const int id, const std::string& value) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onTextChange($0, UTF8ToString($1)); },
                 id,
                 value.c_str()
@@ -84,7 +84,7 @@ class WasmRunner {
         }
 
         static void OnComboChanged(const int id, const int value) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onComboChange($0, $1); },
                 id,
                 value
@@ -92,7 +92,7 @@ class WasmRunner {
         }
 
         static void OnNumericValueChanged(const int id, const float value) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onNumericValueChange($0, $1); },
                 id,
                 value
@@ -100,7 +100,7 @@ class WasmRunner {
         }
 
         static void OnBooleanValueChanged(const int id, const bool value) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onBooleanValueChange($0, $1); },
                 id,
                 value
@@ -110,7 +110,7 @@ class WasmRunner {
         // todo: improve
         static void OnMultipleNumericValuesChanged(const int id, const float* values, const int numValues) {
             if (numValues == 2) {
-                EM_ASM_ARGS(
+                EM_ASM(
                     {
                         Module.eventHandlers.onMultiValueChange($0, [getValue($1+0, 'float'), getValue($1+4, 'float')]);
                     },
@@ -118,7 +118,7 @@ class WasmRunner {
                     values
                 );
             } else if (numValues == 3) {
-                EM_ASM_ARGS(
+                EM_ASM(
                     {
                         Module.eventHandlers.onMultiValueChange($0, [getValue($1+0, 'float'), getValue($1+4, 'float'), getValue($1+8, 'float')]);
                     },
@@ -126,7 +126,7 @@ class WasmRunner {
                     values
                 );
             } else if (numValues == 4) {
-                EM_ASM_ARGS(
+                EM_ASM(
                     {
                         Module.eventHandlers.onMultiValueChange($0, [getValue($1+0, 'float'), getValue($1+4, 'float'), getValue($1+8, 'float'), getValue($1+12, 'float')]);
                     },
@@ -137,14 +137,14 @@ class WasmRunner {
         }
 
         static void OnClick(int const id) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onClick($0); },
                 id
             );
         }
 
         static void OnTableSort(int const id, int const columnIndex, int const sortDirection) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onTableSort($0, $1, $2); },
                 id,
                 columnIndex,
@@ -153,7 +153,7 @@ class WasmRunner {
         }
 
         static void OnTableFilter(int const id, int const columnIndex, const std::string& filterText) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onTableFilter($0, $1, UTF8ToString($2)); },
                 id,
                 columnIndex,
@@ -162,7 +162,7 @@ class WasmRunner {
         }
 
         static void OnTableRowClick(int const id, int const rowIndex) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onTableRowClick($0, $1); },
                 id,
                 rowIndex
@@ -170,7 +170,7 @@ class WasmRunner {
         }
 
         static void OnTableItemAction(int const id, int const rowIndex, const std::string& actionId) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onTableItemAction($0, $1, UTF8ToString($2)); },
                 id,
                 rowIndex,
@@ -179,7 +179,7 @@ class WasmRunner {
         }
 
         static void OnPrefetchProgress(int const id, int const completed, int const total) {
-            EM_ASM_ARGS(
+            EM_ASM(
                 { Module.eventHandlers.onPrefetchProgress($0, $1, $2); },
                 id,
                 completed,

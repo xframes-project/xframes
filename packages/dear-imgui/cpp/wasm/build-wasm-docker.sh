@@ -13,11 +13,18 @@ if command -v cygpath &>/dev/null; then
 fi
 
 IMAGE_NAME="xframes-emsdk"
+CMAKE_EXTRA=""
+
+if [ "${1:-}" = "--fast" ]; then
+  CMAKE_EXTRA="-DXFRAMES_FAST_BUILD=ON"
+  echo "Fast build: using -O0 (dev mode)"
+fi
 
 docker build -t "${IMAGE_NAME}" -f "$SCRIPT_DIR/Dockerfile.wasm" "$SCRIPT_DIR"
 docker run --rm \
   -v "$REPO_ROOT":/src \
+  -v xframes-ccache:/ccache \
   "${IMAGE_NAME}" \
   bash -c "cd /src/packages/dear-imgui/cpp/wasm && \
-    cmake -S . -B build-wasm -GNinja && \
+    cmake -S . -B build-wasm -GNinja $CMAKE_EXTRA && \
     cmake --build ./build-wasm --target xframes"

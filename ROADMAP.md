@@ -291,7 +291,7 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 
 ## Phase 5 — WASM Build Modernization (emsdk 3.1.60 → 5.0.2)
 
-Docker-based WASM build infrastructure is in place (`packages/dear-imgui/cpp/wasm/Dockerfile.wasm` + `build-wasm-docker.sh`), currently pinned to emsdk 3.1.60. The osm-static-map-generator submodule already runs on emsdk 5.0.2. XFrames must follow — emsdk 5.x removes the legacy `-sUSE_WEBGPU=1` flag entirely and replaces it with `--use-port=emdawnwebgpu` (Dawn WebGPU), which ships an incompatible `webgpu.h`.
+Docker-based WASM build infrastructure is in place (`packages/dear-imgui/cpp/wasm/Dockerfile.wasm` + `build-wasm-docker.sh`), now pinned to emsdk 5.0.2. The emsdk 5.x line removed the legacy `-sUSE_WEBGPU=1` flag entirely, replacing it with `--use-port=emdawnwebgpu` (Dawn WebGPU) which ships an incompatible `webgpu.h`.
 
 ### Stage 1 — imgui overlay port (done)
 
@@ -305,60 +305,68 @@ Docker-based WASM build infrastructure is in place (`packages/dear-imgui/cpp/was
 The Dawn WebGPU API removes the swap chain abstraction and renames many types. All `#ifdef __EMSCRIPTEN__` blocks in `imgui_renderer.h/.cpp` need updating.
 
 **Type renames:**
-- [ ] `WGPUSwapChain` → remove (surface configuration replaces swap chains)
-- [ ] `WGPUSwapChainDescriptor` → `WGPUSurfaceConfiguration`
-- [ ] `wgpuDeviceCreateSwapChain()` → `wgpuSurfaceConfigure()`
-- [ ] `wgpuSwapChainRelease()` → `wgpuSurfaceUnconfigure()` (or just reconfigure)
-- [ ] `wgpuSwapChainGetCurrentTextureView()` → `wgpuSurfaceGetCurrentTexture()` + create view from texture
-- [ ] `WGPUImageCopyTexture` → `WGPUTexelCopyTextureInfo`
-- [ ] `WGPUTextureDataLayout` → `WGPUTexelCopyBufferLayout`
-- [ ] String label fields (`const char*`) → `WGPUStringView` (struct with `.data` + `.length`)
+- [x] `WGPUSwapChain` → remove (surface configuration replaces swap chains)
+- [x] `WGPUSwapChainDescriptor` → `WGPUSurfaceConfiguration`
+- [x] `wgpuDeviceCreateSwapChain()` → `wgpuSurfaceConfigure()`
+- [x] `wgpuSwapChainRelease()` → `wgpuSurfaceUnconfigure()` (or just reconfigure)
+- [x] `wgpuSwapChainGetCurrentTextureView()` → `wgpuSurfaceGetCurrentTexture()` + create view from texture
+- [x] `WGPUImageCopyTexture` → `WGPUTexelCopyTextureInfo`
+- [x] `WGPUTextureDataLayout` → `WGPUTexelCopyBufferLayout`
+- [x] String label fields (`const char*`) → `WGPUStringView` (struct with `.data` + `.length`)
 
 **Function signature changes:**
-- [ ] `wgpuDeviceSetUncapturedErrorCallback()` — new signature with `WGPUUncapturedErrorCallbackInfo`
-- [ ] `WGPURenderPassColorAttachment` — `depthSlice` field may be removed or restructured
-- [ ] `wgpu::Instance::CreateSurface()` — C++ wrapper API changed
-- [ ] `surface.GetPreferredFormat()` → `wgpuSurfaceGetCapabilities()` + select format
+- [x] `wgpuDeviceSetUncapturedErrorCallback()` — new signature with `WGPUUncapturedErrorCallbackInfo`
+- [x] `WGPURenderPassColorAttachment` — `depthSlice` field may be removed or restructured
+- [x] `wgpu::Instance::CreateSurface()` — C++ wrapper API changed
+- [x] `surface.GetPreferredFormat()` → `wgpuSurfaceGetCapabilities()` + select format
 
 **Swap chain → surface pattern:**
-- [ ] Replace `CreateSwapChain()` method with `ConfigureSurface(int width, int height)`
-- [ ] In `PerformRendering()`: get current texture from surface, create view, render, present
-- [ ] In `HandleScreenSizeChanged()`: reconfigure surface instead of recreating swap chain
+- [x] Replace `CreateSwapChain()` method with `ConfigureSurface(int width, int height)`
+- [x] In `PerformRendering()`: get current texture from surface, create view, render, present
+- [x] In `HandleScreenSizeChanged()`: reconfigure surface instead of recreating swap chain
 
 ### Stage 3 — Migrate callback signatures
 
-- [ ] `wgpu::Instance::RequestAdapter()` callback — new signature in Dawn API (uses `WGPURequestAdapterCallbackInfo` struct instead of raw function pointer)
-- [ ] `wgpu::Adapter::RequestDevice()` callback — same pattern change
-- [ ] `WGPURequestAdapterStatus_Success` → verify enum name/value still matches
-- [ ] Review `wgpu::Adapter::Acquire()` and `wgpu::Surface::MoveToCHandle()` — may have renamed or changed semantics
+- [x] `wgpu::Instance::RequestAdapter()` callback — new signature in Dawn API (uses `WGPURequestAdapterCallbackInfo` struct instead of raw function pointer)
+- [x] `wgpu::Adapter::RequestDevice()` callback — same pattern change
+- [x] `WGPURequestAdapterStatus_Success` → verify enum name/value still matches
+- [x] Review `wgpu::Adapter::Acquire()` and `wgpu::Surface::MoveToCHandle()` — may have renamed or changed semantics
 
 ### Stage 4 — Migrate `LoadTexture()` (WASM path)
 
-- [ ] `WGPUTextureDescriptor.label` — change from `const char*` to `WGPUStringView`
-- [ ] `tex_desc.viewFormatCount` / `tex_desc.viewFormats` — may be restructured
-- [ ] `WGPUImageCopyTexture` → `WGPUTexelCopyTextureInfo`
-- [ ] `WGPUTextureDataLayout` → `WGPUTexelCopyBufferLayout`
+- [x] `WGPUTextureDescriptor.label` — change from `const char*` to `WGPUStringView`
+- [x] `tex_desc.viewFormatCount` / `tex_desc.viewFormats` — may be restructured
+- [x] `WGPUImageCopyTexture` → `WGPUTexelCopyTextureInfo`
+- [x] `WGPUTextureDataLayout` → `WGPUTexelCopyBufferLayout`
 
 ### Stage 5 — Migrate `wasm/src/main.cpp` (embind entry point)
 
-- [ ] Audit all direct WebGPU calls in `main.cpp` for Dawn API compatibility
-- [ ] Verify `EM_ASM` / `EM_ASM_ARGS` macro usage still works with emsdk 5.x
-- [ ] Test the full JS → WASM → WebGPU pipeline end-to-end
+- [x] Audit all direct WebGPU calls in `main.cpp` for Dawn API compatibility
+- [x] Replace deprecated `EM_ASM_ARGS` with `EM_ASM` (variadic args, drop-in replacement since emsdk 4.0)
+- [x] Test the full JS → WASM → WebGPU pipeline end-to-end
 
 ### Stage 6 — Flip to emsdk 5.0.2
 
-- [ ] Update `Dockerfile.wasm`: `FROM emscripten/emsdk:3.1.60` → `FROM emscripten/emsdk:5.0.2`
-- [ ] Delete stale `build-wasm/` directory and rebuild from scratch
-- [ ] Update `packages/dear-imgui/cpp/wasm/README.md` emscripten version reference
-- [ ] Verify `npm run start` in `npm/wasm/` loads correctly in Chrome/Edge
-- [ ] Test MapView tile loading, table rendering, plot rendering in browser
+- [x] Update `Dockerfile.wasm`: `FROM emscripten/emsdk:3.1.60` → `FROM emscripten/emsdk:5.0.2`
+- [x] Delete stale `build-wasm/` directory and rebuild from scratch
+- [x] Update `packages/dear-imgui/cpp/wasm/README.md` emscripten version reference
+- [x] Verify `npm run start` in `npm/wasm/` loads correctly in Chrome/Edge
+- [x] Test MapView tile loading, table rendering, plot rendering in browser
+
+### Additional fixes during migration
+
+- imgui 1.92.6 enum renames applied in `main.cpp` (`ImGuiDir` cast, `LegacySize`, etc.)
+- libtiff configure step added to `CMakeLists.txt` (required by Leptonica in osm-static-map-generator)
+- `tilecache.cpp` added to source list (new file in updated osm-static-map-generator)
+- Obsolete linker flags removed: `--no-heap-copy`, `-s WASM=1`, `--emit-tsd`, `-s STANDALONE_WASM=0`
+- `EM_ASM_ARGS` → `EM_ASM` deprecation fix (13 occurrences in `main.cpp`)
 
 ### Reference
 
 - imgui 1.92.6 changelog: "2025-10-16: Update to compile with Dawn and Emscripten's 4.0.10+ `--use-port=emdawnwebgpu`"
 - Dawn WebGPU migration: types renamed, swap chain removed, string labels → `WGPUStringView`, callback signatures restructured
 - Emscripten port info: `tools/ports/emdawnwebgpu.py` in emsdk source
-- XFrames files to modify: `cpp/app/include/imgui_renderer.h`, `cpp/app/src/imgui_renderer.cpp`, `cpp/wasm/src/main.cpp`, `cpp/wasm/CMakeLists.txt`
+- XFrames files modified: `cpp/app/include/imgui_renderer.h`, `cpp/app/src/imgui_renderer.cpp`, `cpp/wasm/src/main.cpp`, `cpp/wasm/CMakeLists.txt`
 
 ---
 
