@@ -25,14 +25,27 @@ set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
-find_package(implot REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(Stb REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(PNG REQUIRED)
+find_package(TIFF REQUIRED)
+find_package(CURL REQUIRED)
 
 set(CMAKE_CXX_STANDARD 23)
+
+if(MSVC)
+    # Use /Z7 to embed debug info in .obj files instead of a shared .pdb,
+    # avoiding PDB write contention with many source files
+    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
+
+add_compile_definitions(HAVE_LIBJPEG HAVE_LIBTIFF HAVE_LIBPNG NOMINMAX _USE_MATH_DEFINES)
 
 enable_testing()
 
@@ -46,13 +59,42 @@ file(GLOB YOGA_SRC CONFIGURE_DEPENDS
         ${DEPS}/yoga/yoga/*.cpp
         ${DEPS}/yoga/yoga/**/*.cpp)
 
+file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
+file(WRITE "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/endianness.h" "#define L_LITTLE_ENDIAN\n")
+
+set(OSM_STATIC_MAP_GENERATOR_SRC
+        ${DEPS}/osm-static-map-generator/cpp/shared.cpp
+        ${DEPS}/osm-static-map-generator/cpp/tiledownloader.cpp
+        ${DEPS}/osm-static-map-generator/cpp/mapgenerator.cpp
+        ${DEPS}/osm-static-map-generator/cpp/tilecache.cpp
+)
+
+# imgui + implot compiled from submodule (matches Node addon build, v1.92.6)
+set(IMGUI_SRC
+        ${DEPS}/imgui/imgui.cpp
+        ${DEPS}/imgui/imgui_draw.cpp
+        ${DEPS}/imgui/imgui_widgets.cpp
+        ${DEPS}/imgui/imgui_tables.cpp
+        ${DEPS}/imgui/misc/cpp/imgui_stdlib.cpp
+        ${DEPS}/imgui/backends/imgui_impl_opengl3.cpp
+        ${DEPS}/imgui/backends/imgui_impl_glfw.cpp
+)
+
+set(IMPLOT_SRC
+        ${DEPS}/implot/implot.cpp
+        ${DEPS}/implot/implot_items.cpp
+)
+
 # 'Google_Tests_run' is the target name
-# 'test1.cpp test2.cpp' are source files with tests
 add_executable(Google_Tests_run
         ${DEPS}/css-color-parser-cpp/csscolorparser.hpp
         ${DEPS}/css-color-parser-cpp/csscolorparser.cpp
 
         ${YOGA_SRC}
+        ${OSM_STATIC_MAP_GENERATOR_SRC}
+        ${LEPTONICA_SRC}
+        ${IMGUI_SRC}
+        ${IMPLOT_SRC}
 
         ../app/src/shared.cpp
         ../app/src/color_helpers.cpp
@@ -76,6 +118,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/image.cpp
         ../app/src/widget/input_text.cpp
         ../app/src/widget/item_tooltip.cpp
+        ../app/src/widget/map_view.cpp
         ../app/src/widget/multi_slider.cpp
         ../app/src/widget/plot_bar.cpp
         ../app/src/widget/plot_candlestick.cpp
@@ -97,6 +140,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/window.cpp
 
         ../app/src/xframes.cpp
+        ../app/src/disk_tile_cache.cpp
         ../app/src/imgui_renderer.cpp
         ../app/src/implot_renderer.cpp
 
@@ -106,6 +150,7 @@ add_executable(Google_Tests_run
         imgui_helpers_test.cpp
         element/layout_node_test.cpp
         element/element_test.cpp
+        xframes_test.cpp
 )
 
 target_include_directories(
@@ -114,14 +159,19 @@ target_include_directories(
         ${DEPS}/IconFontCppHeaders
         ${DEPS}/ReactivePlusPlus/src/rpp
 
-#        ${Stb_INCLUDE_DIR}
+        ${Stb_INCLUDE_DIR}
         ${DEPS}/yoga
         ${DEPS}/css-color-parser-cpp
 
-#        ${DEPS}/osm-static-map-generator/cpp
-#        ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
-#        ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff
-#        ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
+        ${DEPS}/imgui
+        ${DEPS}/imgui/backends
+        ${DEPS}/imgui/misc/cpp
+        ${DEPS}/implot
+
+        ${DEPS}/osm-static-map-generator/cpp
+        ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
+        ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff
+        ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
 )
 
 target_link_libraries(Google_Tests_run
@@ -129,11 +179,13 @@ target_link_libraries(Google_Tests_run
         gmock
         gmock_main
         gtest_main
-        imgui::imgui
-        implot::implot
         nlohmann_json::nlohmann_json
         ada::ada
         glfw
         OpenGL::GL
         fmt::fmt
+        JPEG::JPEG
+        PNG::PNG
+        TIFF::TIFF
+        CURL::libcurl
 )

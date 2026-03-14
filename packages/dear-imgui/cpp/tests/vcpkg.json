@@ -1,25 +1,16 @@
 {
-    "vcpkg-configuration": {
-        "overlay-ports": [
-            "./vcpkg-overlay-ports/imgui"
-        ]
-    },
     "name": "xframestests",
     "version-string": "1.0.0",
     "dependencies": [
-        {
-            "name": "imgui",
-            "features": [
-                "glfw-binding",
-                "opengl3-binding"
-            ]
-        },
-        "implot",
         "nlohmann-json",
         "opengl-registry",
         "glfw3",
         "stb",
         "ada-url",
-        "fmt"
+        "fmt",
+        "curl",
+        "libjpeg-turbo",
+        "libpng",
+        "tiff"
     ]
 }

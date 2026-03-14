@@ -41,6 +41,8 @@ struct ElementOpDef {
 
 class XFrames {
     private:
+        friend class XFramesTest;
+
         std::optional<std::string> m_rawStyleOverridesDefs;
 
         const char* m_windowId;
@@ -101,6 +103,7 @@ class XFrames {
         OnPrefetchProgressCallback m_onPrefetchProgress;
 
         XFrames(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
+        ~XFrames();
 
         void Init(ImGuiRenderer* renderer);
 

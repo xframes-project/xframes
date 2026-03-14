@@ -75,8 +75,10 @@ void Element::ResetStyle() {
 BorderStyle extractBorderStyle(const json& borderStyleDef) {
     BorderStyle borderStyle;
 
-    if (auto maybeColor = extractColor(borderStyleDef["color"]); maybeColor.has_value()) {
-        borderStyle.color = maybeColor.value();
+    if (borderStyleDef.contains("color")) {
+        if (auto maybeColor = extractColor(borderStyleDef["color"]); maybeColor.has_value()) {
+            borderStyle.color = maybeColor.value();
+        }
     }
 
     if (borderStyleDef.contains("thickness")) {

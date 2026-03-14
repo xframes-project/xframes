@@ -88,6 +88,20 @@ XFrames::XFrames(
     SetUpFloatFormatChars();
 }
 
+XFrames::~XFrames() {
+    // Break all Yoga parent-child links before m_elements map destructs.
+    // unordered_map destroys entries in arbitrary order; if a parent is freed
+    // before its child, YGNodeFree(child) calls owner->removeChild() on the
+    // already-freed parent's YGNode — use-after-free.
+    // YGNodeRemoveAllChildren sets child->setOwner(nullptr), so subsequent
+    // YGNodeFree calls safely skip the removeChild path.
+    for (auto& [id, element] : m_elements) {
+        if (element && element->m_layoutNode && element->m_layoutNode->m_node) {
+            YGNodeRemoveAllChildren(element->m_layoutNode->m_node);
+        }
+    }
+}
+
 void XFrames::SetDebug(bool debug) {
     m_debug = debug;
 
@@ -304,16 +318,16 @@ void XFrames::SetEventHandlers(
 };
 
 void XFrames::SetUpFloatFormatChars() {
-    m_floatFormatChars[0] = std::make_unique<char[]>(4);
-    m_floatFormatChars[1] = std::make_unique<char[]>(4);
-    m_floatFormatChars[2] = std::make_unique<char[]>(4);
-    m_floatFormatChars[3] = std::make_unique<char[]>(4);
-    m_floatFormatChars[4] = std::make_unique<char[]>(4);
-    m_floatFormatChars[5] = std::make_unique<char[]>(4);
-    m_floatFormatChars[6] = std::make_unique<char[]>(4);
-    m_floatFormatChars[7] = std::make_unique<char[]>(4);
-    m_floatFormatChars[8] = std::make_unique<char[]>(4);
-    m_floatFormatChars[9] = std::make_unique<char[]>(4);
+    m_floatFormatChars[0] = std::make_unique<char[]>(5);
+    m_floatFormatChars[1] = std::make_unique<char[]>(5);
+    m_floatFormatChars[2] = std::make_unique<char[]>(5);
+    m_floatFormatChars[3] = std::make_unique<char[]>(5);
+    m_floatFormatChars[4] = std::make_unique<char[]>(5);
+    m_floatFormatChars[5] = std::make_unique<char[]>(5);
+    m_floatFormatChars[6] = std::make_unique<char[]>(5);
+    m_floatFormatChars[7] = std::make_unique<char[]>(5);
+    m_floatFormatChars[8] = std::make_unique<char[]>(5);
+    m_floatFormatChars[9] = std::make_unique<char[]>(5);
 
     strcpy(m_floatFormatChars[0].get(), "%.0f");
     strcpy(m_floatFormatChars[1].get(), "%.1f");
@@ -703,9 +717,6 @@ void XFrames::RemoveElement(const int id) {
 #ifndef __EMSCRIPTEN__
     m_imageToTextureMap.erase(id);
 #endif
-
-    // Clean up float format chars
-    m_floatFormatChars.erase(id);
 
     // Erase from element registry — triggers unique_ptr destructor chain:
     // LayoutNode::~LayoutNode frees YGNode,
