@@ -11,6 +11,7 @@
         "curl",
         "libjpeg-turbo",
         "libpng",
-        "tiff"
+        "tiff",
+        "quickjs-ng"
     ]
 }

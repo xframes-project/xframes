@@ -33,6 +33,7 @@ find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(CURL REQUIRED)
+find_package(qjs CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -151,6 +152,7 @@ add_executable(Google_Tests_run
         element/layout_node_test.cpp
         element/element_test.cpp
         xframes_test.cpp
+        quickjs_test.cpp
 )
 
 target_include_directories(
@@ -188,4 +190,5 @@ target_link_libraries(Google_Tests_run
         PNG::PNG
         TIFF::TIFF
         CURL::libcurl
+        qjs
 )

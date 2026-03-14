@@ -16,7 +16,14 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:learn.sparkfun.com)",
       "WebFetch(domain:www.u-blox.com)",
-      "WebFetch(domain:content.u-blox.com)"
+      "WebFetch(domain:content.u-blox.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:www.fractolog.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:quickjs-ng.github.io)",
+      "WebFetch(domain:code.saghul.net)",
+      "WebFetch(domain:vcpkg.io)",
+      "WebFetch(domain:vcpkg.roundtrip.dev)"
     ]
   }
 }

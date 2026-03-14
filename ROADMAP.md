@@ -370,6 +370,72 @@ The Dawn WebGPU API removes the swap chain abstraction and renames many types. A
 
 ---
 
+## Phase 6 — Canvas Widget (QuickJS-NG)
+
+A generic custom drawing surface that exposes ImGui's ImDrawList primitives to JavaScript. Instead of sending draw commands as JSON across the NAPI/WASM bridge (which scales poorly with visual complexity), we embed [QuickJS-NG](https://github.com/quickjs-ng/quickjs) so rendering scripts run directly in C++ with zero-overhead ImDrawList calls. Data (small, semantic) crosses the bridge; rendering logic (potentially hundreds of draw calls per frame) runs in-process.
+
+**Why QuickJS-NG:** Full ES2023, ~1 MB binary, MIT license, compiles as C source files (fits existing build pattern), [quickjspp](https://github.com/ftk/quickjspp) provides clean C++ class/function binding. Amazon LLRT and txiki.js validate it at production scale. Already proven with ImGui ([qjs-imgui](https://github.com/rsenn/qjs-imgui) bindings exist).
+
+**Architecture:** React sends raw data (e.g. satellite positions) via `elementInternalOp` → C++ passes data into the QuickJS context → JS rendering script calls bound ImDrawList methods directly (addLine, addCircleFilled, etc.) → ImGui renders. Data crosses the bridge once when it changes; the render function executes at frame rate in-process with zero serialization.
+
+### Stage 1 — Submodule & Build Plumbing
+
+- [ ] Add quickjs-ng as git submodule (`cpp/deps/quickjs`)
+- [ ] Add quickjspp (header-only C++ wrapper) as git submodule (`cpp/deps/quickjspp`)
+- [ ] Add quickjs source files to all 4 CMakeLists.txt (`cpp/app`, `npm/node`, `cpp/wasm`, `cpp/tests`)
+- [ ] Verify clean compilation on Windows (MSVC) and confirm no conflicts with existing deps
+
+### Stage 2 — Basic Embedding Proof (Unit Tests)
+
+- [ ] Unit test: construct/destroy QuickJS runtime + context (no leak, no crash)
+- [ ] Unit test: evaluate `1 + 1`, verify int result
+- [ ] Unit test: evaluate arrow function with destructuring (confirm ES2023 features work)
+- [ ] Unit test: expose a C++ function to JS, call it from JS, verify side effects
+
+### Stage 3 — ImDrawList Bindings
+
+- [ ] Create `quickjs_bindings.h/.cpp` — exposes ImDrawList drawing methods to JS
+- [ ] Bind core primitives: addLine, addRect, addRectFilled, addCircle, addCircleFilled, addTriangle, addTriangleFilled, addText, addPolyline, addBezierCubic, addNgon, addEllipse, addEllipseFilled
+- [ ] Color handling: JS passes CSS color strings, binding layer converts via `extractColor()` once per call
+- [ ] Coordinate translation: all JS coordinates are canvas-local (0,0 = top-left of widget), binding adds `ImGui::GetCursorScreenPos()` offset
+- [ ] Unit tests for each bound function
+
+### Stage 4 — Canvas Widget Skeleton
+
+- [ ] New widget files: `canvas.h`, `canvas.cpp` (extends StyledWidget)
+- [ ] Holds `JSRuntime*` + `JSContext*` per widget instance
+- [ ] `makeWidget()` creates QuickJS runtime, registers ImDrawList bindings
+- [ ] `Render()` each frame: gets `ImDrawList*`, sets it in JS context, calls the stored JS render function
+- [ ] `HasInternalOps()` returns true
+- [ ] `HandleInternalOp()` supports `setScript` (compile + store JS render function) and `setData` (update data global in JS context)
+- [ ] Register as `"canvas"` in `SetUpElementCreatorFunctions()`
+- [ ] Data persists in QuickJS context between frames — only re-sent when it changes
+
+### Stage 5 — React Integration
+
+- [ ] TypeScript types: `CanvasProps`, `CanvasImperativeHandle` (with `setScript`, `setData`, `clear`)
+- [ ] React component `Canvas.tsx` in `@xframes/common`
+- [ ] `WidgetRegistrationService` methods: `setCanvasScript(id, jsCode)`, `setCanvasData(id, data)`
+- [ ] NAPI + WASM bindings (same `elementInternalOp` path as PlotLine/Table)
+
+### Stage 6 — Small-Scale Example
+
+- [ ] Satellite sky view rendering script (TypeScript, transpiled to ES2023)
+- [ ] Polar grid (azimuth/elevation circles + radial lines) drawn from JS
+- [ ] Satellite markers (colored circles + PRN labels) driven by data
+- [ ] Data shape: `{ satellites: [{ prn, azimuth, elevation, snr, constellation }] }`
+- [ ] React component sends mock satellite data, script renders the full visualization
+- [ ] Demonstrates: static geometry (grid computed once in JS), dynamic data (satellites update), zero bridge overhead for rendering
+
+### Reference
+
+- [QuickJS-NG](https://github.com/quickjs-ng/quickjs) — ES2023 embeddable JS engine (~1 MB, MIT)
+- [quickjspp](https://github.com/ftk/quickjspp) — Header-only C++ wrapper for QuickJS
+- [CANVAS.md](./CANVAS.md) — Original design document (draw commands approach, superseded by QuickJS embedding)
+- [imgui-react-runtime](https://github.com/tmikov/imgui-react-runtime) — Prior art: React + ImGui + Hermes (validates the concept)
+
+---
+
 ## Low Priority
 
 - [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)
