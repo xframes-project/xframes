@@ -51,6 +51,18 @@ public:
         m_size = size;
     }
 
+    ~Image() {
+#ifdef __EMSCRIPTEN__
+        if (m_texture.textureView) {
+            wgpuTextureViewRelease(m_texture.textureView);
+        }
+#else
+        if (m_texture.textureView) {
+            glDeleteTextures(1, &m_texture.textureView);
+        }
+#endif
+    }
+
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
     static YGSize Measure(YGNodeConstRef node, float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode);

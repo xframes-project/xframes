@@ -65,6 +65,8 @@ class XFrames {
         void SetChildren(const json& opDef);
 
         void AppendChild(const json& opDef);
+
+        void RemoveElement(int id);
         
         void SetUpFloatFormatChars();
 

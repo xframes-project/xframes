@@ -38,6 +38,13 @@ class LayoutNode {
 
         LayoutNode();
 
+        ~LayoutNode() {
+            if (m_node) {
+                YGNodeFree(m_node);
+                m_node = nullptr;
+            }
+        }
+
         [[nodiscard]] size_t GetChildCount() const;
 
         void InsertChild(LayoutNode* child, size_t index) const;

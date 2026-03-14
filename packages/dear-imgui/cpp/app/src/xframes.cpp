@@ -2,6 +2,7 @@
 #include <string>
 #include <functional>
 #include <sstream>
+#include <unordered_set>
 #include <utility>
 
 #include "imgui.h"
@@ -684,6 +685,35 @@ void XFrames::PatchElement(const json& patchDef) {
     }
 }
 
+void XFrames::RemoveElement(const int id) {
+    // Recurse into children first (depth-first)
+    if (m_hierarchy.contains(id)) {
+        // Copy the vector since we modify m_hierarchy during recursion
+        const auto children = m_hierarchy[id];
+        for (const int childId : children) {
+            RemoveElement(childId);
+        }
+        m_hierarchy.erase(id);
+    }
+
+    // Clean up per-widget reactive subject
+    m_elementInternalOpsSubject.erase(id);
+
+    // Clean up Image texture registry (desktop only)
+#ifndef __EMSCRIPTEN__
+    m_imageToTextureMap.erase(id);
+#endif
+
+    // Clean up float format chars
+    m_floatFormatChars.erase(id);
+
+    // Erase from element registry — triggers unique_ptr destructor chain:
+    // LayoutNode::~LayoutNode frees YGNode,
+    // MapView::~MapView frees GPU tile textures,
+    // Image::~Image frees GPU texture
+    m_elements.erase(id);
+}
+
 void XFrames::SetChildren(const json& opDef) {
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
     const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
@@ -692,6 +722,16 @@ void XFrames::SetChildren(const json& opDef) {
     const auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
 
     if (m_elements.contains(parentId)) {
+        // Identify and remove orphaned children (in old list but not in new list)
+        if (m_hierarchy.contains(parentId)) {
+            const std::unordered_set<int> newSet(childrenIds.begin(), childrenIds.end());
+            for (const int oldChildId : m_hierarchy[parentId]) {
+                if (!newSet.contains(oldChildId)) {
+                    RemoveElement(oldChildId);
+                }
+            }
+        }
+
         YGNodeRemoveAllChildren(m_elements[parentId]->m_layoutNode->m_node);
 
         const auto size = childrenIds.size();

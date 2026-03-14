@@ -167,9 +167,9 @@ VRAM and memory management for long panning sessions.
 
 ### Stage 10 — Documentation
 
-- [ ] Add MapView to widget catalog on xframes.dev (props, imperative handle, tile-grid architecture, code example)
-- [ ] Add `MapImperativeHandle` to imperative handle reference page
-- [ ] Update CLAUDE.md with MapView widget section (tile-grid model, TileCache, GPU texture registry)
+- [x] Add MapView to widget catalog on xframes.dev (props, imperative handle, tile-grid architecture, code example)
+- [x] Add `MapImperativeHandle` to imperative handle reference page
+- [x] Update CLAUDE.md with MapView widget section (tile-grid model, TileCache, GPU texture registry)
 
 ---
 

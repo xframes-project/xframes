@@ -165,6 +165,21 @@ public:
         m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
     }
 
+    ~MapView() {
+        for (auto& [key, entry] : m_tileTextures) {
+#ifdef __EMSCRIPTEN__
+            if (entry.first.textureView) {
+                wgpuTextureViewRelease(entry.first.textureView);
+            }
+#else
+            if (entry.first.textureView) {
+                glDeleteTextures(1, &entry.first.textureView);
+            }
+#endif
+        }
+        m_tileTextures.clear();
+    }
+
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
     void Patch(const json& widgetPatchDef, XFrames* view) override;
     bool HasInternalOps() override;

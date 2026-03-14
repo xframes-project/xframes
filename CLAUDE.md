@@ -77,7 +77,7 @@ Uses a **vendored React Native Fabric renderer** (`ReactFabric-prod.js`) — not
 ### Native Bindings
 
 - **Node.js** (`npm/node/src/xframes-node.cpp`): Uses `node-addon-api` (NAPI v9). `Napi::ThreadSafeFunction` for C++ → JS callbacks.
-- **WASM** (`cpp/wasm/src/main.cpp`): Uses Emscripten `embind`. `EM_ASM_ARGS` for C++ → JS callbacks via `Module.eventHandlers`.
+- **WASM** (`cpp/wasm/src/main.cpp`): Uses Emscripten `embind`. `EM_ASM` for C++ → JS callbacks via `Module.eventHandlers`.
 
 ## Dependencies
 
@@ -151,6 +151,30 @@ Uses `imgui_stdlib.h` for `std::string`-based input — no buffer size limits or
 TabBar supports `reorderable` prop (`ImGuiTabBarFlags_Reorderable`). TabItem supports `closeable` prop (renders close button via `p_open` parameter). Close fires `onBooleanValueChange(id, false)` on the open→closed transition only (tracked via `wasOpen` flag). The tab stays closed C++-side until the element is removed.
 
 **Known issue:** ImGui logs a `SetCursorPos extends window/parent boundaries` warning on first tab bar render. This is cosmetic — no crash, no visual glitch. The warning comes from `SetCursorPos(0, 25.f)` in `TabItem::Render()` positioning content below the tab headers. The same `SetCursorPos` pattern is used throughout the codebase without issue; the tab context triggers it for reasons not yet diagnosed.
+
+## MapView Widget
+
+Interactive slippy map rendering OpenStreetMap raster tiles via a tile-grid model. Each visible 256×256 tile is fetched individually, decoded, uploaded to the GPU, and rendered with `ImDrawList::AddImage()`.
+
+**Tile-grid architecture:** `Render()` computes the visible tile range from center coordinates, zoom level, and viewport size. Each tile is positioned via fractional tile coordinates → screen pixels. Old-zoom tiles render as scaled placeholders while current-zoom tiles load. Zoom debouncing (150ms) prevents tile fetch storms during rapid scroll.
+
+**Three-tier cache (desktop):** GPU textures (LRU, max 512 tiles) → `TileCache` (in-memory, 1024 entries) → `DiskTileCache` (filesystem, no TTL) → network (libcurl). WASM skips the memory and disk tiers — relies on browser HTTP cache and GPU LRU only.
+
+**Platform split:**
+- **Desktop:** `FetchMissingTiles()` spawns a detached `std::thread` that calls `fetchTile()` (blocking libcurl). Decoded PNG bytes go to `m_pendingTiles` (mutex-protected). Render thread uploads via `glGenTextures`/`glTexImage2D`. Post-render eviction prunes non-nearby tiles via `glDeleteTextures`.
+- **WASM:** `FetchMissingTiles()` calls `fetchTile()` directly (async `emscripten_fetch`, callback fires on main thread). Render thread uploads via `ImGuiRenderer::LoadTexture()` (WebGPU: `wgpuDeviceCreateTexture` + `wgpuQueueWriteTexture`). Post-render eviction is **disabled** on WASM — `wgpuTextureViewRelease()` immediately invalidates handles still pending in ImGui's draw list, unlike OpenGL which defers deletion.
+
+**Props:** `tileUrlTemplate` (URL with `{z}`, `{x}`, `{y}` tokens), `tileRequestHeaders`, `attribution`, `minZoom`, `maxZoom`, `cachePath` (desktop only).
+
+**Imperative handle (`MapImperativeHandle`):** `render(centerX, centerY, zoom)` where centerX=longitude, centerY=latitude. `setMarkers`/`clearMarkers`, `setPolylines`/`clearPolylines`/`appendPolylinePoint`, `setOverlays`/`clearOverlays`, `prefetchTiles`. All dispatch JSON ops via `HandleInternalOp()`.
+
+**Overlays:** Markers are filled circles with optional labels. Polylines support `pointsLimit` for FIFO streaming trails. Overlays render circles or ellipses (`radiusMinorMeters > 0`) sized in meters, auto-scaled with zoom.
+
+**Events:** `onChange` (zoom level via `m_onNumericValueChange`), `onPrefetchProgress` (completed/total via `m_onPrefetchProgress`).
+
+**Key files:** `map_view.h/.cpp` (widget), `tiledownloader.h/.cpp` (platform-abstracted fetch), `tilecache.h/.cpp` (in-memory LRU), `disk_tile_cache.h/.cpp` (filesystem cache), `MapView.tsx` (React component + imperative handle).
+
+**Warning:** `prefetchTiles()` bulk-downloads tiles. This violates the [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/). Only use with tile servers that permit bulk downloading.
 
 ## C++ Gotchas
 
