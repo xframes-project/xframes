@@ -12,6 +12,7 @@ import {
   PlotHistogramImperativeHandle,
   PlotPieChartImperativeHandle,
   MapImperativeHandle,
+  CanvasImperativeHandle,
   SliderImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
@@ -189,6 +190,8 @@ export const Dashboard = () => {
   const histogramRef = useRef<PlotHistogramImperativeHandle>(null);
   const pieChartRef = useRef<PlotPieChartImperativeHandle>(null);
   const mapRef = useRef<MapImperativeHandle>(null);
+  const canvasRef = useRef<CanvasImperativeHandle>(null);
+  const dataCanvasRef = useRef<CanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -427,6 +430,62 @@ export const Dashboard = () => {
     // usage policy. Only use prefetchTiles() with a server that permits it.
     // See: https://operations.osmfoundation.org/policies/tiles/
     mapRef.current?.prefetchTiles(-0.5, 51.3, 0.2, 51.7, 10, 14);
+  }, []);
+
+  // Canvas: static drawing primitives showcase
+  useEffect(() => {
+    canvasRef.current?.setScript(`
+      drawRectFilled(0, 0, 400, 300, '#1a1a2e');
+      drawText(10, 8, '#e0e0e0', 'Drawing Primitives');
+      drawRectFilled(15, 35, 80, 50, '#e94560');
+      drawRect(110, 35, 80, 50, '#0f3460', 2);
+      drawCircleFilled(250, 60, 25, '#16c79a');
+      drawCircle(320, 60, 25, '#f8b500', 2);
+      drawTriangleFilled(15, 120, 55, 170, 95, 120, '#e94560');
+      drawTriangle(110, 120, 150, 170, 190, 120, '#0f3460', 2);
+      drawLine(220, 120, 380, 170, '#f8b500', 2);
+      drawBezierCubic(15, 200, 80, 240, 150, 190, 220, 230, '#16c79a', 2);
+      drawNgonFilled(290, 215, 25, '#e94560', 6);
+      drawNgon(360, 215, 25, '#0f3460', 5, 2);
+      drawEllipseFilled(70, 270, 50, 20, 'rgba(22,199,154,0.6)');
+      drawEllipse(200, 270, 50, 20, '#f8b500', 2, 0.5);
+    `);
+  }, []);
+
+  // Canvas: data-driven bar chart with live updates
+  useEffect(() => {
+    dataCanvasRef.current?.setScript(`
+      var d = globalThis.data;
+      if (d && d.values) {
+        var w = 400, h = 300;
+        drawRectFilled(0, 0, w, h, '#16213e');
+        drawText(10, 8, '#e0e0e0', 'Live Data (' + d.values.length + ' bars)');
+        var barW = 35, gap = 8, startX = 15, maxH = 220;
+        var maxVal = 0;
+        for (var i = 0; i < d.values.length; i++) {
+          if (d.values[i] > maxVal) maxVal = d.values[i];
+        }
+        if (maxVal === 0) maxVal = 1;
+        for (var i = 0; i < d.values.length; i++) {
+          var barH = (d.values[i] / maxVal) * maxH;
+          var x = startX + i * (barW + gap);
+          var y = h - 30 - barH;
+          drawRectFilled(x, y, barW, barH, d.colors[i]);
+          drawText(x + 4, h - 24, '#aaa', d.labels[i]);
+        }
+      }
+    `);
+    const colors = ['#e94560', '#16c79a', '#f8b500', '#0f3460', '#9b59b6', '#3498db', '#e67e22', '#1abc9c'];
+    const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const interval = setInterval(() => {
+      const values = labels.map(() => Math.floor(Math.random() * 90) + 10);
+      dataCanvasRef.current?.setData({ values, colors, labels });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleClearCanvas = useCallback(() => {
+    dataCanvasRef.current?.clear();
   }, []);
 
   const handleTabClose = useCallback((event: TabItemChangeEvent) => {
@@ -710,6 +769,26 @@ export const Dashboard = () => {
             {!showNotesTab ? (
               <XFrames.Button label="Restore Notes Tab" onClick={() => setShowNotesTab(true)} />
             ) : null}
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Eighth row: Canvas demo */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Canvas (Drawing Primitives)" />
+            <XFrames.Canvas
+              ref={canvasRef}
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="Canvas (Data-Driven)" />
+            <XFrames.Canvas
+              ref={dataCanvasRef}
+              style={styles.plotArea}
+            />
+            <XFrames.Button label="Clear Canvas" onClick={handleClearCanvas} />
           </XFrames.Node>
         </XFrames.Node>
       </XFrames.Node>
