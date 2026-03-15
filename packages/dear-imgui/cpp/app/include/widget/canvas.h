@@ -49,4 +49,8 @@ public:
     void Patch(const json& widgetPatchDef, XFrames* view) override;
     bool HasInternalOps() override;
     void HandleInternalOp(const json& opDef) override;
+
+#ifdef __EMSCRIPTEN__
+    void EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data);
+#endif
 };

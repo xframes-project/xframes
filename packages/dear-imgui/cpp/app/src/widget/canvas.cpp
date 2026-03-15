@@ -1,14 +1,23 @@
 #include <imgui.h>
 #include <nlohmann/json.hpp>
-#include <fstream>
 
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+#include <emscripten/fetch.h>
+#else
+#include <fstream>
 #include <GLES3/gl3.h>
 #endif
 
 #include "widget/canvas.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
+
+#ifdef __EMSCRIPTEN__
+struct CanvasFetchContext {
+    Canvas* widget;
+    std::string textureId;
+};
+#endif
 
 Canvas::Canvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
     : StyledWidget(view, id, style) {
@@ -17,14 +26,16 @@ Canvas::Canvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
 }
 
 Canvas::~Canvas() {
-#ifndef __EMSCRIPTEN__
     for (auto& [id, tex] : m_textures) {
         if (tex.textureView) {
+#ifdef __EMSCRIPTEN__
+            wgpuTextureViewRelease(tex.textureView);
+#else
             glDeleteTextures(1, &tex.textureView);
+#endif
         }
     }
     m_textures.clear();
-#endif
     CleanupQuickJS();
 }
 
@@ -65,7 +76,6 @@ void Canvas::CleanupQuickJS() {
 void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (!m_context) return;
 
-#ifndef __EMSCRIPTEN__
     // Process pending texture operations on the render/GL thread
     {
         std::lock_guard<std::mutex> lock(m_textureMutex);
@@ -74,6 +84,15 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         for (auto& pending : m_pendingLoads) {
             if (m_textures.contains(pending.textureId)) continue;
 
+#ifdef __EMSCRIPTEN__
+            Texture tex;
+            if (view->m_renderer->LoadTexture(
+                    pending.fileData.data(),
+                    static_cast<int>(pending.fileData.size()),
+                    &tex)) {
+                m_textures[pending.textureId] = tex;
+            }
+#else
             GLuint texId = view->m_renderer->LoadTexture(
                 pending.fileData.data(),
                 static_cast<int>(pending.fileData.size())
@@ -86,6 +105,7 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 tex.height = 0;
                 m_textures[pending.textureId] = tex;
             }
+#endif
         }
         m_pendingLoads.clear();
 
@@ -94,7 +114,11 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             auto it = m_textures.find(pending.textureId);
             if (it != m_textures.end()) {
                 if (it->second.textureView) {
+#ifdef __EMSCRIPTEN__
+                    wgpuTextureViewRelease(it->second.textureView);
+#else
                     glDeleteTextures(1, &it->second.textureView);
+#endif
                 }
                 m_textures.erase(it);
             }
@@ -106,11 +130,14 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
         auto it = m_textures.find(id);
         if (it != m_textures.end() && it->second.textureView) {
+#ifdef __EMSCRIPTEN__
+            return (ImTextureID)it->second.textureView;
+#else
             return (ImTextureID)(intptr_t)it->second.textureView;
+#endif
         }
         return 0;
     };
-#endif
 
     float w = YGNodeLayoutGetWidth(m_layoutNode->m_node);
     float h = YGNodeLayoutGetHeight(m_layoutNode->m_node);
@@ -191,14 +218,38 @@ void Canvas::HandleInternalOp(const json& opDef) {
         const char* code = "globalThis.data = undefined;";
         JSValue result = JS_Eval(m_context, code, strlen(code), "<clear>", JS_EVAL_TYPE_GLOBAL);
         JS_FreeValue(m_context, result);
-    }
-#ifndef __EMSCRIPTEN__
-    else if (op == "loadTexture") {
+    } else if (op == "loadTexture") {
         if (!opDef.contains("textureId") || !opDef.contains("source")) return;
 
         auto textureId = opDef["textureId"].template get<std::string>();
         auto source = opDef["source"].template get<std::string>();
 
+#ifdef __EMSCRIPTEN__
+        // Async fetch — callback pushes data into pending queue
+        auto* fetchCtx = new CanvasFetchContext{this, textureId};
+
+        emscripten_fetch_attr_t attr;
+        emscripten_fetch_attr_init(&attr);
+        strcpy(attr.requestMethod, "GET");
+        attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+        attr.userData = fetchCtx;
+
+        attr.onsuccess = [](emscripten_fetch_t* fetch) {
+            auto* ctx = static_cast<CanvasFetchContext*>(fetch->userData);
+            std::vector<unsigned char> data(fetch->data, fetch->data + fetch->numBytes);
+            ctx->widget->EnqueuePendingLoad(std::move(ctx->textureId), std::move(data));
+            delete ctx;
+            emscripten_fetch_close(fetch);
+        };
+
+        attr.onerror = [](emscripten_fetch_t* fetch) {
+            auto* ctx = static_cast<CanvasFetchContext*>(fetch->userData);
+            delete ctx;
+            emscripten_fetch_close(fetch);
+        };
+
+        emscripten_fetch(&attr, source.c_str());
+#else
         // Read file on JS thread, queue bytes for GPU upload on render thread
         std::ifstream file(source, std::ios::binary | std::ios::ate);
         if (!file.is_open()) return;
@@ -215,6 +266,7 @@ void Canvas::HandleInternalOp(const json& opDef) {
             std::lock_guard<std::mutex> lock(m_textureMutex);
             m_pendingLoads.push_back({std::move(textureId), std::move(fileData)});
         }
+#endif
     } else if (op == "unloadTexture") {
         if (!opDef.contains("textureId")) return;
 
@@ -225,5 +277,11 @@ void Canvas::HandleInternalOp(const json& opDef) {
             m_pendingUnloads.push_back({std::move(textureId)});
         }
     }
-#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void Canvas::EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data) {
+    std::lock_guard<std::mutex> lock(m_textureMutex);
+    m_pendingLoads.push_back({std::move(textureId), std::move(data)});
+}
+#endif
