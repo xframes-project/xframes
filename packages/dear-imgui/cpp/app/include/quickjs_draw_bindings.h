@@ -17,6 +17,7 @@ extern "C" {
 struct DrawContext {
     ImDrawList* drawList = nullptr;
     ImVec2 offset = {0, 0};
+    ImFont* currentFont = nullptr; // Set per-frame in Canvas::Render() for text measurement
 
     struct DrawCall {
         std::string function;
@@ -509,7 +510,117 @@ inline JSValue js_drawImage(JSContext* ctx, JSValue this_val, int argc, JSValue*
     return JS_UNDEFINED;
 }
 
-// Register all 15 draw functions on the JS global object
+// drawConvexPolyFilled(points, color)
+// points is a flat JS array [x1, y1, x2, y2, ...]
+inline JSValue js_drawConvexPolyFilled(JSContext* ctx, JSValue this_val, int argc, JSValue* argv) {
+    auto* dc = getDC(ctx);
+    if (!dc || argc < 2) return JS_UNDEFINED;
+
+    JSValue pointsArr = argv[0];
+    JSValue lengthVal = JS_GetPropertyStr(ctx, pointsArr, "length");
+    int32_t len = 0;
+    JS_ToInt32(ctx, &len, lengthVal);
+    JS_FreeValue(ctx, lengthVal);
+
+    int numPoints = len / 2;
+    std::vector<ImVec2> points(numPoints);
+    std::vector<float> recordedFloats;
+
+    float ox = dc->offset.x, oy = dc->offset.y;
+    for (int i = 0; i < numPoints; i++) {
+        JSValue xv = JS_GetPropertyUint32(ctx, pointsArr, i * 2);
+        JSValue yv = JS_GetPropertyUint32(ctx, pointsArr, i * 2 + 1);
+        double px, py;
+        JS_ToFloat64(ctx, &px, xv);
+        JS_ToFloat64(ctx, &py, yv);
+        JS_FreeValue(ctx, xv);
+        JS_FreeValue(ctx, yv);
+        points[i] = {(float)px + ox, (float)py + oy};
+        if (dc->recording) {
+            recordedFloats.push_back((float)px + ox);
+            recordedFloats.push_back((float)py + oy);
+        }
+    }
+
+    const char* cs = JS_ToCString(ctx, argv[1]);
+    ImU32 color = parseCSSColor(cs);
+    JS_FreeCString(ctx, cs);
+
+    if (dc->recording) {
+        dc->recorded.push_back({"drawConvexPolyFilled", recordedFloats, color, ""});
+    }
+    if (dc->drawList && numPoints > 0) {
+        dc->drawList->AddConvexPolyFilled(points.data(), numPoints, color);
+    }
+    return JS_UNDEFINED;
+}
+
+// __measureText(text) — returns {width, height} using ImFont::CalcTextSizeA
+inline JSValue js_measureText(JSContext* ctx, JSValue this_val, int argc, JSValue* argv) {
+    auto* dc = getDC(ctx);
+    if (!dc || argc < 1) return JS_UNDEFINED;
+
+    const char* text = JS_ToCString(ctx, argv[0]);
+    if (!text) return JS_UNDEFINED;
+
+    float w = 0, h = 0;
+    if (dc->currentFont) {
+        ImVec2 size = dc->currentFont->CalcTextSizeA(dc->currentFont->LegacySize, FLT_MAX, 0.0f, text);
+        w = size.x;
+        h = size.y;
+    } else if (dc->recording) {
+        // In test mode, return a predictable size for verification
+        w = 7.0f * (float)strlen(text); // ~7px per char approximation
+        h = 16.0f;
+    }
+
+    if (dc->recording) {
+        dc->recorded.push_back({"__measureText", {w, h}, 0, text ? text : ""});
+    }
+
+    JSValue result = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, result, "width", JS_NewFloat64(ctx, w));
+    JS_SetPropertyStr(ctx, result, "height", JS_NewFloat64(ctx, h));
+    JS_FreeCString(ctx, text);
+    return result;
+}
+
+// __pushClipRect(x1, y1, x2, y2) — calls ImDrawList::PushClipRect
+inline JSValue js_pushClipRect(JSContext* ctx, JSValue this_val, int argc, JSValue* argv) {
+    auto* dc = getDC(ctx);
+    if (!dc || argc < 4) return JS_UNDEFINED;
+
+    float x1 = (float)getFloat(ctx, argc, argv, 0);
+    float y1 = (float)getFloat(ctx, argc, argv, 1);
+    float x2 = (float)getFloat(ctx, argc, argv, 2);
+    float y2 = (float)getFloat(ctx, argc, argv, 3);
+
+    float ox = dc->offset.x, oy = dc->offset.y;
+    if (dc->recording) {
+        dc->recorded.push_back({"__pushClipRect",
+            {x1 + ox, y1 + oy, x2 + ox, y2 + oy}, 0, ""});
+    }
+    if (dc->drawList) {
+        dc->drawList->PushClipRect({x1 + ox, y1 + oy}, {x2 + ox, y2 + oy}, true);
+    }
+    return JS_UNDEFINED;
+}
+
+// __popClipRect() — calls ImDrawList::PopClipRect
+inline JSValue js_popClipRect(JSContext* ctx, JSValue this_val, int argc, JSValue* argv) {
+    auto* dc = getDC(ctx);
+    if (!dc) return JS_UNDEFINED;
+
+    if (dc->recording) {
+        dc->recorded.push_back({"__popClipRect", {}, 0, ""});
+    }
+    if (dc->drawList) {
+        dc->drawList->PopClipRect();
+    }
+    return JS_UNDEFINED;
+}
+
+// Register all draw functions on the JS global object
 inline void registerDrawBindings(JSContext* ctx) {
     JSValue global = JS_GetGlobalObject(ctx);
 
@@ -532,7 +643,11 @@ inline void registerDrawBindings(JSContext* ctx) {
     reg("drawNgonFilled",     js_drawNgonFilled,     5);
     reg("drawEllipse",        js_drawEllipse,        5);
     reg("drawEllipseFilled",  js_drawEllipseFilled,  5);
-    reg("drawImage",          js_drawImage,          5);
+    reg("drawImage",              js_drawImage,          5);
+    reg("drawConvexPolyFilled",   js_drawConvexPolyFilled, 2);
+    reg("__measureText",          js_measureText,        1);
+    reg("__pushClipRect",         js_pushClipRect,       4);
+    reg("__popClipRect",          js_popClipRect,        0);
 
     JS_FreeValue(ctx, global);
 }

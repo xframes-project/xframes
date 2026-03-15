@@ -9,6 +9,7 @@
 #endif
 
 #include "widget/canvas.h"
+#include "canvas2d_shim.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
 
@@ -63,6 +64,16 @@ void Canvas::InitQuickJS() {
 
     JS_SetContextOpaque(m_context, &m_drawContext);
     QuickJSDrawBindings::registerDrawBindings(m_context);
+
+    // Evaluate Canvas 2D API shim — creates globalThis.ctx
+    const auto& shim = getCanvas2DShim();
+    JSValue shimResult = JS_Eval(m_context, shim.c_str(), shim.size(),
+                                 "<canvas2d_shim>", JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(shimResult)) {
+        JSValue exc = JS_GetException(m_context);
+        JS_FreeValue(m_context, exc);
+    }
+    JS_FreeValue(m_context, shimResult);
 }
 
 void Canvas::CleanupQuickJS() {
@@ -153,6 +164,13 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     m_drawContext.drawList = ImGui::GetWindowDrawList();
     m_drawContext.offset = pos;
+    m_drawContext.currentFont = ImGui::GetFont();
+
+    // Set canvas dimensions for ctx.canvas.width/height (no string eval, no alloc)
+    JSValue global = JS_GetGlobalObject(m_context);
+    JS_SetPropertyStr(m_context, global, "__canvasWidth", JS_NewFloat64(m_context, w));
+    JS_SetPropertyStr(m_context, global, "__canvasHeight", JS_NewFloat64(m_context, h));
+    JS_FreeValue(m_context, global);
 
     if (!JS_IsUndefined(m_renderFunc) && JS_IsFunction(m_context, m_renderFunc)) {
         JSValue global = JS_GetGlobalObject(m_context);

@@ -141,6 +141,21 @@ Embedded [QuickJS-NG](https://github.com/quickjs-ng/quickjs) for scripted ImDraw
 
 ---
 
+## Phase 7 — Canvas 2D API Wrapper (done)
+
+Wrapped the 15 ImDrawList bindings in an HTML5 Canvas 2D-style API (`ctx.fillRect()`, `ctx.beginPath()`, `ctx.arc()`, etc.). JS shim stored as C++ raw string literal in `canvas2d_shim.h`, auto-evaluated in `InitQuickJS()`. 4 new C++ bindings (`drawConvexPolyFilled`, `__measureText`, `__pushClipRect`, `__popClipRect`). State machine (styles, transforms, paths, clips, dashes) runs in pure JS. Raw `drawXxx` functions remain available alongside `ctx`.
+
+### Stages completed:
+
+1. **Core State Machine + Basic Drawing** — `fillStyle`, `strokeStyle`, `lineWidth`, `globalAlpha`, `font`, `save()`/`restore()`, `fillRect()`, `strokeRect()`, `clearRect()`, `fillText()`, `ctx.canvas.width/height`
+2. **Path API** — `beginPath()`, `moveTo()`, `lineTo()`, `closePath()`, `arc()` (tessellated), `bezierCurveTo()`, `quadraticCurveTo()`, `stroke()` → `drawPolyline`, `fill()` → `drawConvexPolyFilled` (convex only)
+3. **Transform Stack** — 3x2 affine matrix, `translate()`, `rotate()`, `scale()`, `setTransform()`, `resetTransform()`, `getTransform()`, rotated rects emit transformed quads
+4. **Text Measurement + Alignment** — `measureText()` via `ImFont::CalcTextSizeA()`, `textAlign` (left/center/right/start/end), `textBaseline` (top/middle/bottom/alphabetic)
+5. **Dashed Lines, rect(), Clip** — `setLineDash()`/`getLineDash()`/`lineDashOffset`, `rect()` path method, `clip()` (AABB only) via `__pushClipRect`/`__popClipRect`
+6. **Documentation** — CLAUDE.md updated with Canvas 2D shim section
+
+---
+
 ## Low Priority
 
 - [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)

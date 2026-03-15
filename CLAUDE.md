@@ -192,6 +192,34 @@ QuickJS-NG is embedded for scripted canvas rendering. The bindings expose ImDraw
 
 **vcpkg:** `quickjs-ng` is in `cpp/tests/vcpkg.json`. Will be added to `cpp/app/vcpkg.json` in Stage 4.
 
+## Canvas 2D API Shim
+
+Wraps the 15 ImDrawList draw bindings in an HTML5 Canvas 2D-style API. Created by `canvas2d_shim.h` (JS source as C++ raw string literal), auto-evaluated in `Canvas::InitQuickJS()` after `registerDrawBindings()`. Available as `globalThis.ctx` in every Canvas widget script alongside the raw `drawXxx` functions.
+
+**Key file:** `cpp/app/include/canvas2d_shim.h`
+
+**State properties:** `fillStyle`, `strokeStyle`, `lineWidth`, `globalAlpha`, `font` (parses px size), `textAlign`, `textBaseline`, `lineDashOffset`.
+
+**State stack:** `save()` / `restore()` push/pop all properties, transform matrix, dash pattern, and clip rects.
+
+**Basic drawing:** `fillRect()` → `drawRectFilled`, `strokeRect()` → `drawRect`, `clearRect()` (fills black — ImDrawList is write-only), `fillText()` → `drawText` (with alignment offsets from `textAlign`/`textBaseline`).
+
+**Path API:** `beginPath()`, `moveTo()`, `lineTo()`, `closePath()`, `arc()` (tessellated), `bezierCurveTo()`, `quadraticCurveTo()` (elevated to cubic), `rect()`. `stroke()` → `drawPolyline`, `fill()` → `drawConvexPolyFilled` (convex paths only).
+
+**Transforms:** 3x2 affine matrix in JS. `translate()`, `rotate()`, `scale()`, `transform()`, `setTransform()`, `resetTransform()`, `getTransform()`. Coordinates transformed via `_tx(x,y)` before reaching draw calls. Rotated/scaled `fillRect`/`strokeRect` emit `drawConvexPolyFilled`/`drawPolyline` (4 transformed corners); identity/translation-only fast path uses `drawRectFilled` directly.
+
+**Text measurement:** `measureText(text)` → C++ `__measureText` binding → `ImFont::CalcTextSizeA()`. `DrawContext::currentFont` set per-frame in `Canvas::Render()`.
+
+**Dashed lines:** `setLineDash(segments)` / `getLineDash()` / `lineDashOffset` — pure JS polyline decomposition into dash/gap segments.
+
+**Clipping:** `clip()` computes axis-aligned bounding box of current path → `__pushClipRect`. `restore()` pops clips pushed since matching `save()`.
+
+**New C++ bindings (4 total):** `drawConvexPolyFilled(points, color)`, `__measureText(text)`, `__pushClipRect(x1, y1, x2, y2)`, `__popClipRect()`.
+
+**Canvas dimensions:** `ctx.canvas.width` / `ctx.canvas.height` read from `__canvasWidth` / `__canvasHeight` globals, set per-frame in `Canvas::Render()` via `JS_SetPropertyStr`.
+
+**Limitations:** `clearRect` fills with black (no true erase), `globalAlpha` stored but not applied to colors, `font` parses px size but doesn't switch ImGui fonts, `fill()` only correct for convex paths, `clip()` is axis-aligned bounding box only.
+
 ## C++ Gotchas
 
 - MSVC does not allow default member initializers in unnamed structs used with `using` typedefs. Use named `struct Foo { ... };` instead of `using Foo = struct { ... };` when fields have defaults.
