@@ -192,6 +192,7 @@ export const Dashboard = () => {
   const mapRef = useRef<MapImperativeHandle>(null);
   const canvasRef = useRef<CanvasImperativeHandle>(null);
   const dataCanvasRef = useRef<CanvasImperativeHandle>(null);
+  const textureCanvasRef = useRef<CanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -482,6 +483,20 @@ export const Dashboard = () => {
       dataCanvasRef.current?.setData({ values, colors, labels });
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Canvas: texture demo — load an image and render it with drawImage
+  useEffect(() => {
+    textureCanvasRef.current?.loadTexture("wood", "C:\\dev\\xframes\\texture-test.png");
+    const timer = setTimeout(() => {
+      textureCanvasRef.current?.setScript(`
+        drawRectFilled(0, 0, 400, 300, '#1a1a2e');
+        drawImage("wood", 10, 30, 260, 260);
+        drawRect(10, 30, 260, 260, '#e0e0e0', 1);
+        drawText(10, 8, '#e0e0e0', 'Texture Demo (drawImage)');
+      `);
+    }, 200);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleClearCanvas = useCallback(() => {
@@ -790,6 +805,19 @@ export const Dashboard = () => {
             />
             <XFrames.Button label="Clear Canvas" onClick={handleClearCanvas} />
           </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Ninth row: Canvas texture demo */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="Canvas (Texture / drawImage)" />
+            <XFrames.Canvas
+              ref={textureCanvasRef}
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn} />
         </XFrames.Node>
       </XFrames.Node>
     </>
