@@ -163,6 +163,14 @@ export const render = (
     );
   };
 
+  const onScriptError = (id: number, errorMessage: string) => {
+    ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+      id,
+      "onScriptError",
+      { errorMessage }
+    );
+  };
+
   xframes.init(
     assetsBasePath,
     JSON.stringify(fontDefs),
@@ -178,7 +186,8 @@ export const render = (
     onTableFilter,
     onTableRowClick,
     onTableItemAction,
-    onPrefetchProgress
+    onPrefetchProgress,
+    onScriptError
   );
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);

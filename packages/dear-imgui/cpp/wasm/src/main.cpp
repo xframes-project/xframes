@@ -187,6 +187,14 @@ class WasmRunner {
             );
         }
 
+        static void OnScriptError(int const id, const std::string& errorMessage) {
+            EM_ASM(
+                { Module.eventHandlers.onScriptError($0, UTF8ToString($1)); },
+                id,
+                errorMessage.c_str()
+            );
+        }
+
         void run(std::string& canvasSelector, std::string& rawFontDefs, std::optional<std::string>& rawStyleOverridesDefs) {
             m_xframes = new XFrames("XFrames", rawStyleOverridesDefs);
             m_renderer = new ImPlotRenderer(
@@ -208,7 +216,8 @@ class WasmRunner {
                 OnTableFilter,
                 OnTableRowClick,
                 OnTableItemAction,
-                OnPrefetchProgress);
+                OnPrefetchProgress,
+                OnScriptError);
             m_renderer->Init(canvasSelector);
         }
 

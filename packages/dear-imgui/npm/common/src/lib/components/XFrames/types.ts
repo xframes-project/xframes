@@ -16,6 +16,7 @@ export type ModuleEventHandlers = {
     onTableFilter: (id: number, columnIndex: number, filterText: string) => void;
     onTableRowClick: (id: number, rowIndex: number) => void;
     onTableItemAction: (id: number, rowIndex: number, actionId: string) => void;
+    onScriptError: (id: number, errorMessage: string) => void;
     onInit?: () => void;
 };
 
@@ -90,6 +91,11 @@ export type CheckboxChangeEvent = SyntheticEvent<
     { value: boolean }
 >;
 
+export type CanvasScriptErrorEvent = SyntheticEvent<
+    WidgetReactElement<"Canvas">,
+    { errorMessage: string }
+>;
+
 export type TableSortEvent = SyntheticEvent<
     WidgetReactElement<"Table">,
     { columnIndex: number; sortDirection: number }
@@ -125,7 +131,9 @@ export type WidgetPropsMap = {
         label?: string;
         onChange?: (event: CheckboxChangeEvent) => void;
     };
-    Canvas: WidgetStyleProps;
+    Canvas: WidgetStyleProps & {
+        onScriptError?: (event: CanvasScriptErrorEvent) => void;
+    };
     ColorIndicator: WidgetStyleProps & {
         color?: string;
         shape?: "rect" | "circle";

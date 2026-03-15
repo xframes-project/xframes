@@ -33,6 +33,7 @@ private:
     std::mutex m_textureMutex;
     std::vector<PendingLoad> m_pendingLoads;
     std::vector<PendingUnload> m_pendingUnloads;
+    std::vector<std::string> m_pendingScripts; // guarded by m_textureMutex
 
 #ifdef __EMSCRIPTEN__
     std::unordered_set<std::string> m_inFlightFetches; // guarded by m_textureMutex
@@ -40,6 +41,7 @@ private:
 
     void InitQuickJS();
     void CleanupQuickJS();
+    void SetScriptFromString(const std::string& script);
 
 public:
     static std::unique_ptr<Canvas> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
@@ -57,6 +59,7 @@ public:
 
 #ifdef __EMSCRIPTEN__
     void EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data);
+    void EnqueuePendingScript(std::string script);
     void ClearInFlightFetch(const std::string& textureId);
 #endif
 };

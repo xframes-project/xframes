@@ -119,6 +119,14 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         );
     }, []);
 
+    const onScriptError = useCallback((id: number, errorMessage: string) => {
+        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+            id,
+            "onScriptError",
+            { errorMessage },
+        );
+    }, []);
+
     return {
         eventHandlers: {
             onTextChange,
@@ -131,6 +139,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
             onTableFilter,
             onTableRowClick,
             onTableItemAction,
+            onScriptError,
         },
     };
 };

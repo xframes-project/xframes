@@ -79,6 +79,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnTableRowClick;
         Napi::ThreadSafeFunction m_tsfnOnTableItemAction;
         Napi::ThreadSafeFunction m_tsfnOnPrefetchProgress;
+        Napi::ThreadSafeFunction m_tsfnOnScriptError;
 
         static Runner* instance;
 
@@ -110,6 +111,7 @@ class Runner {
             m_tsfnOnTableRowClick.Release();
             m_tsfnOnTableItemAction.Release();
             m_tsfnOnPrefetchProgress.Release();
+            m_tsfnOnScriptError.Release();
         }
 
         static void OnInit() {
@@ -277,6 +279,19 @@ class Runner {
             }
         }
 
+        static void OnScriptError(int id, const std::string& errorMessage) {
+            auto pRunner = getInstance();
+            auto callback = [id, errorMessage](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::New(env, id), Napi::String::New(env, errorMessage)});
+            };
+
+            napi_status status = pRunner->m_tsfnOnScriptError.BlockingCall(callback);
+
+            if (status != napi_ok) {
+                // Handle error
+            }
+        }
+
         // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
         void SetHandlers(
             const Napi::CallbackInfo& info,
@@ -291,7 +306,8 @@ class Runner {
             Napi::Function onTableFilter,
             Napi::Function onTableRowClick,
             Napi::Function onTableItemAction,
-            Napi::Function onPrefetchProgress
+            Napi::Function onPrefetchProgress,
+            Napi::Function onScriptError
             ) {
             Napi::Env env = info.Env();
 
@@ -378,6 +394,13 @@ class Runner {
                     "onPrefetchProgress",
                     0,
                     1);
+
+            m_tsfnOnScriptError = Napi::ThreadSafeFunction::New(
+                    env,
+                    onScriptError,
+                    "onScriptError",
+                    0,
+                    1);
         }
 
         void SetRawFontDefs(std::string rawFontDefs) {
@@ -416,7 +439,8 @@ class Runner {
                 OnTableFilter,
                 OnTableRowClick,
                 OnTableItemAction,
-                OnPrefetchProgress
+                OnPrefetchProgress,
+                OnScriptError
             );
         }
 
@@ -739,8 +763,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
 
     Napi::Env env = info.Env();
 
-    if (info.Length() < 15) {
-        throw Napi::TypeError::New(env, "Expected fifteen arguments");
+    if (info.Length() < 16) {
+        throw Napi::TypeError::New(env, "Expected sixteen arguments");
     } else if (!info[0].IsString()) {
         throw Napi::TypeError::New(env, "Expected first arg to be string");
     } else if (!info[1].IsString()) {
@@ -771,6 +795,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected fourteenth arg to be function");
     } else if (!info[14].IsFunction()) {
         throw Napi::TypeError::New(env, "Expected fifteenth arg to be function");
+    } else if (!info[15].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected sixteenth arg to be function");
     }
 
     pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
@@ -789,6 +815,7 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
     const auto onTableRowClick = info[12].As<Napi::Function>();
     const auto onTableItemAction = info[13].As<Napi::Function>();
     const auto onPrefetchProgress = info[14].As<Napi::Function>();
+    const auto onScriptError = info[15].As<Napi::Function>();
 
     pRunner->SetHandlers(
         info,
@@ -803,7 +830,8 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
         onTableFilter,
         onTableRowClick,
         onTableItemAction,
-        onPrefetchProgress
+        onPrefetchProgress,
+        onScriptError
     );
 
     pRunner->init();

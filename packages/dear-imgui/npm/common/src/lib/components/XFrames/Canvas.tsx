@@ -4,6 +4,7 @@ import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistratio
 
 export type CanvasImperativeHandle = {
     setScript: (script: string) => void;
+    setScriptFile: (path: string) => void;
     setData: (data: any) => void;
     clear: () => void;
     loadTexture: (textureId: string, source: string) => void;
@@ -12,7 +13,7 @@ export type CanvasImperativeHandle = {
 };
 
 export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"]>(
-    ({ style, hoverStyle, activeStyle, disabledStyle }: WidgetPropsMap["Canvas"], ref) => {
+    ({ style, hoverStyle, activeStyle, disabledStyle, onScriptError }: WidgetPropsMap["Canvas"], ref) => {
         const widgetRegistrationService = useWidgetRegistrationService();
         const idRef = useRef(widgetRegistrationService.generateId());
 
@@ -22,6 +23,9 @@ export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"
                 return {
                     setScript(script: string) {
                         widgetRegistrationService.setCanvasScript(idRef.current, script);
+                    },
+                    setScriptFile(path: string) {
+                        widgetRegistrationService.setCanvasScriptFile(idRef.current, path);
                     },
                     setData(data: any) {
                         widgetRegistrationService.setCanvasData(idRef.current, data);
@@ -50,6 +54,7 @@ export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"
                 hoverStyle={hoverStyle}
                 activeStyle={activeStyle}
                 disabledStyle={disabledStyle}
+                onScriptError={onScriptError}
             />
         );
     },

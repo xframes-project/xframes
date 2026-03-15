@@ -421,47 +421,12 @@ export const Dashboard = () => {
 
   // Canvas: static drawing primitives showcase
   useEffect(() => {
-    canvasRef.current?.setScript(`
-      drawRectFilled(0, 0, 400, 300, '#1a1a2e');
-      drawText(10, 8, '#e0e0e0', 'Drawing Primitives');
-      drawRectFilled(15, 35, 80, 50, '#e94560');
-      drawRect(110, 35, 80, 50, '#0f3460', 2);
-      drawCircleFilled(250, 60, 25, '#16c79a');
-      drawCircle(320, 60, 25, '#f8b500', 2);
-      drawTriangleFilled(15, 120, 55, 170, 95, 120, '#e94560');
-      drawTriangle(110, 120, 150, 170, 190, 120, '#0f3460', 2);
-      drawLine(220, 120, 380, 170, '#f8b500', 2);
-      drawBezierCubic(15, 200, 80, 240, 150, 190, 220, 230, '#16c79a', 2);
-      drawNgonFilled(290, 215, 25, '#e94560', 6);
-      drawNgon(360, 215, 25, '#0f3460', 5, 2);
-      drawEllipseFilled(70, 270, 50, 20, 'rgba(22,199,154,0.6)');
-      drawEllipse(200, 270, 50, 20, '#f8b500', 2, 0.5);
-    `);
+    canvasRef.current?.setScriptFile("/assets/scripts/drawing-primitives.js");
   }, []);
 
   // Canvas: data-driven bar chart with live updates
   useEffect(() => {
-    dataCanvasRef.current?.setScript(`
-      var d = globalThis.data;
-      if (d && d.values) {
-        var w = 400, h = 300;
-        drawRectFilled(0, 0, w, h, '#16213e');
-        drawText(10, 8, '#e0e0e0', 'Live Data (' + d.values.length + ' bars)');
-        var barW = 35, gap = 8, startX = 15, maxH = 220;
-        var maxVal = 0;
-        for (var i = 0; i < d.values.length; i++) {
-          if (d.values[i] > maxVal) maxVal = d.values[i];
-        }
-        if (maxVal === 0) maxVal = 1;
-        for (var i = 0; i < d.values.length; i++) {
-          var barH = (d.values[i] / maxVal) * maxH;
-          var x = startX + i * (barW + gap);
-          var y = h - 30 - barH;
-          drawRectFilled(x, y, barW, barH, d.colors[i]);
-          drawText(x + 4, h - 24, '#aaa', d.labels[i]);
-        }
-      }
-    `);
+    dataCanvasRef.current?.setScriptFile("/assets/scripts/bar-chart.js");
     const colors = ['#e94560', '#16c79a', '#f8b500', '#0f3460', '#9b59b6', '#3498db', '#e67e22', '#1abc9c'];
     const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     const interval = setInterval(() => {
@@ -475,113 +440,14 @@ export const Dashboard = () => {
   useEffect(() => {
     textureCanvasRef.current?.loadTexture("wood", "/assets/texture-test.png");
     const timer = setTimeout(() => {
-      textureCanvasRef.current?.setScript(`
-        drawRectFilled(0, 0, 400, 300, '#1a1a2e');
-        drawImage("wood", 10, 30, 260, 260);
-        drawRect(10, 30, 260, 260, '#e0e0e0', 1);
-        drawText(10, 8, '#e0e0e0', 'Texture Demo (drawImage)');
-      `);
+      textureCanvasRef.current?.setScriptFile("/assets/scripts/texture-demo.js");
     }, 200);
     return () => clearTimeout(timer);
   }, []);
 
   // Canvas: ctx 2D API demo — analog clock using Canvas 2D API
   useEffect(() => {
-    ctx2dCanvasRef.current?.setScript(`
-      var w = ctx.canvas.width;
-      var h = ctx.canvas.height;
-      var r = Math.min(w, h) / 2 - 20;
-      var cx = w / 2;
-      var cy = h / 2;
-      var d = globalThis.data || {};
-      var now = d.time || 0;
-      var sec = now % 60;
-      var min = Math.floor(now / 60) % 60;
-      var hr = Math.floor(now / 3600) % 12;
-
-      // Background
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, w, h);
-
-      // Title
-      ctx.fillStyle = '#e0e0e0';
-      ctx.font = '16px roboto-regular';
-      ctx.textAlign = 'center';
-      ctx.fillText('Canvas 2D API Demo', cx, 20);
-
-      // Clock face
-      ctx.save();
-      ctx.translate(cx, cy + 10);
-
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.fillStyle = '#16213e';
-      ctx.fill();
-      ctx.strokeStyle = '#0f3460';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      // Hour markers
-      for (var i = 0; i < 12; i++) {
-        ctx.save();
-        ctx.rotate((i * Math.PI) / 6);
-        ctx.fillStyle = '#e94560';
-        ctx.fillRect(-2, -r + 5, 4, 15);
-        ctx.restore();
-      }
-
-      // Minute markers
-      for (var i = 0; i < 60; i++) {
-        if (i % 5 !== 0) {
-          ctx.save();
-          ctx.rotate((i * Math.PI) / 30);
-          ctx.fillStyle = '#533483';
-          ctx.fillRect(-1, -r + 8, 2, 8);
-          ctx.restore();
-        }
-      }
-
-      // Hour hand
-      ctx.save();
-      ctx.rotate((hr + min / 60) * (Math.PI / 6));
-      ctx.strokeStyle = '#e94560';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(0, 10);
-      ctx.lineTo(0, -r * 0.5);
-      ctx.stroke();
-      ctx.restore();
-
-      // Minute hand
-      ctx.save();
-      ctx.rotate((min + sec / 60) * (Math.PI / 30));
-      ctx.strokeStyle = '#0f3460';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, 15);
-      ctx.lineTo(0, -r * 0.7);
-      ctx.stroke();
-      ctx.restore();
-
-      // Second hand
-      ctx.save();
-      ctx.rotate(sec * (Math.PI / 30));
-      ctx.strokeStyle = '#e94560';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, 20);
-      ctx.lineTo(0, -r * 0.85);
-      ctx.stroke();
-      ctx.restore();
-
-      // Center dot
-      ctx.beginPath();
-      ctx.arc(0, 0, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#e94560';
-      ctx.fill();
-
-      ctx.restore();
-    `);
+    ctx2dCanvasRef.current?.setScriptFile("/assets/scripts/analog-clock.js");
 
     const now = new Date();
     let elapsed = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();

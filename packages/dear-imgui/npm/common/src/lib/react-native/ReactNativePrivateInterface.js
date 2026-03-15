@@ -10,7 +10,7 @@ const attributesForElements = {
     "di-button": ["onClick", "label", "size"],
     checkbox: ["defaultChecked", "label", "onChange"],
     child: ["defaultChecked", "label", "onChange"],
-    "di-canvas": [],
+    "di-canvas": ["onScriptError"],
     "color-indicator": ["color", "shape"],
     "color-picker": ["defaultColor", "onChange"],
     "clipped-multi-line-text-renderer": [],
@@ -121,6 +121,7 @@ export default {
                 onRowClick: { registrationName: "onRowClick" },
                 onItemAction: { registrationName: "onItemAction" },
                 onPrefetchProgress: { registrationName: "onPrefetchProgress" },
+                onScriptError: { registrationName: "onScriptError" },
             },
             get(elementType, ...unknownArgs) {
                 if (attributesForElementsMap[elementType] === undefined) {

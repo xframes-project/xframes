@@ -34,6 +34,7 @@ using OnTableFilterCallback = void (*)(int id, int columnIndex, const std::strin
 using OnTableRowClickCallback = void (*)(int id, int rowIndex);
 using OnTableItemActionCallback = void (*)(int id, int rowIndex, const std::string& actionId);
 using OnPrefetchProgressCallback = void (*)(int id, int completed, int total);
+using OnScriptErrorCallback = void (*)(int id, const std::string& errorMessage);
 
 std::optional<float> charPercentageToFloat(const char* input);
 

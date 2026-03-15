@@ -518,6 +518,20 @@ export class WidgetRegistrationService {
         }
     }
 
+    setCanvasScriptFile(id: string, path: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setScriptFile", path }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setCanvasData(id: string, data: any) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

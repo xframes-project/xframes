@@ -18,6 +18,10 @@ struct CanvasFetchContext {
     Canvas* widget;
     std::string textureId;
 };
+
+struct ScriptFetchContext {
+    Canvas* widget;
+};
 #endif
 
 Canvas::Canvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
@@ -71,6 +75,11 @@ void Canvas::InitQuickJS() {
                                  "<canvas2d_shim>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(shimResult)) {
         JSValue exc = JS_GetException(m_context);
+        const char* msg = JS_ToCString(m_context, exc);
+        if (msg && m_view->m_onScriptError) {
+            m_view->m_onScriptError(m_id, std::string(msg));
+        }
+        if (msg) JS_FreeCString(m_context, msg);
         JS_FreeValue(m_context, exc);
     }
     JS_FreeValue(m_context, shimResult);
@@ -89,6 +98,34 @@ void Canvas::CleanupQuickJS() {
         JS_FreeRuntime(m_runtime);
         m_runtime = nullptr;
     }
+}
+
+void Canvas::SetScriptFromString(const std::string& script) {
+    if (!m_context) return;
+
+    // Free previous render function
+    if (!JS_IsUndefined(m_renderFunc)) {
+        JS_FreeValue(m_context, m_renderFunc);
+        m_renderFunc = JS_UNDEFINED;
+    }
+
+    // Wrap user script in a function so we can call it each frame
+    std::string wrapped = "(function() { " + script + " })";
+    JSValue val = JS_Eval(m_context, wrapped.c_str(), wrapped.size(), "<canvas>", JS_EVAL_TYPE_GLOBAL);
+
+    if (JS_IsException(val)) {
+        JSValue exc = JS_GetException(m_context);
+        const char* msg = JS_ToCString(m_context, exc);
+        if (msg && m_view->m_onScriptError) {
+            m_view->m_onScriptError(m_id, std::string(msg));
+        }
+        if (msg) JS_FreeCString(m_context, msg);
+        JS_FreeValue(m_context, exc);
+        JS_FreeValue(m_context, val);
+        return;
+    }
+
+    m_renderFunc = val;
 }
 
 void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
@@ -142,6 +179,12 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             }
         }
         m_pendingUnloads.clear();
+
+        // Process pending scripts (from WASM async fetch)
+        for (auto& script : m_pendingScripts) {
+            SetScriptFromString(script);
+        }
+        m_pendingScripts.clear();
     }
 
     // Set textureLookup for this frame
@@ -177,6 +220,11 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         JSValue result = JS_Call(m_context, m_renderFunc, global, 0, nullptr);
         if (JS_IsException(result)) {
             JSValue exc = JS_GetException(m_context);
+            const char* msg = JS_ToCString(m_context, exc);
+            if (msg && view->m_onScriptError) {
+                view->m_onScriptError(m_id, std::string(msg));
+            }
+            if (msg) JS_FreeCString(m_context, msg);
             JS_FreeValue(m_context, exc);
         }
         JS_FreeValue(m_context, result);
@@ -202,25 +250,44 @@ void Canvas::HandleInternalOp(const json& opDef) {
     if (op == "setScript") {
         if (!opDef.contains("script")) return;
         auto script = opDef["script"].template get<std::string>();
+        SetScriptFromString(script);
+    } else if (op == "setScriptFile") {
+        if (!opDef.contains("path")) return;
+        auto path = opDef["path"].template get<std::string>();
 
-        // Free previous render function
-        if (!JS_IsUndefined(m_renderFunc)) {
-            JS_FreeValue(m_context, m_renderFunc);
-            m_renderFunc = JS_UNDEFINED;
-        }
+#ifdef __EMSCRIPTEN__
+        // Async fetch — callback queues script for evaluation in Render()
+        auto* fetchCtx = new ScriptFetchContext{this};
 
-        // Wrap user script in a function so we can call it each frame
-        std::string wrapped = "(function() { " + script + " })";
-        JSValue val = JS_Eval(m_context, wrapped.c_str(), wrapped.size(), "<canvas>", JS_EVAL_TYPE_GLOBAL);
+        emscripten_fetch_attr_t attr;
+        emscripten_fetch_attr_init(&attr);
+        strcpy(attr.requestMethod, "GET");
+        attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+        attr.userData = fetchCtx;
 
-        if (JS_IsException(val)) {
-            JSValue exc = JS_GetException(m_context);
-            JS_FreeValue(m_context, exc);
-            JS_FreeValue(m_context, val);
-            return;
-        }
+        attr.onsuccess = [](emscripten_fetch_t* fetch) {
+            auto* ctx = static_cast<ScriptFetchContext*>(fetch->userData);
+            std::string script(fetch->data, fetch->numBytes);
+            ctx->widget->EnqueuePendingScript(std::move(script));
+            delete ctx;
+            emscripten_fetch_close(fetch);
+        };
 
-        m_renderFunc = val; // store the function
+        attr.onerror = [](emscripten_fetch_t* fetch) {
+            auto* ctx = static_cast<ScriptFetchContext*>(fetch->userData);
+            delete ctx;
+            emscripten_fetch_close(fetch);
+        };
+
+        emscripten_fetch(&attr, path.c_str());
+#else
+        std::ifstream file(path);
+        if (!file.is_open()) return;
+
+        std::string script((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+        SetScriptFromString(script);
+#endif
     } else if (op == "setData") {
         if (!opDef.contains("data")) return;
 
@@ -339,6 +406,11 @@ void Canvas::EnqueuePendingLoad(std::string textureId, std::vector<unsigned char
     std::lock_guard<std::mutex> lock(m_textureMutex);
     m_inFlightFetches.erase(textureId);
     m_pendingLoads.push_back({std::move(textureId), std::move(data)});
+}
+
+void Canvas::EnqueuePendingScript(std::string script) {
+    std::lock_guard<std::mutex> lock(m_textureMutex);
+    m_pendingScripts.push_back(std::move(script));
 }
 
 void Canvas::ClearInFlightFetch(const std::string& textureId) {
