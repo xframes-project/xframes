@@ -30,6 +30,7 @@
 #include "color_helpers.h"
 #include "implot_renderer.h"
 
+#include "widget/canvas.h"
 #include "widget/map_view.h"
 
 #include "widget/button.h"
@@ -159,6 +160,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["di-image"] = &makeWidget<Image>;
 
     m_element_init_fn["map-view"] = &makeWidget<MapView>;
+    m_element_init_fn["di-canvas"] = &makeWidget<Canvas>;
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;
     m_element_init_fn["plot-heatmap"] = &makeWidget<PlotHeatmap>;

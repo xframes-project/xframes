@@ -19,6 +19,7 @@
     "tiff",
     "curl",
     "fmt",
-    "glfw3"
+    "glfw3",
+    "quickjs-ng"
   ]
 }

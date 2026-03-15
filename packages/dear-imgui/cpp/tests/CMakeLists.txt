@@ -139,6 +139,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/text_wrap.cpp
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
+        ../app/src/widget/canvas.cpp
 
         ../app/src/xframes.cpp
         ../app/src/disk_tile_cache.cpp
@@ -153,6 +154,7 @@ add_executable(Google_Tests_run
         element/element_test.cpp
         xframes_test.cpp
         quickjs_test.cpp
+        canvas_test.cpp
 )
 
 target_include_directories(

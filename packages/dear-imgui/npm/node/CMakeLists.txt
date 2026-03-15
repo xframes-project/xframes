@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0042 NEW)
 
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
 if(NOT CMAKE_GENERATOR)
     set(CMAKE_GENERATOR "Ninja")
 endif()
@@ -39,6 +41,7 @@ find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(qjs CONFIG REQUIRED)
 
 include_directories(${CMAKE_JS_INC})
 
@@ -123,6 +126,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/text_wrap.cpp
         ${APP}/src/widget/tree_node.cpp
         ${APP}/src/widget/window.cpp
+        ${APP}/src/widget/canvas.cpp
 
         ./src/xframes-node.cpp
 
@@ -146,6 +150,7 @@ target_link_libraries(${PROJECT_NAME}
 
         glfw
         OpenGL::GL
+        qjs
 )
 
 # Include Node-API wrappers

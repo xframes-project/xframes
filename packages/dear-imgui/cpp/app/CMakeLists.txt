@@ -33,6 +33,7 @@ find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(CURL REQUIRED)
+find_package(qjs CONFIG REQUIRED)
 # find_package(RPP REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
@@ -101,6 +102,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/text_wrap.cpp
         ${XFRAMES_BASE_PATH}/src/widget/tree_node.cpp
         ${XFRAMES_BASE_PATH}/src/widget/window.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/canvas.cpp
 
 )
 
@@ -139,4 +141,5 @@ target_link_libraries(xframes PRIVATE
         fmt::fmt
         glfw
         OpenGL::GL
+        qjs
 )
