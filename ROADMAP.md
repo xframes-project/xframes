@@ -378,54 +378,113 @@ A generic custom drawing surface that exposes ImGui's ImDrawList primitives to J
 
 **Architecture:** React sends raw data (e.g. satellite positions) via `elementInternalOp` → C++ passes data into the QuickJS context → JS rendering script calls bound ImDrawList methods directly (addLine, addCircleFilled, etc.) → ImGui renders. Data crosses the bridge once when it changes; the render function executes at frame rate in-process with zero serialization.
 
-### Stage 1 — Submodule & Build Plumbing
+### Stage 1 — Submodule & Build Plumbing (done)
 
-- [ ] Add quickjs-ng as git submodule (`cpp/deps/quickjs`)
-- [ ] Add quickjspp (header-only C++ wrapper) as git submodule (`cpp/deps/quickjspp`)
-- [ ] Add quickjs source files to all 4 CMakeLists.txt (`cpp/app`, `npm/node`, `cpp/wasm`, `cpp/tests`)
-- [ ] Verify clean compilation on Windows (MSVC) and confirm no conflicts with existing deps
+- [x] Add quickjs-ng as git submodule (`cpp/deps/quickjs`)
+- [x] Add quickjspp (header-only C++ wrapper) as git submodule (`cpp/deps/quickjspp`)
+- [x] Add quickjs source files to all 4 CMakeLists.txt (`cpp/app`, `npm/node`, `cpp/wasm`, `cpp/tests`)
+- [x] Verify clean compilation on Windows (MSVC) and confirm no conflicts with existing deps
 
-### Stage 2 — Basic Embedding Proof (Unit Tests)
+### Stage 2 — Basic Embedding Proof (Unit Tests) (done)
 
-- [ ] Unit test: construct/destroy QuickJS runtime + context (no leak, no crash)
-- [ ] Unit test: evaluate `1 + 1`, verify int result
-- [ ] Unit test: evaluate arrow function with destructuring (confirm ES2023 features work)
-- [ ] Unit test: expose a C++ function to JS, call it from JS, verify side effects
+- [x] Unit test: construct/destroy QuickJS runtime + context (no leak, no crash)
+- [x] Unit test: evaluate `1 + 1`, verify int result
+- [x] Unit test: evaluate arrow function with destructuring (confirm ES2023 features work)
+- [x] Unit test: expose a C++ function to JS, call it from JS, verify side effects
 
-### Stage 3 — ImDrawList Bindings
+### Stage 3 — ImDrawList Bindings (done)
 
-- [ ] Create `quickjs_bindings.h/.cpp` — exposes ImDrawList drawing methods to JS
-- [ ] Bind core primitives: addLine, addRect, addRectFilled, addCircle, addCircleFilled, addTriangle, addTriangleFilled, addText, addPolyline, addBezierCubic, addNgon, addEllipse, addEllipseFilled
-- [ ] Color handling: JS passes CSS color strings, binding layer converts via `extractColor()` once per call
-- [ ] Coordinate translation: all JS coordinates are canvas-local (0,0 = top-left of widget), binding adds `ImGui::GetCursorScreenPos()` offset
-- [ ] Unit tests for each bound function
+- [x] Create `quickjs_draw_bindings.h` (header-only) — exposes ImDrawList drawing methods to JS
+- [x] Bind 14 core primitives: drawLine, drawRect, drawRectFilled, drawCircle, drawCircleFilled, drawTriangle, drawTriangleFilled, drawText, drawPolyline, drawBezierCubic, drawNgon, drawNgonFilled, drawEllipse, drawEllipseFilled
+- [x] Color handling: JS passes CSS color strings, binding layer converts via `extractColor()` once per call
+- [x] Coordinate translation: all JS coordinates are canvas-local (0,0 = top-left of widget), binding adds `ImGui::GetCursorScreenPos()` offset
+- [x] Recording mode: `DrawContext.recording = true` captures call parameters for testing without ImGui/GL context
+- [x] Unit tests for each bound function
 
-### Stage 4 — Canvas Widget Skeleton
+### Stage 4 — Canvas Widget Skeleton (done)
 
-- [ ] New widget files: `canvas.h`, `canvas.cpp` (extends StyledWidget)
-- [ ] Holds `JSRuntime*` + `JSContext*` per widget instance
-- [ ] `makeWidget()` creates QuickJS runtime, registers ImDrawList bindings
-- [ ] `Render()` each frame: gets `ImDrawList*`, sets it in JS context, calls the stored JS render function
-- [ ] `HasInternalOps()` returns true
-- [ ] `HandleInternalOp()` supports `setScript` (compile + store JS render function) and `setData` (update data global in JS context)
-- [ ] Register as `"canvas"` in `SetUpElementCreatorFunctions()`
-- [ ] Data persists in QuickJS context between frames — only re-sent when it changes
+- [x] New widget files: `canvas.h`, `canvas.cpp` (extends StyledWidget)
+- [x] Holds `JSRuntime*` + `JSContext*` per widget instance
+- [x] `makeWidget()` creates QuickJS runtime, registers ImDrawList bindings
+- [x] `Render()` each frame: gets `ImDrawList*`, sets it in JS context, calls the stored JS render function
+- [x] `HasInternalOps()` returns true
+- [x] `HandleInternalOp()` supports `setScript` (compile + store JS render function), `setData` (update data global in JS context), and `clear`
+- [x] Register as `"di-canvas"` in `SetUpElementCreatorFunctions()`
+- [x] Data persists in QuickJS context between frames — only re-sent when it changes
 
-### Stage 5 — React Integration
+### Stage 5 — React Integration (done)
 
-- [ ] TypeScript types: `CanvasProps`, `CanvasImperativeHandle` (with `setScript`, `setData`, `clear`)
-- [ ] React component `Canvas.tsx` in `@xframes/common`
-- [ ] `WidgetRegistrationService` methods: `setCanvasScript(id, jsCode)`, `setCanvasData(id, data)`
-- [ ] NAPI + WASM bindings (same `elementInternalOp` path as PlotLine/Table)
+- [x] TypeScript types: `CanvasProps`, `CanvasImperativeHandle` (with `setScript`, `setData`, `clear`)
+- [x] React component `Canvas.tsx` in `@xframes/common`
+- [x] `WidgetRegistrationService` methods: `setCanvasScript(id, jsCode)`, `setCanvasData(id, data)`, `clearCanvas(id)`
+- [x] NAPI + WASM bindings (same `elementInternalOp` path as PlotLine/Table)
 
-### Stage 6 — Small-Scale Example
+### Stage 6 — Small-Scale Example (done)
 
-- [ ] Satellite sky view rendering script (TypeScript, transpiled to ES2023)
-- [ ] Polar grid (azimuth/elevation circles + radial lines) drawn from JS
-- [ ] Satellite markers (colored circles + PRN labels) driven by data
-- [ ] Data shape: `{ satellites: [{ prn, azimuth, elevation, snr, constellation }] }`
-- [ ] React component sends mock satellite data, script renders the full visualization
-- [ ] Demonstrates: static geometry (grid computed once in JS), dynamic data (satellites update), zero bridge overhead for rendering
+- [x] Dashboard demo with two Canvas instances: static primitives showcase + data-driven bar chart
+- [x] Demonstrates: `setScript()`, `setData()`, `clear()`, live data updates via `useEffect`
+- [x] Button control for clearing canvas state
+
+### Stage 7 — WASM Integration (done)
+
+- [x] quickjs-ng vcpkg overlay port for Emscripten (custom portfile with `pdb_name_conflict.patch`)
+- [x] Canvas widget compiles and runs in WASM build
+- [x] quickjs-ng added to `cpp/app/vcpkg.json`
+
+### Stage 8 — Edge Case Tests (done)
+
+- [x] 25 new tests across `canvas_test.cpp` and `quickjs_test.cpp` (168 total)
+- [x] Script edge cases: runtime exceptions, undefined data access, closure state, empty scripts, conditional drawing, 1000-call stress test
+- [x] Data edge cases: nested objects, null values, missing script, empty object
+- [x] Lifecycle edge cases: idempotent clear, set→clear→set cycle, rapid data updates
+- [x] Draw binding edge cases: color parsing (rgba, invalid, empty, short hex), offset verification for triangle/ellipse/bezier/ngon/text, default parameter verification
+
+### Stage 9 — `drawImage` Binding
+
+Pure QuickJS binding work — no GPU, no platform splits, fully testable in recording mode.
+
+- [ ] Extend `DrawContext` with `std::function<ImTextureID(const std::string&)> textureLookup` callback
+- [ ] Add `js_drawImage(textureId, x, y, w, h, uvX0?, uvY0?, uvX1?, uvY1?)` — 15th bound function
+  - Recording: stores function name, float args (position + size + UVs), textArg = textureId
+  - Production: calls `textureLookup(textureId)` → `AddImage()` if found, silent no-op if missing
+  - Offset applied to x,y only; w,h and UVs pass through unchanged
+  - UV defaults: (0,0)→(1,1) (full image)
+- [ ] Register in `registerDrawBindings()`
+- [ ] Tests: registration, basic recording, UV params, offset, null drawList, insufficient args
+- [ ] Update `AllFunctionsRegistered` and `NullDrawListNoCrash` tests for 15 functions
+
+### Stage 10 — Desktop Texture Loading
+
+Texture lifecycle on the OpenGL/desktop path. `HandleInternalOp` runs on the JS thread, but GPU texture ops (`glGenTextures`) must happen on the render thread — uses a pending queue (same pattern as MapView tiles).
+
+- [ ] Canvas members: `std::unordered_map<std::string, Texture> m_textures`, pending load/unload queues (mutex-protected)
+- [ ] `HandleInternalOp("loadTexture")` — queues `{textureId, source}` (source = file path, absolute or relative to CWD)
+- [ ] `HandleInternalOp("unloadTexture")` — queues textureId for removal
+- [ ] `Render()` processes pending queues before drawing:
+  - Unloads: `glDeleteTextures`, erase from map
+  - Loads: `fopen`/`fread` → `view->m_renderer->LoadTexture(data, size)` → store GLuint in `m_textures`
+- [ ] Set `m_drawContext.textureLookup` lambda each frame to look up `m_textures`
+- [ ] Destructor cleanup: release all GPU textures before `CleanupQuickJS()`
+
+### Stage 11 — WASM Texture Loading
+
+Async texture loading on the WebGPU/WASM path. `emscripten_fetch` is async — fetch callback stores raw bytes in a queue, `Render()` uploads to GPU. Texture views (`WGPUTextureView`) must not be released while pending in ImGui's draw list.
+
+- [ ] WASM path in `Render()`: calls `StartAsyncFetch()` instead of sync file read
+- [ ] `StartAsyncFetch()`: `emscripten_fetch()` with `Canvas*` + textureId in userData
+- [ ] Success callback: copies fetch data into `m_pendingData` queue (separate mutex)
+- [ ] `Render()` processes `m_pendingData`: `view->m_renderer->LoadTexture(data, size, &tex)` → WebGPU create + upload → store in `m_textures`
+- [ ] Unload: `wgpuTextureViewRelease()` at start of `Render()` (before draw commands — no dangling view refs)
+- [ ] Error callback: log + cleanup (no crash)
+
+### Stage 12 — React Integration & Demo
+
+TypeScript types, imperative handle extensions, and a working demo.
+
+- [ ] `WidgetRegistrationService`: `loadCanvasTexture(id, textureId, source)`, `unloadCanvasTexture(id, textureId)`
+- [ ] `CanvasImperativeHandle`: add `loadTexture(textureId, source)` and `unloadTexture(textureId)`
+- [ ] `Canvas.tsx`: wire new imperative handle methods
+- [ ] Dashboard demo: load an image file, render it with `drawImage()` in a canvas script
 
 ### Reference
 
