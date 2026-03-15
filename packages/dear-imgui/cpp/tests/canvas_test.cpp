@@ -418,3 +418,31 @@ TEST_F(CanvasTest, MultipleRapidDataUpdates) {
     ASSERT_EQ(dc.recorded.size(), 1u);
     EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 99.0f); // last value
 }
+
+// --- drawImage in Canvas ---
+
+// Script calls drawImage; recorded with correct function name and args
+TEST_F(CanvasTest, DrawImageInScript) {
+    setScript("drawImage('bg', 0, 0, 200, 100);");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawImage");
+    EXPECT_EQ(dc.recorded[0].textArg, "bg");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 0.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 0.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 200.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[3], 100.0f);
+}
+
+// textureId comes from data object
+TEST_F(CanvasTest, DrawImageDataDriven) {
+    setData(R"({"texId": "player_sprite"})");
+    setScript("drawImage(data.texId, 10, 20, 32, 32);");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].textArg, "player_sprite");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 10.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 20.0f);
+}

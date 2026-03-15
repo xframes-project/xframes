@@ -128,7 +128,8 @@ TEST_F(QuickJSDrawTest, AllFunctionsRegistered) {
         "drawTriangle", "drawTriangleFilled",
         "drawText", "drawPolyline", "drawBezierCubic",
         "drawNgon", "drawNgonFilled",
-        "drawEllipse", "drawEllipseFilled"
+        "drawEllipse", "drawEllipseFilled",
+        "drawImage"
     };
 
     for (const char* name : names) {
@@ -397,6 +398,7 @@ TEST_F(QuickJSDrawTest, NullDrawListNoCrash) {
         "drawNgonFilled(0,0,1,'#fff',6)",
         "drawEllipse(0,0,1,1,'#fff')",
         "drawEllipseFilled(0,0,1,1,'#fff')",
+        "drawImage('t',0,0,1,1)",
     };
 
     for (const char* code : calls) {
@@ -405,7 +407,7 @@ TEST_F(QuickJSDrawTest, NullDrawListNoCrash) {
         JS_FreeValue(ctx, r);
     }
 
-    EXPECT_EQ(dc.recorded.size(), 14u);
+    EXPECT_EQ(dc.recorded.size(), 15u);
 }
 
 // Insufficient args returns undefined without crashing
@@ -639,4 +641,87 @@ TEST_F(QuickJSDrawTest, DrawEllipseDefaultParams) {
     auto& args = dc.recorded[0].floatArgs;
     EXPECT_FLOAT_EQ(args[4], 1.0f);  // thickness defaults to 1.0
     EXPECT_FLOAT_EQ(args[5], 0.0f);  // rotation defaults to 0.0
+}
+
+// --- drawImage tests ---
+
+// drawImage is registered as a function
+TEST_F(QuickJSDrawTest, DrawImageRegistered) {
+    JSValue result = eval("typeof drawImage");
+    ASSERT_FALSE(JS_IsException(result));
+    const char* typeStr = JS_ToCString(ctx, result);
+    EXPECT_STREQ(typeStr, "function");
+    JS_FreeCString(ctx, typeStr);
+    JS_FreeValue(ctx, result);
+}
+
+// drawImage with 5 args records textArg, position, size, and default UVs
+TEST_F(QuickJSDrawTest, DrawImageBasic) {
+    JSValue r = eval("drawImage('background', 10, 20, 200, 100)");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& call = dc.recorded[0];
+    EXPECT_EQ(call.function, "drawImage");
+    EXPECT_EQ(call.textArg, "background");
+    EXPECT_FLOAT_EQ(call.floatArgs[0], 10.0f);  // x
+    EXPECT_FLOAT_EQ(call.floatArgs[1], 20.0f);  // y
+    EXPECT_FLOAT_EQ(call.floatArgs[2], 200.0f); // w
+    EXPECT_FLOAT_EQ(call.floatArgs[3], 100.0f); // h
+    EXPECT_FLOAT_EQ(call.floatArgs[4], 0.0f);   // uvX0 default
+    EXPECT_FLOAT_EQ(call.floatArgs[5], 0.0f);   // uvY0 default
+    EXPECT_FLOAT_EQ(call.floatArgs[6], 1.0f);   // uvX1 default
+    EXPECT_FLOAT_EQ(call.floatArgs[7], 1.0f);   // uvY1 default
+}
+
+// drawImage with 9 args records custom UV values
+TEST_F(QuickJSDrawTest, DrawImageWithUVs) {
+    JSValue r = eval("drawImage('sprite', 0, 0, 64, 64, 0.25, 0.25, 0.75, 0.75)");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& call = dc.recorded[0];
+    EXPECT_EQ(call.function, "drawImage");
+    EXPECT_EQ(call.textArg, "sprite");
+    EXPECT_FLOAT_EQ(call.floatArgs[4], 0.25f);  // uvX0
+    EXPECT_FLOAT_EQ(call.floatArgs[5], 0.25f);  // uvY0
+    EXPECT_FLOAT_EQ(call.floatArgs[6], 0.75f);  // uvX1
+    EXPECT_FLOAT_EQ(call.floatArgs[7], 0.75f);  // uvY1
+}
+
+// Offset applied to x,y; w,h unchanged
+TEST_F(QuickJSDrawTest, DrawImageOffsetApplied) {
+    dc.offset = {50, 75};
+
+    JSValue r = eval("drawImage('tex', 10, 20, 100, 50)");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[0], 60.0f);   // 10 + 50
+    EXPECT_FLOAT_EQ(args[1], 95.0f);   // 20 + 75
+    EXPECT_FLOAT_EQ(args[2], 100.0f);  // w unchanged
+    EXPECT_FLOAT_EQ(args[3], 50.0f);   // h unchanged
+}
+
+// Null drawList with recording works fine
+TEST_F(QuickJSDrawTest, DrawImageNullDrawList) {
+    JSValue r = eval("drawImage('tex', 0, 0, 1, 1)");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawImage");
+}
+
+// Insufficient args (<5) produces no recording and no crash
+TEST_F(QuickJSDrawTest, DrawImageInsufficientArgs) {
+    JSValue r = eval("drawImage('tex', 0, 0)");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    EXPECT_EQ(dc.recorded.size(), 0u);
 }

@@ -7,6 +7,7 @@ extern "C" {
 #include <imgui.h>
 #include <vector>
 #include <string>
+#include <functional>
 
 #include "color_helpers.h"
 
@@ -25,6 +26,7 @@ struct DrawContext {
     };
     std::vector<DrawCall> recorded;
     bool recording = false;
+    std::function<ImTextureID(const std::string&)> textureLookup;
 };
 
 namespace QuickJSDrawBindings {
@@ -473,7 +475,41 @@ inline JSValue js_drawEllipseFilled(JSContext* ctx, JSValue this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-// Register all 14 draw functions on the JS global object
+// drawImage(textureId, x, y, w, h, uvX0?, uvY0?, uvX1?, uvY1?)
+inline JSValue js_drawImage(JSContext* ctx, JSValue this_val, int argc, JSValue* argv) {
+    auto* dc = getDC(ctx);
+    if (!dc || argc < 5) return JS_UNDEFINED;
+
+    const char* textureId = JS_ToCString(ctx, argv[0]);
+    float x = (float)getFloat(ctx, argc, argv, 1);
+    float y = (float)getFloat(ctx, argc, argv, 2);
+    float w = (float)getFloat(ctx, argc, argv, 3);
+    float h = (float)getFloat(ctx, argc, argv, 4);
+    float uvX0 = (float)getFloat(ctx, argc, argv, 5, 0.0);
+    float uvY0 = (float)getFloat(ctx, argc, argv, 6, 0.0);
+    float uvX1 = (float)getFloat(ctx, argc, argv, 7, 1.0);
+    float uvY1 = (float)getFloat(ctx, argc, argv, 8, 1.0);
+
+    float ox = dc->offset.x, oy = dc->offset.y;
+    if (dc->recording) {
+        dc->recorded.push_back({"drawImage",
+            {x + ox, y + oy, w, h, uvX0, uvY0, uvX1, uvY1},
+            0, textureId ? textureId : ""});
+    }
+    if (dc->drawList && dc->textureLookup) {
+        std::string id = textureId ? textureId : "";
+        ImTextureID texId = dc->textureLookup(id);
+        if (texId) {
+            dc->drawList->AddImage(texId,
+                {x + ox, y + oy}, {x + w + ox, y + h + oy},
+                {uvX0, uvY0}, {uvX1, uvY1});
+        }
+    }
+    if (textureId) JS_FreeCString(ctx, textureId);
+    return JS_UNDEFINED;
+}
+
+// Register all 15 draw functions on the JS global object
 inline void registerDrawBindings(JSContext* ctx) {
     JSValue global = JS_GetGlobalObject(ctx);
 
@@ -496,6 +532,7 @@ inline void registerDrawBindings(JSContext* ctx) {
     reg("drawNgonFilled",     js_drawNgonFilled,     5);
     reg("drawEllipse",        js_drawEllipse,        5);
     reg("drawEllipseFilled",  js_drawEllipseFilled,  5);
+    reg("drawImage",          js_drawImage,          5);
 
     JS_FreeValue(ctx, global);
 }
