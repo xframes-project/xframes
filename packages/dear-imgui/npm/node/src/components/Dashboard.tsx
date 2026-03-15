@@ -196,6 +196,7 @@ export const Dashboard = () => {
   const textureCanvasRef = useRef<CanvasImperativeHandle>(null);
   const ctx2dCanvasRef = useRef<CanvasImperativeHandle>(null);
   const luaCanvasRef = useRef<LuaCanvasImperativeHandle>(null);
+  const luaClockRef = useRef<LuaCanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -481,6 +482,22 @@ export const Dashboard = () => {
   // LuaCanvas: Lua drawing primitives demo
   useEffect(() => {
     luaCanvasRef.current?.setScriptFile("./src/scripts/lua-drawing-primitives.lua");
+  }, []);
+
+  // LuaCanvas: ctx 2D API demo — analog clock using Lua Canvas 2D API
+  useEffect(() => {
+    luaClockRef.current?.setScriptFile("./src/scripts/lua-analog-clock.lua");
+
+    const now = new Date();
+    let elapsed = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    luaClockRef.current?.setData({ time: elapsed });
+
+    const interval = setInterval(() => {
+      elapsed++;
+      luaClockRef.current?.setData({ time: elapsed });
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleClearCanvas = useCallback(() => {
@@ -815,6 +832,11 @@ export const Dashboard = () => {
               ref={luaCanvasRef}
               style={styles.plotArea}
             />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="LuaCanvas (2D API - Clock)" />
+            <XFrames.LuaCanvas ref={luaClockRef} style={styles.plotArea} />
           </XFrames.Node>
         </XFrames.Node>
       </XFrames.Node>

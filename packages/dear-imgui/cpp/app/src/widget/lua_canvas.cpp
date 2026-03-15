@@ -10,6 +10,7 @@
 
 #include "widget/lua_canvas.h"
 #include "sol2_draw_bindings.h"
+#include "lua_canvas2d_shim.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
 
@@ -78,6 +79,16 @@ void LuaCanvas::InitLua() {
     m_drawContext.recording = false;
 
     Sol2DrawBindings::registerDrawBindings(m_lua, m_drawContext);
+
+    // Evaluate Canvas 2D API shim — creates global `ctx` table
+    const auto& shim = getLuaCanvas2DShim();
+    auto shimResult = m_lua.safe_script(shim, sol::script_pass_on_error);
+    if (!shimResult.valid()) {
+        sol::error err = shimResult;
+        if (m_view->m_onScriptError) {
+            m_view->m_onScriptError(m_id, std::string(err.what()));
+        }
+    }
 }
 
 void LuaCanvas::SetScriptFromString(const std::string& script) {
