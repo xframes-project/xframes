@@ -437,7 +437,6 @@ TEST_F(QuickJSDrawTest, MultipleCalls) {
 
 // parseCSSColor standalone test
 TEST_F(QuickJSDrawTest, ParseCSSColorValues) {
-    using QuickJSDrawBindings::parseCSSColor;
 
     EXPECT_EQ(parseCSSColor("#ff0000"), IM_COL32(255, 0, 0, 255));
     EXPECT_EQ(parseCSSColor("#00ff00"), IM_COL32(0, 255, 0, 255));
@@ -506,19 +505,16 @@ TEST_F(QuickJSDrawTest, ColorParsingRGBA) {
 
 // Invalid color string falls back to white
 TEST_F(QuickJSDrawTest, ColorParsingInvalid) {
-    using QuickJSDrawBindings::parseCSSColor;
     EXPECT_EQ(parseCSSColor("notacolor"), IM_COL32(255, 255, 255, 255));
 }
 
 // Empty string falls back to white
 TEST_F(QuickJSDrawTest, ColorParsingEmptyString) {
-    using QuickJSDrawBindings::parseCSSColor;
     EXPECT_EQ(parseCSSColor(""), IM_COL32(255, 255, 255, 255));
 }
 
 // Short hex #f00 parses as red
 TEST_F(QuickJSDrawTest, ColorParsingShortHex) {
-    using QuickJSDrawBindings::parseCSSColor;
     EXPECT_EQ(parseCSSColor("#f00"), IM_COL32(255, 0, 0, 255));
 }
 

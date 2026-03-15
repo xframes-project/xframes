@@ -34,6 +34,8 @@ find_package(TIFF REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(CURL REQUIRED)
 find_package(qjs CONFIG REQUIRED)
+find_package(Lua REQUIRED)
+find_package(sol2 CONFIG REQUIRED)
 # find_package(RPP REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
@@ -103,6 +105,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/tree_node.cpp
         ${XFRAMES_BASE_PATH}/src/widget/window.cpp
         ${XFRAMES_BASE_PATH}/src/widget/canvas.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/lua_canvas.cpp
 
 )
 
@@ -127,6 +130,7 @@ target_include_directories(
 
         ${DEPS}/osm-static-map-generator/cpp
         ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
+        ${LUA_INCLUDE_DIR}
 )
 
 target_link_libraries(xframes PRIVATE
@@ -142,4 +146,6 @@ target_link_libraries(xframes PRIVATE
         glfw
         OpenGL::GL
         qjs
+        ${LUA_LIBRARIES}
+        sol2::sol2
 )

@@ -34,6 +34,8 @@ find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(CURL REQUIRED)
 find_package(qjs CONFIG REQUIRED)
+find_package(Lua REQUIRED)
+find_package(sol2 CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -140,6 +142,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
         ../app/src/widget/canvas.cpp
+        ../app/src/widget/lua_canvas.cpp
 
         ../app/src/xframes.cpp
         ../app/src/disk_tile_cache.cpp
@@ -155,6 +158,7 @@ add_executable(Google_Tests_run
         xframes_test.cpp
         quickjs_test.cpp
         canvas_test.cpp
+        lua_canvas_test.cpp
 )
 
 target_include_directories(
@@ -176,6 +180,7 @@ target_include_directories(
         ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
         ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff
         ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
+        ${LUA_INCLUDE_DIR}
 )
 
 target_link_libraries(Google_Tests_run
@@ -193,4 +198,6 @@ target_link_libraries(Google_Tests_run
         TIFF::TIFF
         CURL::libcurl
         qjs
+        ${LUA_LIBRARIES}
+        sol2::sol2
 )

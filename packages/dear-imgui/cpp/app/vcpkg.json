@@ -20,6 +20,8 @@
     "curl",
     "fmt",
     "glfw3",
-    "quickjs-ng"
+    "quickjs-ng",
+    "lua",
+    "sol2"
   ]
 }

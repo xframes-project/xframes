@@ -22,6 +22,8 @@
         "stb",
         "ada-url",
         "fmt",
-        "quickjs-ng"
+        "quickjs-ng",
+        "lua",
+        "sol2"
     ]
 }

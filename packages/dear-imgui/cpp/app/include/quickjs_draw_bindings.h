@@ -4,42 +4,9 @@ extern "C" {
 #include <quickjs.h>
 }
 
-#include <imgui.h>
-#include <vector>
-#include <string>
-#include <functional>
-
-#include "color_helpers.h"
-
-// Bridge between JS draw calls and ImDrawList.
-// In production, drawList points to the Canvas widget's ImDrawList (set per-frame).
-// In tests, drawList is null and recording captures call parameters.
-struct DrawContext {
-    ImDrawList* drawList = nullptr;
-    ImVec2 offset = {0, 0};
-    ImFont* currentFont = nullptr; // Set per-frame in Canvas::Render() for text measurement
-
-    struct DrawCall {
-        std::string function;
-        std::vector<float> floatArgs;
-        ImU32 color = 0;
-        std::string textArg;
-    };
-    std::vector<DrawCall> recorded;
-    bool recording = false;
-    std::function<ImTextureID(const std::string&)> textureLookup;
-};
+#include "draw_context.h"
 
 namespace QuickJSDrawBindings {
-
-// Parse CSS color string (e.g. "#FF0000", "red") to ImU32.
-// Uses extractColor() from color_helpers.h + pure ImGui math (no context needed).
-inline ImU32 parseCSSColor(const char* colorStr) {
-    json colorJson = colorStr;
-    auto maybeColor = extractColor(colorJson);
-    if (!maybeColor.has_value()) return IM_COL32(255, 255, 255, 255);
-    return ImGui::ColorConvertFloat4ToU32(maybeColor.value());
-}
 
 inline DrawContext* getDC(JSContext* ctx) {
     return static_cast<DrawContext*>(JS_GetContextOpaque(ctx));

@@ -12,6 +12,8 @@
         "libjpeg-turbo",
         "libpng",
         "tiff",
-        "quickjs-ng"
+        "quickjs-ng",
+        "lua",
+        "sol2"
     ]
 }

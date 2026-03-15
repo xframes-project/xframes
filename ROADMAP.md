@@ -162,6 +162,32 @@ Wrapped the 15 ImDrawList bindings in an HTML5 Canvas 2D-style API (`ctx.fillRec
 
 ---
 
+## Phase 9 — Lua Canvas Widget
+
+Separate `LuaCanvas` widget (`di-lua-canvas`) embedding [Lua](https://www.lua.org/) via [Sol2](https://github.com/ThePhD/sol2) for scripted ImDrawList rendering — an alternative to the QuickJS-based Canvas widget. Raw draw bindings only (no Canvas 2D ctx-style API initially). Same capabilities: `setScript`, `setScriptFile`, `setData`, `onScriptError`, texture pipeline. Both desktop and WASM targets.
+
+### Stage 1 — Build System & C++ Widget
+
+- [ ] Add `lua` + `sol2` to vcpkg.json (app, wasm, tests) and CMakeLists.txt
+- [ ] Extract shared `DrawContext` struct into `draw_context.h` (used by both QuickJS and Sol2 bindings)
+- [ ] `sol2_draw_bindings.h` — 19 Lua-bound draw functions (same set as QuickJS: line, rect, circle, triangle, text, polyline, bezier, ngon, ellipse + filled variants + drawImage + measureText + clip)
+- [ ] `lua_canvas.h/.cpp` — widget class with `sol::state`, `SetScriptFromString()`, `HandleInternalOp()`, texture pipeline, `setScriptFile` (desktop `std::ifstream`, WASM `emscripten_fetch`)
+- [ ] Factory registration (`di-lua-canvas` in `xframes.cpp`)
+
+### Stage 2 — React Integration & Demo
+
+- [ ] `LuaCanvas.tsx` component with `LuaCanvasImperativeHandle` (setScript, setScriptFile, setData, clear, loadTexture, unloadTexture, reloadTexture)
+- [ ] TypeScript types, widgetRegistrationService methods, ReactNativePrivateInterface + nativeFabricUiManager registration
+- [ ] Dashboard demo with Lua drawing script
+- [ ] Unit tests mirroring Canvas test suite
+
+### Reference
+
+- [Lua](https://www.lua.org/) — Lightweight embeddable scripting language (~100 KB compiled, MIT)
+- [Sol2](https://github.com/ThePhD/sol2) — Header-only C++/Lua binding library
+
+---
+
 ## Low Priority
 
 - [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)

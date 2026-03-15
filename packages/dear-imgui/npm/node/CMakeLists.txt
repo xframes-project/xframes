@@ -42,6 +42,8 @@ find_package(TIFF REQUIRED)
 find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(qjs CONFIG REQUIRED)
+find_package(Lua REQUIRED)
+find_package(sol2 CONFIG REQUIRED)
 
 include_directories(${CMAKE_JS_INC})
 
@@ -127,6 +129,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/tree_node.cpp
         ${APP}/src/widget/window.cpp
         ${APP}/src/widget/canvas.cpp
+        ${APP}/src/widget/lua_canvas.cpp
 
         ./src/xframes-node.cpp
 
@@ -151,6 +154,8 @@ target_link_libraries(${PROJECT_NAME}
         glfw
         OpenGL::GL
         qjs
+        ${LUA_LIBRARIES}
+        sol2::sol2
 )
 
 # Include Node-API wrappers
@@ -182,6 +187,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${DEPS}/glfw/include
         ${DEPS}/osm-static-map-generator/cpp
         ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
+        ${LUA_INCLUDE_DIR}
 )
 
 # define NAPI_VERSION

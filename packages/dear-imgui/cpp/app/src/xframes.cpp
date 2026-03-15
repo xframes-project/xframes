@@ -31,6 +31,7 @@
 #include "implot_renderer.h"
 
 #include "widget/canvas.h"
+#include "widget/lua_canvas.h"
 #include "widget/map_view.h"
 
 #include "widget/button.h"
@@ -161,6 +162,7 @@ void XFrames::SetUpElementCreatorFunctions() {
 
     m_element_init_fn["map-view"] = &makeWidget<MapView>;
     m_element_init_fn["di-canvas"] = &makeWidget<Canvas>;
+    m_element_init_fn["di-lua-canvas"] = &makeWidget<LuaCanvas>;
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;
     m_element_init_fn["plot-heatmap"] = &makeWidget<PlotHeatmap>;

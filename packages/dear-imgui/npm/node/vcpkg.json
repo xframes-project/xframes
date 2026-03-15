@@ -12,6 +12,8 @@
     "libpng",
     "tiff",
     "curl",
-    "quickjs-ng"
+    "quickjs-ng",
+    "lua",
+    "sol2"
   ]
 }
