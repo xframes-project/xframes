@@ -39,6 +39,7 @@ find_package(implot REQUIRED)
 find_package(Stb REQUIRED)
 find_package(ada CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(qjs CONFIG REQUIRED)
 # find_package(RPP REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
@@ -93,6 +94,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/separator.cpp
     ${XFRAMES_BASE_PATH}/src/widget/separator_text.cpp
     ${XFRAMES_BASE_PATH}/src/widget/progress_bar.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/canvas.cpp
     ${XFRAMES_BASE_PATH}/src/widget/color_indicator.cpp
     ${XFRAMES_BASE_PATH}/src/widget/slider.cpp
     ${XFRAMES_BASE_PATH}/src/widget/table.cpp
@@ -171,4 +173,4 @@ target_include_directories(
 )
 
 target_compile_definitions(xframes PRIVATE NDEBUG)
-target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt)
+target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt qjs)

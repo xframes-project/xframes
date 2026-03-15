@@ -1,7 +1,8 @@
 {
     "vcpkg-configuration": {
         "overlay-ports": [
-            "./vcpkg-overlay-ports/imgui"
+            "./vcpkg-overlay-ports/imgui",
+            "./vcpkg-overlay-ports/quickjs-ng"
         ]
     },
     "name": "reactdearimguiwasm",
@@ -20,6 +21,7 @@
         "opengl-registry",
         "stb",
         "ada-url",
-        "fmt"
+        "fmt",
+        "quickjs-ng"
     ]
 }
