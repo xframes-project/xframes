@@ -11,6 +11,7 @@ const attributesForElements = {
     checkbox: ["defaultChecked", "label", "onChange"],
     child: ["defaultChecked", "label", "onChange"],
     "di-canvas": ["onScriptError"],
+    "di-lua-canvas": ["onScriptError"],
     "color-indicator": ["color", "shape"],
     "color-picker": ["defaultColor", "onChange"],
     "clipped-multi-line-text-renderer": [],

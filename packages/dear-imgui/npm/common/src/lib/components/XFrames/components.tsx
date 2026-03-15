@@ -1,6 +1,7 @@
 import { BulletText } from "./BulletText";
 import { Button } from "./Button";
 import { Canvas } from "./Canvas";
+import { LuaCanvas } from "./LuaCanvas";
 import { Checkbox } from "./Checkbox";
 import { Child } from "./Child";
 import { ClippedMultiLineTextRenderer } from "./ClippedMultiLineTextRenderer";
@@ -40,6 +41,7 @@ export const components = {
     BulletText,
     Button,
     Canvas,
+    LuaCanvas,
     Checkbox,
     Child,
     ClippedMultiLineTextRenderer,

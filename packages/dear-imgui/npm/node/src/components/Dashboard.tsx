@@ -13,6 +13,7 @@ import {
   PlotPieChartImperativeHandle,
   MapImperativeHandle,
   CanvasImperativeHandle,
+  LuaCanvasImperativeHandle,
   SliderImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
@@ -194,6 +195,7 @@ export const Dashboard = () => {
   const dataCanvasRef = useRef<CanvasImperativeHandle>(null);
   const textureCanvasRef = useRef<CanvasImperativeHandle>(null);
   const ctx2dCanvasRef = useRef<CanvasImperativeHandle>(null);
+  const luaCanvasRef = useRef<LuaCanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -474,6 +476,11 @@ export const Dashboard = () => {
     }, 1000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // LuaCanvas: Lua drawing primitives demo
+  useEffect(() => {
+    luaCanvasRef.current?.setScriptFile("./src/scripts/lua-drawing-primitives.lua");
   }, []);
 
   const handleClearCanvas = useCallback(() => {
@@ -797,6 +804,17 @@ export const Dashboard = () => {
           <XFrames.Node style={styles.rightColumn}>
             <XFrames.UnformattedText text="Canvas (2D API - Clock)" />
             <XFrames.Canvas ref={ctx2dCanvasRef} style={styles.plotArea} />
+          </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Tenth row: Lua Canvas demo */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="LuaCanvas (Drawing Primitives)" />
+            <XFrames.LuaCanvas
+              ref={luaCanvasRef}
+              style={styles.plotArea}
+            />
           </XFrames.Node>
         </XFrames.Node>
       </XFrames.Node>

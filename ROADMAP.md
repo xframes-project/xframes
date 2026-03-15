@@ -166,20 +166,20 @@ Wrapped the 15 ImDrawList bindings in an HTML5 Canvas 2D-style API (`ctx.fillRec
 
 Separate `LuaCanvas` widget (`di-lua-canvas`) embedding [Lua](https://www.lua.org/) via [Sol2](https://github.com/ThePhD/sol2) for scripted ImDrawList rendering — an alternative to the QuickJS-based Canvas widget. Raw draw bindings only (no Canvas 2D ctx-style API initially). Same capabilities: `setScript`, `setScriptFile`, `setData`, `onScriptError`, texture pipeline. Both desktop and WASM targets.
 
-### Stage 1 — Build System & C++ Widget
+### Stage 1 — Build System & C++ Widget (done)
 
-- [ ] Add `lua` + `sol2` to vcpkg.json (app, wasm, tests) and CMakeLists.txt
-- [ ] Extract shared `DrawContext` struct into `draw_context.h` (used by both QuickJS and Sol2 bindings)
-- [ ] `sol2_draw_bindings.h` — 19 Lua-bound draw functions (same set as QuickJS: line, rect, circle, triangle, text, polyline, bezier, ngon, ellipse + filled variants + drawImage + measureText + clip)
-- [ ] `lua_canvas.h/.cpp` — widget class with `sol::state`, `SetScriptFromString()`, `HandleInternalOp()`, texture pipeline, `setScriptFile` (desktop `std::ifstream`, WASM `emscripten_fetch`)
-- [ ] Factory registration (`di-lua-canvas` in `xframes.cpp`)
+- [x] Add `lua` + `sol2` to vcpkg.json (app, wasm, tests, node) and CMakeLists.txt
+- [x] Extract shared `DrawContext` struct into `draw_context.h` (used by both QuickJS and Sol2 bindings)
+- [x] `sol2_draw_bindings.h` — 19 Lua-bound draw functions (same set as QuickJS: line, rect, circle, triangle, text, polyline, bezier, ngon, ellipse + filled variants + drawImage + measureText + clip)
+- [x] `lua_canvas.h/.cpp` — widget class with `sol::state`, `SetScriptFromString()`, `HandleInternalOp()`, texture pipeline, `setScriptFile` (desktop `std::ifstream`, WASM `emscripten_fetch`)
+- [x] Factory registration (`di-lua-canvas` in `xframes.cpp`)
+- [x] Unit tests (35 tests mirroring Canvas test suite)
 
-### Stage 2 — React Integration & Demo
+### Stage 2 — React Integration & Demo (done)
 
-- [ ] `LuaCanvas.tsx` component with `LuaCanvasImperativeHandle` (setScript, setScriptFile, setData, clear, loadTexture, unloadTexture, reloadTexture)
-- [ ] TypeScript types, widgetRegistrationService methods, ReactNativePrivateInterface + nativeFabricUiManager registration
-- [ ] Dashboard demo with Lua drawing script
-- [ ] Unit tests mirroring Canvas test suite
+- [x] `LuaCanvas.tsx` component with `LuaCanvasImperativeHandle` (setScript, setScriptFile, setData, clear, loadTexture, unloadTexture, reloadTexture)
+- [x] TypeScript types, components export, ReactNativePrivateInterface registration
+- [x] Dashboard demo with Lua drawing script
 
 ### Reference
 

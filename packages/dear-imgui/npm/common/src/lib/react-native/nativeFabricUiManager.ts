@@ -33,6 +33,7 @@ export default class {
         "tab-item",
         "di-table",
         "di-canvas",
+        "di-lua-canvas",
     ];
 
     constructor() {
