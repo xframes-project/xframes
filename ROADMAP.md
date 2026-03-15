@@ -130,7 +130,7 @@ Migrated from emsdk 3.1.60 to 5.0.2. Replaced `-sUSE_WEBGPU=1` with `--use-port=
 
 ## Phase 6 — Canvas Widget (done)
 
-Embedded [QuickJS-NG](https://github.com/quickjs-ng/quickjs) for scripted ImDrawList rendering. 15 bound drawing primitives (line, rect, circle, triangle, text, polyline, bezier, ngon, ellipse + filled variants + drawImage). Texture loading on both desktop (OpenGL, file read) and WASM (emscripten_fetch, WebGPU). React integration with `CanvasImperativeHandle` (setScript, setData, clear, loadTexture, unloadTexture, reloadTexture). 168 unit tests.
+Embedded [QuickJS-NG](https://github.com/quickjs-ng/quickjs) for scripted ImDrawList rendering. 15 bound drawing primitives (line, rect, circle, triangle, text, polyline, bezier, ngon, ellipse + filled variants + drawImage). Texture loading on both desktop (OpenGL, file read) and WASM (emscripten_fetch, WebGPU). React integration with `CanvasImperativeHandle` (setScript, setScriptFile, setData, clear, loadTexture, unloadTexture, reloadTexture). `onScriptError` callback surfaces QuickJS compilation and runtime errors back to React. 168 unit tests.
 
 ### Reference
 
@@ -153,6 +153,12 @@ Wrapped the 15 ImDrawList bindings in an HTML5 Canvas 2D-style API (`ctx.fillRec
 4. **Text Measurement + Alignment** — `measureText()` via `ImFont::CalcTextSizeA()`, `textAlign` (left/center/right/start/end), `textBaseline` (top/middle/bottom/alphabetic)
 5. **Dashed Lines, rect(), Clip** — `setLineDash()`/`getLineDash()`/`lineDashOffset`, `rect()` path method, `clip()` (AABB only) via `__pushClipRect`/`__popClipRect`
 6. **Documentation** — CLAUDE.md updated with Canvas 2D shim section
+
+---
+
+## Phase 8 — Canvas Ergonomics (done)
+
+`setScriptFile(path)` loads canvas scripts from `.js` files instead of inline template strings — proper syntax highlighting, linting, and IDE support. Desktop reads via `std::ifstream`, WASM fetches via `emscripten_fetch` (async, queued for next `Render()` frame). `onScriptError` callback pipes QuickJS compilation and runtime errors back to React through the full event pipeline (C++ → NAPI TSFN / WASM EM_ASM → JS dispatchEvent). Shared `SetScriptFromString()` helper extracts error messages via `JS_ToCString`. All 4 demo scripts (drawing primitives, bar chart, texture, analog clock) migrated from inline strings to external `.js` files in both Node and WASM dashboards.
 
 ---
 

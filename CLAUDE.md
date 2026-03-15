@@ -104,7 +104,7 @@ The Table widget supports sorting, per-column filtering, row selection, column r
 
 **Flag logic:** When `hideable` is set on the table, columns are hideable by default (the `NoHide` flag is dropped). Use `noHide: true` on individual columns to pin them. When `hideable` is not set, all columns get `NoHide` automatically (original behavior).
 
-**Event callbacks:** `onSort`, `onFilter`, `onRowClick`, `onItemAction`, `onPrefetchProgress` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 15 arguments (indices 0–14).
+**Event callbacks:** `onSort`, `onFilter`, `onRowClick`, `onItemAction`, `onPrefetchProgress` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 16 arguments (indices 0–15).
 
 **Context menu:** Set `contextMenuItems` prop (array of `{ id, label }`) to show a right-click context menu on table rows. `onItemAction` fires with `{ rowIndex, actionId }` when a menu item is clicked.
 
@@ -215,6 +215,16 @@ Wraps the 15 ImDrawList draw bindings in an HTML5 Canvas 2D-style API. Created b
 **Clipping:** `clip()` computes axis-aligned bounding box of current path → `__pushClipRect`. `restore()` pops clips pushed since matching `save()`.
 
 **New C++ bindings (4 total):** `drawConvexPolyFilled(points, color)`, `__measureText(text)`, `__pushClipRect(x1, y1, x2, y2)`, `__popClipRect()`.
+
+## Canvas Script Loading & Error Reporting
+
+**`setScriptFile(path)`** loads canvas scripts from external `.js` files instead of inline strings. Desktop: `std::ifstream` (synchronous in `HandleInternalOp`). WASM: `emscripten_fetch` (async, queued into `m_pendingScripts`, evaluated next `Render()` frame). Shared `Canvas::SetScriptFromString()` handles wrapping, evaluation, and error extraction.
+
+**`onScriptError` callback** surfaces QuickJS errors (compilation + runtime) back to React. Pipeline: `JS_GetException` → `JS_ToCString` → `m_view->m_onScriptError(m_id, msg)` → NAPI TSFN / WASM EM_ASM → `dispatchEvent(id, "onScriptError", { errorMessage })`. Three error sites: shim evaluation (`InitQuickJS`), script compilation (`SetScriptFromString`), per-frame execution (`Render`).
+
+**`init()` now takes 16 arguments** (indices 0–15). Index 15 is `onScriptError`.
+
+**Demo scripts** live in `npm/node/src/scripts/` (filesystem paths) and `npm/wasm/public/assets/scripts/` (web-relative URLs). Both dashboards use `setScriptFile()` instead of inline `setScript()` template strings.
 
 **Canvas dimensions:** `ctx.canvas.width` / `ctx.canvas.height` read from `__canvasWidth` / `__canvasHeight` globals, set per-frame in `Canvas::Render()` via `JS_SetPropertyStr`.
 
