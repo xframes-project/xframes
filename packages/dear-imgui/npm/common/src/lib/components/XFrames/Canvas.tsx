@@ -8,6 +8,7 @@ export type CanvasImperativeHandle = {
     clear: () => void;
     loadTexture: (textureId: string, source: string) => void;
     unloadTexture: (textureId: string) => void;
+    reloadTexture: (textureId: string, source: string) => void;
 };
 
 export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"]>(
@@ -33,6 +34,9 @@ export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"
                     },
                     unloadTexture(textureId: string) {
                         widgetRegistrationService.unloadCanvasTexture(idRef.current, textureId);
+                    },
+                    reloadTexture(textureId: string, source: string) {
+                        widgetRegistrationService.reloadCanvasTexture(idRef.current, textureId, source);
                     },
                 };
             },

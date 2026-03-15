@@ -574,6 +574,20 @@ export class WidgetRegistrationService {
         }
     }
 
+    reloadCanvasTexture(id: string, textureId: string, source: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "reloadTexture", textureId, source }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setComboSelectedIndex(id: string, index: number) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

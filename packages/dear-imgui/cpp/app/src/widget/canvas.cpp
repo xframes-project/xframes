@@ -43,6 +43,13 @@ void Canvas::InitQuickJS() {
     m_runtime = JS_NewRuntime();
     if (!m_runtime) return;
 
+#ifdef __EMSCRIPTEN__
+    // WASM linear memory confuses QuickJS's C-stack-pointer heuristic,
+    // causing immediate "Maximum call stack size exceeded" on JS_Eval.
+    // Disable the check — WASM has its own trap-based stack protection.
+    JS_SetMaxStackSize(m_runtime, 0);
+#endif
+
     m_context = JS_NewContext(m_runtime);
     if (!m_context) {
         JS_FreeRuntime(m_runtime);
@@ -224,6 +231,16 @@ void Canvas::HandleInternalOp(const json& opDef) {
         auto textureId = opDef["textureId"].template get<std::string>();
         auto source = opDef["source"].template get<std::string>();
 
+        // Skip if already loaded or in-flight
+        {
+            std::lock_guard<std::mutex> lock(m_textureMutex);
+            if (m_textures.contains(textureId)) return;
+#ifdef __EMSCRIPTEN__
+            if (m_inFlightFetches.contains(textureId)) return;
+            m_inFlightFetches.insert(textureId);
+#endif
+        }
+
 #ifdef __EMSCRIPTEN__
         // Async fetch — callback pushes data into pending queue
         auto* fetchCtx = new CanvasFetchContext{this, textureId};
@@ -244,6 +261,7 @@ void Canvas::HandleInternalOp(const json& opDef) {
 
         attr.onerror = [](emscripten_fetch_t* fetch) {
             auto* ctx = static_cast<CanvasFetchContext*>(fetch->userData);
+            ctx->widget->ClearInFlightFetch(ctx->textureId);
             delete ctx;
             emscripten_fetch_close(fetch);
         };
@@ -276,12 +294,37 @@ void Canvas::HandleInternalOp(const json& opDef) {
             std::lock_guard<std::mutex> lock(m_textureMutex);
             m_pendingUnloads.push_back({std::move(textureId)});
         }
+    } else if (op == "reloadTexture") {
+        if (!opDef.contains("textureId") || !opDef.contains("source")) return;
+
+        auto textureId = opDef["textureId"].template get<std::string>();
+        auto source = opDef["source"].template get<std::string>();
+
+        // Queue unload + clear state so the loadTexture guard passes
+        {
+            std::lock_guard<std::mutex> lock(m_textureMutex);
+            m_pendingUnloads.push_back({textureId});
+            m_textures.erase(textureId);
+#ifdef __EMSCRIPTEN__
+            m_inFlightFetches.erase(textureId);
+#endif
+        }
+
+        // Re-use existing loadTexture logic
+        json loadOp = {{"op", "loadTexture"}, {"textureId", textureId}, {"source", source}};
+        HandleInternalOp(loadOp);
     }
 }
 
 #ifdef __EMSCRIPTEN__
 void Canvas::EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data) {
     std::lock_guard<std::mutex> lock(m_textureMutex);
+    m_inFlightFetches.erase(textureId);
     m_pendingLoads.push_back({std::move(textureId), std::move(data)});
+}
+
+void Canvas::ClearInFlightFetch(const std::string& textureId) {
+    std::lock_guard<std::mutex> lock(m_textureMutex);
+    m_inFlightFetches.erase(textureId);
 }
 #endif

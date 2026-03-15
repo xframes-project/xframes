@@ -6,6 +6,7 @@ extern "C" {
 
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "styled_widget.h"
 #include "quickjs_draw_bindings.h"
@@ -33,6 +34,10 @@ private:
     std::vector<PendingLoad> m_pendingLoads;
     std::vector<PendingUnload> m_pendingUnloads;
 
+#ifdef __EMSCRIPTEN__
+    std::unordered_set<std::string> m_inFlightFetches; // guarded by m_textureMutex
+#endif
+
     void InitQuickJS();
     void CleanupQuickJS();
 
@@ -52,5 +57,6 @@ public:
 
 #ifdef __EMSCRIPTEN__
     void EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data);
+    void ClearInFlightFetch(const std::string& textureId);
 #endif
 };
