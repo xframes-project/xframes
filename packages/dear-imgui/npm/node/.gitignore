@@ -13,6 +13,11 @@ xframes.exp
 xframes.lib
 xframes.node
 
+janet_boot.exe
+janet_boot.exp
+janet_boot.lib
+janet_core.lib
+
 node.lib
 
 # Logs

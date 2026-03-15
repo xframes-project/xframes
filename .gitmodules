@@ -43,3 +43,6 @@
 [submodule "packages/dear-imgui/cpp/deps/node-api-headers"]
 	path = packages/dear-imgui/cpp/deps/node-api-headers
 	url = https://github.com/nodejs/node-api-headers.git
+[submodule "packages/dear-imgui/cpp/deps/janet"]
+	path = packages/dear-imgui/cpp/deps/janet
+	url = https://github.com/janet-lang/janet.git

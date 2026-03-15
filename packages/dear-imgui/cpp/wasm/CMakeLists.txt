@@ -47,6 +47,19 @@ find_package(sol2 CONFIG REQUIRED)
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 set(CMAKE_EXECUTABLE_SUFFIX ".mjs")
 
+# --- Janet (no bootstrap — uses pre-generated core image) ---
+set(JANET_ROOT "${DEPS}/janet")
+set(JANET_SRC_DIR "${JANET_ROOT}/src")
+file(GLOB JANET_CORE_SOURCES "${JANET_SRC_DIR}/core/*.c")
+set(JANET_IMAGE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../app/generated/janet_core_image.c")
+
+add_library(janet_core STATIC ${JANET_CORE_SOURCES} "${JANET_IMAGE_FILE}")
+target_include_directories(janet_core PUBLIC "${JANET_SRC_DIR}/include" "${JANET_SRC_DIR}/conf")
+target_compile_definitions(janet_core PRIVATE
+    JANET_NO_EV JANET_NO_FFI JANET_NO_NET
+    JANET_NO_DYNAMIC_MODULES JANET_SINGLE_THREADED
+)
+
 file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
 
 set(OSM_STATIC_MAP_GENERATOR_SRC
@@ -98,6 +111,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/progress_bar.cpp
     ${XFRAMES_BASE_PATH}/src/widget/js_canvas.cpp
     ${XFRAMES_BASE_PATH}/src/widget/lua_canvas.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/janet_canvas.cpp
     ${XFRAMES_BASE_PATH}/src/widget/color_indicator.cpp
     ${XFRAMES_BASE_PATH}/src/widget/slider.cpp
     ${XFRAMES_BASE_PATH}/src/widget/table.cpp
@@ -174,7 +188,9 @@ target_include_directories(
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
     ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/build-wasm/libtiff
     ${LUA_INCLUDE_DIR}
+    "${DEPS}/janet/src/include"
+    "${DEPS}/janet/src/conf"
 )
 
 target_compile_definitions(xframes PRIVATE NDEBUG)
-target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt qjs ${LUA_LIBRARIES} sol2::sol2)
+target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json ada::ada fmt::fmt qjs ${LUA_LIBRARIES} sol2::sol2 janet_core)

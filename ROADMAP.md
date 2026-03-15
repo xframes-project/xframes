@@ -179,12 +179,53 @@ Separate `LuaCanvas` widget (`di-lua-canvas`) embedding [Lua](https://www.lua.or
 
 - [x] `LuaCanvas.tsx` component with `LuaCanvasImperativeHandle` (setScript, setScriptFile, setData, clear, loadTexture, unloadTexture, reloadTexture)
 - [x] TypeScript types, components export, ReactNativePrivateInterface registration
-- [x] Dashboard demo with Lua drawing script
+- [x] Dashboard demo with Lua drawing script (Node + WASM)
+
+### Stage 3 — Canvas 2D API Shim + JsCanvas Rename (done)
+
+- [x] `lua_canvas2d_shim.h` — Lua port of JS Canvas 2D API (`ctx.fillRect()`, `ctx.arc()`, `ctx.save()`/`ctx.restore()`, transforms, path API, dashed lines, clip, text measurement)
+- [x] Lua analog clock demo (Node + WASM)
+- [x] Renamed `Canvas` → `JsCanvas` across C++ and TypeScript for consistency with `LuaCanvas` naming (`di-canvas` → `di-js-canvas`, class `Canvas` → `JsCanvas`, `canvas.h/.cpp` → `js_canvas.h/.cpp`)
 
 ### Reference
 
 - [Lua](https://www.lua.org/) — Lightweight embeddable scripting language (~100 KB compiled, MIT)
 - [Sol2](https://github.com/ThePhD/sol2) — Header-only C++/Lua binding library
+
+---
+
+## Phase 10 — Janet Canvas Widget
+
+Separate `JanetCanvas` widget (`di-janet-canvas`) embedding [Janet](https://janet-lang.org/) for scripted ImDrawList rendering — a Lisp-like alternative alongside JsCanvas (QuickJS) and LuaCanvas (Sol2). Janet's C API uses direct value manipulation (no stack), `janet_pcall` for safe execution (setjmp/longjmp contained), and `janet_gcroot`/`janet_gcunroot` for GC-safe references. Build approach adapted from [Janet-CSharp](https://github.com/nicemak/Janet-CSharp) — 3-stage bootstrap: compile `janet_boot` → generate `janet_core_image.c` → compile final library.
+
+### Stage 1 — Build System + C++ Widget + Draw Bindings + Tests
+
+- [ ] Add `janet-lang/janet` as git submodule in `cpp/deps/`
+- [ ] 3-stage bootstrap build in CMakeLists.txt (native targets): compile `janet_boot` → run `boot.janet` → generate `janet_core_image.c` → compile Janet core + image
+- [ ] WASM: pre-generate core image during native build, commit at `cpp/app/generated/janet_core_image.c` for WASM to compile directly (no bootstrap needed)
+- [ ] Compile flags: `JANET_NO_EV`, `JANET_NO_FFI`, `JANET_NO_NET`, `JANET_NO_DYNAMIC_MODULES` (+ `JANET_SINGLE_THREADED` for WASM)
+- [ ] `janet_draw_bindings.h` — 19 draw functions registered via `janet_cfuns()` with kebab-case names (`draw-line`, `draw-rect-filled`, `draw-circle`, `draw-text`, `draw-polyline`, etc.)
+- [ ] `janet_canvas.h/.cpp` — widget class using Janet C API directly, `janet_pcall` for per-frame render calls, `janet_gcroot` for cached render function
+- [ ] Factory registration (`di-janet-canvas` in `xframes.cpp`)
+- [ ] Unit tests (`janet_canvas_test.cpp`) using DrawContext recording mode
+
+### Stage 2 — React Integration + Demo
+
+- [ ] `JanetCanvas.tsx` component with `JanetCanvasImperativeHandle` (setScript, setScriptFile, setData, clear, loadTexture, unloadTexture, reloadTexture)
+- [ ] TypeScript types, components export, ReactNativePrivateInterface registration
+- [ ] Demo scripts in Janet/Lisp syntax (Node + WASM dashboards)
+
+### Stage 3 — Canvas 2D API Shim
+
+- [ ] `janet_canvas2d_shim.h` — Canvas 2D ctx API ported to Janet
+- [ ] Analog clock demo in Janet
+- [ ] Shim tests
+
+### Reference
+
+- [Janet](https://janet-lang.org/) — Lightweight embeddable Lisp-like language (~1 MB, MIT)
+- [Janet C API](https://janet-lang.org/capi/index.html) — Embedding guide
+- [Janet-CSharp](https://github.com/nicemak/Janet-CSharp) — Author's .NET binding for Janet (build approach reused here)
 
 ---
 

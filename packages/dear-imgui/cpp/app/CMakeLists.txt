@@ -40,6 +40,47 @@ find_package(sol2 CONFIG REQUIRED)
 
 set(DEPS ${CMAKE_CURRENT_SOURCE_DIR}/../deps)
 
+# --- Janet 3-stage bootstrap ---
+set(JANET_ROOT "${DEPS}/janet")
+set(JANET_SRC_DIR "${JANET_ROOT}/src")
+file(GLOB JANET_CORE_SOURCES "${JANET_SRC_DIR}/core/*.c")
+file(GLOB JANET_BOOT_SOURCES "${JANET_SRC_DIR}/boot/*.c")
+set(JANET_NO_FLAGS JANET_NO_EV JANET_NO_FFI JANET_NO_NET JANET_NO_DYNAMIC_MODULES)
+
+# Stage 1: bootstrap interpreter
+add_executable(janet_boot ${JANET_CORE_SOURCES} ${JANET_BOOT_SOURCES})
+target_include_directories(janet_boot PRIVATE "${JANET_SRC_DIR}/include" "${JANET_SRC_DIR}/conf")
+target_compile_definitions(janet_boot PRIVATE JANET_BOOTSTRAP ${JANET_NO_FLAGS})
+if(WIN32)
+    target_compile_definitions(janet_boot PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(janet_boot PRIVATE ws2_32)
+endif()
+
+# Stage 2: generate core image
+set(JANET_IMAGE_FILE "${CMAKE_BINARY_DIR}/janet_core_image.c")
+add_custom_command(
+    OUTPUT "${JANET_IMAGE_FILE}"
+    COMMAND ${CMAKE_COMMAND} -E env "$<TARGET_FILE:janet_boot>" "${JANET_ROOT}" image-only > "${JANET_IMAGE_FILE}"
+    DEPENDS janet_boot "${JANET_ROOT}/src/boot/boot.janet"
+    COMMENT "Generating Janet core image"
+)
+
+# Stage 3: static library
+add_library(janet_core STATIC ${JANET_CORE_SOURCES} "${JANET_IMAGE_FILE}")
+target_include_directories(janet_core PUBLIC "${JANET_SRC_DIR}/include" "${JANET_SRC_DIR}/conf")
+target_compile_definitions(janet_core PRIVATE ${JANET_NO_FLAGS})
+if(WIN32)
+    target_compile_definitions(janet_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(janet_core PRIVATE ws2_32)
+endif()
+
+# Auto-copy core image for WASM builds
+add_custom_command(TARGET janet_core POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/generated"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${JANET_IMAGE_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated/janet_core_image.c"
+    COMMENT "Copying Janet core image to app/generated/ for WASM"
+)
+
 file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
 
 # Generate endianness.h for leptonica (x64 is little-endian)
@@ -106,6 +147,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/window.cpp
         ${XFRAMES_BASE_PATH}/src/widget/js_canvas.cpp
         ${XFRAMES_BASE_PATH}/src/widget/lua_canvas.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/janet_canvas.cpp
 
 )
 
@@ -131,6 +173,8 @@ target_include_directories(
         ${DEPS}/osm-static-map-generator/cpp
         ${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src
         ${LUA_INCLUDE_DIR}
+        "${DEPS}/janet/src/include"
+        "${DEPS}/janet/src/conf"
 )
 
 target_link_libraries(xframes PRIVATE
@@ -148,4 +192,5 @@ target_link_libraries(xframes PRIVATE
         qjs
         ${LUA_LIBRARIES}
         sol2::sol2
+        janet_core
 )

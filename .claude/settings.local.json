@@ -23,7 +23,9 @@
       "WebFetch(domain:quickjs-ng.github.io)",
       "WebFetch(domain:code.saghul.net)",
       "WebFetch(domain:vcpkg.io)",
-      "WebFetch(domain:vcpkg.roundtrip.dev)"
+      "WebFetch(domain:vcpkg.roundtrip.dev)",
+      "WebFetch(domain:janet-lang.org)",
+      "WebFetch(domain:janet.guide)"
     ]
   }
 }

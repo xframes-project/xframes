@@ -32,6 +32,7 @@
 
 #include "widget/js_canvas.h"
 #include "widget/lua_canvas.h"
+#include "widget/janet_canvas.h"
 #include "widget/map_view.h"
 
 #include "widget/button.h"
@@ -163,6 +164,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["map-view"] = &makeWidget<MapView>;
     m_element_init_fn["di-js-canvas"] = &makeWidget<JsCanvas>;
     m_element_init_fn["di-lua-canvas"] = &makeWidget<LuaCanvas>;
+    m_element_init_fn["di-janet-canvas"] = &makeWidget<JanetCanvas>;
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;
     m_element_init_fn["plot-heatmap"] = &makeWidget<PlotHeatmap>;

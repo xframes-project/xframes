@@ -37,6 +37,47 @@ find_package(qjs CONFIG REQUIRED)
 find_package(Lua REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
 
+# --- Janet 3-stage bootstrap ---
+set(JANET_ROOT "${DEPS}/janet")
+set(JANET_SRC_DIR "${JANET_ROOT}/src")
+file(GLOB JANET_CORE_SOURCES "${JANET_SRC_DIR}/core/*.c")
+file(GLOB JANET_BOOT_SOURCES "${JANET_SRC_DIR}/boot/*.c")
+set(JANET_NO_FLAGS JANET_NO_EV JANET_NO_FFI JANET_NO_NET JANET_NO_DYNAMIC_MODULES)
+
+# Stage 1: bootstrap interpreter
+add_executable(janet_boot ${JANET_CORE_SOURCES} ${JANET_BOOT_SOURCES})
+target_include_directories(janet_boot PRIVATE "${JANET_SRC_DIR}/include" "${JANET_SRC_DIR}/conf")
+target_compile_definitions(janet_boot PRIVATE JANET_BOOTSTRAP ${JANET_NO_FLAGS})
+if(WIN32)
+    target_compile_definitions(janet_boot PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(janet_boot PRIVATE ws2_32)
+endif()
+
+# Stage 2: generate core image
+set(JANET_IMAGE_FILE "${CMAKE_BINARY_DIR}/janet_core_image.c")
+add_custom_command(
+    OUTPUT "${JANET_IMAGE_FILE}"
+    COMMAND ${CMAKE_COMMAND} -E env "$<TARGET_FILE:janet_boot>" "${JANET_ROOT}" image-only > "${JANET_IMAGE_FILE}"
+    DEPENDS janet_boot "${JANET_ROOT}/src/boot/boot.janet"
+    COMMENT "Generating Janet core image"
+)
+
+# Stage 3: static library
+add_library(janet_core STATIC ${JANET_CORE_SOURCES} "${JANET_IMAGE_FILE}")
+target_include_directories(janet_core PUBLIC "${JANET_SRC_DIR}/include" "${JANET_SRC_DIR}/conf")
+target_compile_definitions(janet_core PRIVATE ${JANET_NO_FLAGS})
+if(WIN32)
+    target_compile_definitions(janet_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(janet_core PRIVATE ws2_32)
+endif()
+
+# Auto-copy core image for WASM builds
+add_custom_command(TARGET janet_core POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/../app/generated"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${JANET_IMAGE_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/../app/generated/janet_core_image.c"
+    COMMENT "Copying Janet core image to app/generated/ for WASM"
+)
+
 set(CMAKE_CXX_STANDARD 23)
 
 if(MSVC)
@@ -143,6 +184,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/window.cpp
         ../app/src/widget/js_canvas.cpp
         ../app/src/widget/lua_canvas.cpp
+        ../app/src/widget/janet_canvas.cpp
 
         ../app/src/xframes.cpp
         ../app/src/disk_tile_cache.cpp
@@ -159,6 +201,7 @@ add_executable(Google_Tests_run
         quickjs_test.cpp
         canvas_test.cpp
         lua_canvas_test.cpp
+        janet_canvas_test.cpp
 )
 
 target_include_directories(
@@ -181,6 +224,8 @@ target_include_directories(
         ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/libtiff
         ${DEPS}/osm-static-map-generator/cpp/deps/libtiff/port
         ${LUA_INCLUDE_DIR}
+        "${DEPS}/janet/src/include"
+        "${DEPS}/janet/src/conf"
 )
 
 target_link_libraries(Google_Tests_run
@@ -200,4 +245,5 @@ target_link_libraries(Google_Tests_run
         qjs
         ${LUA_LIBRARIES}
         sol2::sol2
+        janet_core
 )
