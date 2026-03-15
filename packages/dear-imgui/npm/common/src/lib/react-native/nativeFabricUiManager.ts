@@ -32,6 +32,7 @@ export default class {
         "tab-bar",
         "tab-item",
         "di-table",
+        "di-canvas",
     ];
 
     constructor() {

@@ -125,6 +125,7 @@ export type WidgetPropsMap = {
         label?: string;
         onChange?: (event: CheckboxChangeEvent) => void;
     };
+    Canvas: WidgetStyleProps;
     ColorIndicator: WidgetStyleProps & {
         color?: string;
         shape?: "rect" | "circle";
@@ -329,6 +330,7 @@ export type WidgetPropsMap = {
 export type WidgetKeys = keyof WidgetPropsMap;
 
 export type WidgetsRequiringId =
+    | "Canvas"
     | "Button"
     | "Checkbox"
     | "ColorPicker"

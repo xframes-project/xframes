@@ -1,5 +1,6 @@
 import { BulletText } from "./BulletText";
 import { Button } from "./Button";
+import { Canvas } from "./Canvas";
 import { Checkbox } from "./Checkbox";
 import { Child } from "./Child";
 import { ClippedMultiLineTextRenderer } from "./ClippedMultiLineTextRenderer";
@@ -38,6 +39,7 @@ import { UnformattedText } from "./UnformattedText";
 export const components = {
     BulletText,
     Button,
+    Canvas,
     Checkbox,
     Child,
     ClippedMultiLineTextRenderer,

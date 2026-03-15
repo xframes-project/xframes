@@ -12,6 +12,7 @@ declare global {
             "bullet-text": ReactElementWidgets["BulletText"];
             "di-button": ReactElementWidgets["Button"];
             checkbox: ReactElementWidgets["Checkbox"];
+            "di-canvas": ReactElementWidgets["Canvas"];
             "color-indicator": ReactElementWidgets["ColorIndicator"];
             "color-picker": ReactElementWidgets["ColorPicker"];
             child: ReactElementWidgets["Child"]; // Deprecated by `node`

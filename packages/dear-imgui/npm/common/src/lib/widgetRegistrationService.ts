@@ -504,6 +504,48 @@ export class WidgetRegistrationService {
         }
     }
 
+    setCanvasScript(id: string, script: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setScript", script }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    setCanvasData(id: string, data: any) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setData", data }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    clearCanvas(id: string) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "clear" }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setComboSelectedIndex(id: string, index: number) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {
