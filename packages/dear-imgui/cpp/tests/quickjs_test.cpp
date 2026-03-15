@@ -486,3 +486,157 @@ TEST_F(QuickJSDrawTest, OffsetAppliedToPolyline) {
     EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 105.0f);  // 100 + 5
     EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[3], 210.0f);  // 200 + 10
 }
+
+// --- Color parsing edge cases ---
+
+// rgba() format parses RGB correctly; alpha is discarded by HEXAtoIV4 (hardcoded to 1.0)
+TEST_F(QuickJSDrawTest, ColorParsingRGBA) {
+    JSValue r = eval("drawCircleFilled(0, 0, 10, 'rgba(255,0,0,0.5)')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    ImU32 color = dc.recorded[0].color;
+    // HEXAtoIV4(string) passes a=1.0f to RGBAtoIV4, discarding the rgba alpha
+    ImU32 expected = IM_COL32(255, 0, 0, 255);
+    EXPECT_EQ(color, expected);
+}
+
+// Invalid color string falls back to white
+TEST_F(QuickJSDrawTest, ColorParsingInvalid) {
+    using QuickJSDrawBindings::parseCSSColor;
+    EXPECT_EQ(parseCSSColor("notacolor"), IM_COL32(255, 255, 255, 255));
+}
+
+// Empty string falls back to white
+TEST_F(QuickJSDrawTest, ColorParsingEmptyString) {
+    using QuickJSDrawBindings::parseCSSColor;
+    EXPECT_EQ(parseCSSColor(""), IM_COL32(255, 255, 255, 255));
+}
+
+// Short hex #f00 parses as red
+TEST_F(QuickJSDrawTest, ColorParsingShortHex) {
+    using QuickJSDrawBindings::parseCSSColor;
+    EXPECT_EQ(parseCSSColor("#f00"), IM_COL32(255, 0, 0, 255));
+}
+
+// --- Offset edge cases ---
+
+// Offset applied to all 3 triangle vertices
+TEST_F(QuickJSDrawTest, OffsetAppliedToTriangle) {
+    dc.offset = {10, 20};
+
+    JSValue r = eval("drawTriangle(0, 0, 100, 0, 50, 86, '#fff')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[0], 10.0f);   // x1 + 10
+    EXPECT_FLOAT_EQ(args[1], 20.0f);   // y1 + 20
+    EXPECT_FLOAT_EQ(args[2], 110.0f);  // x2 + 10
+    EXPECT_FLOAT_EQ(args[3], 20.0f);   // y2 + 20
+    EXPECT_FLOAT_EQ(args[4], 60.0f);   // x3 + 10
+    EXPECT_FLOAT_EQ(args[5], 106.0f);  // y3 + 20
+}
+
+// Offset applied to ellipse center, radii unchanged
+TEST_F(QuickJSDrawTest, OffsetAppliedToEllipse) {
+    dc.offset = {15, 25};
+
+    JSValue r = eval("drawEllipse(100, 100, 60, 30, '#fff')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[0], 115.0f);  // cx + 15
+    EXPECT_FLOAT_EQ(args[1], 125.0f);  // cy + 25
+    EXPECT_FLOAT_EQ(args[2], 60.0f);   // rx unchanged
+    EXPECT_FLOAT_EQ(args[3], 30.0f);   // ry unchanged
+}
+
+// Offset applied to all 4 bezier control points
+TEST_F(QuickJSDrawTest, OffsetAppliedToBezierCubic) {
+    dc.offset = {5, 10};
+
+    JSValue r = eval("drawBezierCubic(0,0, 50,100, 150,100, 200,0, '#fff')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[0], 5.0f);    // p1.x + 5
+    EXPECT_FLOAT_EQ(args[1], 10.0f);   // p1.y + 10
+    EXPECT_FLOAT_EQ(args[2], 55.0f);   // p2.x + 5
+    EXPECT_FLOAT_EQ(args[3], 110.0f);  // p2.y + 10
+    EXPECT_FLOAT_EQ(args[4], 155.0f);  // p3.x + 5
+    EXPECT_FLOAT_EQ(args[5], 110.0f);  // p3.y + 10
+    EXPECT_FLOAT_EQ(args[6], 205.0f);  // p4.x + 5
+    EXPECT_FLOAT_EQ(args[7], 10.0f);   // p4.y + 10
+}
+
+// Offset applied to ngon center, radius unchanged
+TEST_F(QuickJSDrawTest, OffsetAppliedToNgon) {
+    dc.offset = {20, 30};
+
+    JSValue r = eval("drawNgon(100, 100, 50, '#fff', 6)");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[0], 120.0f);  // cx + 20
+    EXPECT_FLOAT_EQ(args[1], 130.0f);  // cy + 30
+    EXPECT_FLOAT_EQ(args[2], 50.0f);   // radius unchanged
+}
+
+// Offset applied to text position
+TEST_F(QuickJSDrawTest, OffsetAppliedToText) {
+    dc.offset = {7, 13};
+
+    JSValue r = eval("drawText(10, 20, '#fff', 'hello')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 17.0f);  // 10 + 7
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 33.0f);  // 20 + 13
+    EXPECT_EQ(dc.recorded[0].textArg, "hello");
+}
+
+// --- Default parameter tests ---
+
+// drawRectFilled with rounding omitted defaults to 0
+TEST_F(QuickJSDrawTest, DrawRectFilledDefaultRounding) {
+    JSValue r = eval("drawRectFilled(0, 0, 100, 50, '#fff')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[4], 0.0f); // rounding defaults to 0
+}
+
+// drawCircle with thickness and segments omitted
+TEST_F(QuickJSDrawTest, DrawCircleDefaultParams) {
+    JSValue r = eval("drawCircle(50, 50, 25, '#fff')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[3], 1.0f);  // thickness defaults to 1.0
+    EXPECT_FLOAT_EQ(args[4], 0.0f);  // segments defaults to 0
+}
+
+// drawEllipse with thickness and rotation omitted
+TEST_F(QuickJSDrawTest, DrawEllipseDefaultParams) {
+    JSValue r = eval("drawEllipse(50, 50, 30, 20, '#fff')");
+    ASSERT_FALSE(JS_IsException(r));
+    JS_FreeValue(ctx, r);
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    auto& args = dc.recorded[0].floatArgs;
+    EXPECT_FLOAT_EQ(args[4], 1.0f);  // thickness defaults to 1.0
+    EXPECT_FLOAT_EQ(args[5], 0.0f);  // rotation defaults to 0.0
+}

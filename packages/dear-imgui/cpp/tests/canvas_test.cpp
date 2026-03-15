@@ -248,3 +248,173 @@ TEST_F(CanvasTest, ReplaceScript) {
     ASSERT_EQ(dc.recorded.size(), 1u);
     EXPECT_EQ(dc.recorded[0].function, "drawRect");
 }
+
+// --- Script execution edge cases ---
+
+// Script compiles but throws at runtime; no crash, no draw calls
+TEST_F(CanvasTest, ScriptRuntimeException) {
+    EXPECT_TRUE(setScript("foo.bar();"));
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+}
+
+// Script reads data.x before setData is called; no crash
+TEST_F(CanvasTest, ScriptAccessesUndefinedData) {
+    EXPECT_TRUE(setScript(
+        "if (typeof data !== 'undefined' && data.x) {"
+        "  drawCircleFilled(data.x, 0, 5, 'red');"
+        "}"
+    ));
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+}
+
+// Closure variable persists state across callRender() calls
+TEST_F(CanvasTest, ScriptWithClosureState) {
+    // The IIFE wrapping means we need a global counter since each call re-enters the IIFE
+    const char* code = "globalThis.counter = (globalThis.counter || 0) + 1;";
+    JSValue result = JS_Eval(ctx, code, strlen(code), "<setup>", JS_EVAL_TYPE_GLOBAL);
+    JS_FreeValue(ctx, result);
+
+    setScript(
+        "globalThis.counter = (globalThis.counter || 0) + 1;"
+        "for (var i = 0; i < globalThis.counter; i++) {"
+        "  drawCircleFilled(i * 10, 0, 5, 'red');"
+        "}"
+    );
+
+    callRender(); // counter=2 (setup made it 1, first render increments to 2)
+    EXPECT_EQ(dc.recorded.size(), 2u);
+
+    callRender(); // counter=3
+    EXPECT_EQ(dc.recorded.size(), 3u);
+
+    callRender(); // counter=4
+    EXPECT_EQ(dc.recorded.size(), 4u);
+}
+
+// Empty script compiles and renders with zero draw calls
+TEST_F(CanvasTest, EmptyScript) {
+    EXPECT_TRUE(setScript(""));
+    EXPECT_TRUE(JS_IsFunction(ctx, renderFunc));
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+}
+
+// Script conditionally draws based on data field
+TEST_F(CanvasTest, ScriptWithConditionalDrawing) {
+    setScript(
+        "if (typeof data !== 'undefined' && data.visible) {"
+        "  drawCircleFilled(50, 50, 10, 'green');"
+        "}"
+    );
+
+    setData(R"({"visible": false})");
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+
+    setData(R"({"visible": true})");
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawCircleFilled");
+}
+
+// 1000 draw calls in a loop; all recorded
+TEST_F(CanvasTest, LargeNumberOfDrawCalls) {
+    setScript(
+        "for (var i = 0; i < 1000; i++) {"
+        "  drawLine(i, 0, i, 100, '#fff');"
+        "}"
+    );
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 1000u);
+}
+
+// --- Data edge cases ---
+
+// Nested JSON object, script accesses deep property
+TEST_F(CanvasTest, SetDataWithNestedObjects) {
+    setData(R"({"position": {"x": 42, "y": 84}, "style": {"color": "#ff0000"}})");
+    setScript("drawCircleFilled(data.position.x, data.position.y, 5, data.style.color);");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 42.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 84.0f);
+}
+
+// JSON with null fields, script handles gracefully
+TEST_F(CanvasTest, SetDataWithNullValues) {
+    setData(R"({"x": 50, "label": null})");
+    setScript(
+        "drawCircleFilled(data.x, 0, 5, 'red');"
+        "if (data.label !== null) {"
+        "  drawText(0, 0, '#fff', data.label);"
+        "}"
+    );
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawCircleFilled");
+}
+
+// setData without setScript; callRender is a no-op, no crash
+TEST_F(CanvasTest, SetDataWithoutScript) {
+    setData(R"({"x": 100})");
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+}
+
+// setData with empty object; script checks for missing properties
+TEST_F(CanvasTest, SetDataEmptyObject) {
+    setData("{}");
+    setScript(
+        "var r = data.radius || 10;"
+        "drawCircleFilled(0, 0, r, 'red');"
+    );
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 10.0f); // fallback radius
+}
+
+// --- Lifecycle edge cases ---
+
+// clear() twice is idempotent, no crash
+TEST_F(CanvasTest, ClearWhenAlreadyClear) {
+    setScript("drawCircleFilled(0, 0, 5, 'red');");
+    clear();
+    clear(); // second clear should be safe
+    EXPECT_TRUE(JS_IsUndefined(renderFunc));
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+}
+
+// Full cycle: set→render→clear→set new→render
+TEST_F(CanvasTest, SetScriptClearSetScriptCycle) {
+    setScript("drawCircleFilled(0, 0, 5, 'red');");
+    callRender();
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawCircleFilled");
+
+    clear();
+    callRender();
+    EXPECT_EQ(dc.recorded.size(), 0u);
+
+    setScript("drawRect(0, 0, 100, 50, 'blue');");
+    callRender();
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawRect");
+}
+
+// Update data 100 times then render once; last data is used
+TEST_F(CanvasTest, MultipleRapidDataUpdates) {
+    setScript("drawCircleFilled(0, 0, data.value, 'red');");
+
+    for (int i = 0; i < 100; i++) {
+        setData("{\"value\": " + std::to_string(i) + "}");
+    }
+
+    callRender();
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 99.0f); // last value
+}
