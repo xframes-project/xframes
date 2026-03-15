@@ -128,7 +128,7 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/text_wrap.cpp
         ${APP}/src/widget/tree_node.cpp
         ${APP}/src/widget/window.cpp
-        ${APP}/src/widget/canvas.cpp
+        ${APP}/src/widget/js_canvas.cpp
         ${APP}/src/widget/lua_canvas.cpp
 
         ./src/xframes-node.cpp

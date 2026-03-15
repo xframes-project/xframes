@@ -141,7 +141,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/text_wrap.cpp
         ../app/src/widget/tree_node.cpp
         ../app/src/widget/window.cpp
-        ../app/src/widget/canvas.cpp
+        ../app/src/widget/js_canvas.cpp
         ../app/src/widget/lua_canvas.cpp
 
         ../app/src/xframes.cpp

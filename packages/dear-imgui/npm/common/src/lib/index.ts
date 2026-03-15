@@ -47,7 +47,7 @@ import { attachSubComponents } from "./attachSubComponents";
 import ReactFabricProdInitialiser from "./react-native/ReactFabric-prod";
 import ReactNativePrivateInterface from "./react-native/ReactNativePrivateInterface";
 import { TreeViewItem } from "./components/XFrames/TreeView";
-import { CanvasImperativeHandle } from "./components/XFrames/Canvas";
+import { JsCanvasImperativeHandle } from "./components/XFrames/JsCanvas";
 import { LuaCanvasImperativeHandle } from "./components/XFrames/LuaCanvas";
 import { MapImperativeHandle, MapMarker, MapPolyline, MapOverlay } from "./components/XFrames/MapView";
 import { ImageImperativeHandle } from "./components/XFrames/Image";
@@ -59,7 +59,7 @@ import { useXFramesWasm } from "./hooks/useXFramesWasm";
 
 export {
     WidgetReactElement,
-    CanvasImperativeHandle,
+    JsCanvasImperativeHandle,
     LuaCanvasImperativeHandle,
     MapImperativeHandle,
     MapMarker,

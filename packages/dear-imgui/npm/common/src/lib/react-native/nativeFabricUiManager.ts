@@ -32,7 +32,7 @@ export default class {
         "tab-bar",
         "tab-item",
         "di-table",
-        "di-canvas",
+        "di-js-canvas",
         "di-lua-canvas",
     ];
 

@@ -12,7 +12,7 @@ extern "C" {
 #include "quickjs_draw_bindings.h"
 #include "texture_helpers.h"
 
-class Canvas final : public StyledWidget {
+class JsCanvas final : public StyledWidget {
 private:
     JSRuntime* m_runtime = nullptr;
     JSContext* m_context = nullptr;
@@ -44,13 +44,13 @@ private:
     void SetScriptFromString(const std::string& script);
 
 public:
-    static std::unique_ptr<Canvas> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
+    static std::unique_ptr<JsCanvas> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
-        return std::make_unique<Canvas>(view, id, maybeStyle);
+        return std::make_unique<JsCanvas>(view, id, maybeStyle);
     }
 
-    Canvas(XFrames* view, const int id, std::optional<WidgetStyle>& style);
-    ~Canvas();
+    JsCanvas(XFrames* view, const int id, std::optional<WidgetStyle>& style);
+    ~JsCanvas();
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
     void Patch(const json& widgetPatchDef, XFrames* view) override;

@@ -30,7 +30,7 @@
 #include "color_helpers.h"
 #include "implot_renderer.h"
 
-#include "widget/canvas.h"
+#include "widget/js_canvas.h"
 #include "widget/lua_canvas.h"
 #include "widget/map_view.h"
 
@@ -161,7 +161,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["di-image"] = &makeWidget<Image>;
 
     m_element_init_fn["map-view"] = &makeWidget<MapView>;
-    m_element_init_fn["di-canvas"] = &makeWidget<Canvas>;
+    m_element_init_fn["di-js-canvas"] = &makeWidget<JsCanvas>;
     m_element_init_fn["di-lua-canvas"] = &makeWidget<LuaCanvas>;
 
     m_element_init_fn["plot-bar"] = &makeWidget<PlotBar>;

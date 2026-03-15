@@ -10,7 +10,7 @@ const attributesForElements = {
     "di-button": ["onClick", "label", "size"],
     checkbox: ["defaultChecked", "label", "onChange"],
     child: ["defaultChecked", "label", "onChange"],
-    "di-canvas": ["onScriptError"],
+    "di-js-canvas": ["onScriptError"],
     "di-lua-canvas": ["onScriptError"],
     "color-indicator": ["color", "shape"],
     "color-picker": ["defaultColor", "onChange"],

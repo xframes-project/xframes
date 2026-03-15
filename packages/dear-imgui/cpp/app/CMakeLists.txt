@@ -104,7 +104,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/text_wrap.cpp
         ${XFRAMES_BASE_PATH}/src/widget/tree_node.cpp
         ${XFRAMES_BASE_PATH}/src/widget/window.cpp
-        ${XFRAMES_BASE_PATH}/src/widget/canvas.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/js_canvas.cpp
         ${XFRAMES_BASE_PATH}/src/widget/lua_canvas.cpp
 
 )

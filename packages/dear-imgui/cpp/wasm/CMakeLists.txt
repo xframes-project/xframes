@@ -96,7 +96,7 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/separator.cpp
     ${XFRAMES_BASE_PATH}/src/widget/separator_text.cpp
     ${XFRAMES_BASE_PATH}/src/widget/progress_bar.cpp
-    ${XFRAMES_BASE_PATH}/src/widget/canvas.cpp
+    ${XFRAMES_BASE_PATH}/src/widget/js_canvas.cpp
     ${XFRAMES_BASE_PATH}/src/widget/lua_canvas.cpp
     ${XFRAMES_BASE_PATH}/src/widget/color_indicator.cpp
     ${XFRAMES_BASE_PATH}/src/widget/slider.cpp

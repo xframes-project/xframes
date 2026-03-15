@@ -92,7 +92,7 @@ export type CheckboxChangeEvent = SyntheticEvent<
 >;
 
 export type CanvasScriptErrorEvent = SyntheticEvent<
-    WidgetReactElement<"Canvas">,
+    WidgetReactElement<"JsCanvas">,
     { errorMessage: string }
 >;
 
@@ -131,7 +131,7 @@ export type WidgetPropsMap = {
         label?: string;
         onChange?: (event: CheckboxChangeEvent) => void;
     };
-    Canvas: WidgetStyleProps & {
+    JsCanvas: WidgetStyleProps & {
         onScriptError?: (event: CanvasScriptErrorEvent) => void;
     };
     LuaCanvas: WidgetStyleProps & {
@@ -341,7 +341,7 @@ export type WidgetPropsMap = {
 export type WidgetKeys = keyof WidgetPropsMap;
 
 export type WidgetsRequiringId =
-    | "Canvas"
+    | "JsCanvas"
     | "LuaCanvas"
     | "Button"
     | "Checkbox"

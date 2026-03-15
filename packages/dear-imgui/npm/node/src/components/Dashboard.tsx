@@ -12,7 +12,7 @@ import {
   PlotHistogramImperativeHandle,
   PlotPieChartImperativeHandle,
   MapImperativeHandle,
-  CanvasImperativeHandle,
+  JsCanvasImperativeHandle,
   LuaCanvasImperativeHandle,
   SliderImperativeHandle,
   PlotCandlestickDataItem,
@@ -191,10 +191,10 @@ export const Dashboard = () => {
   const histogramRef = useRef<PlotHistogramImperativeHandle>(null);
   const pieChartRef = useRef<PlotPieChartImperativeHandle>(null);
   const mapRef = useRef<MapImperativeHandle>(null);
-  const canvasRef = useRef<CanvasImperativeHandle>(null);
-  const dataCanvasRef = useRef<CanvasImperativeHandle>(null);
-  const textureCanvasRef = useRef<CanvasImperativeHandle>(null);
-  const ctx2dCanvasRef = useRef<CanvasImperativeHandle>(null);
+  const canvasRef = useRef<JsCanvasImperativeHandle>(null);
+  const dataCanvasRef = useRef<JsCanvasImperativeHandle>(null);
+  const textureCanvasRef = useRef<JsCanvasImperativeHandle>(null);
+  const ctx2dCanvasRef = useRef<JsCanvasImperativeHandle>(null);
   const luaCanvasRef = useRef<LuaCanvasImperativeHandle>(null);
   const luaClockRef = useRef<LuaCanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
@@ -791,36 +791,36 @@ export const Dashboard = () => {
         {/* Eighth row: Canvas demo */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
-            <XFrames.UnformattedText text="Canvas (Drawing Primitives)" />
-            <XFrames.Canvas
+            <XFrames.UnformattedText text="JsCanvas (Drawing Primitives)" />
+            <XFrames.JsCanvas
               ref={canvasRef}
               style={styles.plotArea}
             />
           </XFrames.Node>
 
           <XFrames.Node style={styles.rightColumn}>
-            <XFrames.UnformattedText text="Canvas (Data-Driven)" />
-            <XFrames.Canvas
+            <XFrames.UnformattedText text="JsCanvas (Data-Driven)" />
+            <XFrames.JsCanvas
               ref={dataCanvasRef}
               style={styles.plotArea}
             />
-            <XFrames.Button label="Clear Canvas" onClick={handleClearCanvas} />
+            <XFrames.Button label="Clear JsCanvas" onClick={handleClearCanvas} />
           </XFrames.Node>
         </XFrames.Node>
 
         {/* Ninth row: Canvas texture demo */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
-            <XFrames.UnformattedText text="Canvas (Texture / drawImage)" />
-            <XFrames.Canvas
+            <XFrames.UnformattedText text="JsCanvas (Texture / drawImage)" />
+            <XFrames.JsCanvas
               ref={textureCanvasRef}
               style={styles.plotArea}
             />
           </XFrames.Node>
 
           <XFrames.Node style={styles.rightColumn}>
-            <XFrames.UnformattedText text="Canvas (2D API - Clock)" />
-            <XFrames.Canvas ref={ctx2dCanvasRef} style={styles.plotArea} />
+            <XFrames.UnformattedText text="JsCanvas (2D API - Clock)" />
+            <XFrames.JsCanvas ref={ctx2dCanvasRef} style={styles.plotArea} />
           </XFrames.Node>
         </XFrames.Node>
 

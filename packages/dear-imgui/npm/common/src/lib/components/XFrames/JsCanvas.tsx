@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef } from "react";
 import { WidgetPropsMap } from "./types";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
-export type CanvasImperativeHandle = {
+export type JsCanvasImperativeHandle = {
     setScript: (script: string) => void;
     setScriptFile: (path: string) => void;
     setData: (data: any) => void;
@@ -12,8 +12,8 @@ export type CanvasImperativeHandle = {
     reloadTexture: (textureId: string, source: string) => void;
 };
 
-export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"]>(
-    ({ style, hoverStyle, activeStyle, disabledStyle, onScriptError }: WidgetPropsMap["Canvas"], ref) => {
+export const JsCanvas = forwardRef<JsCanvasImperativeHandle, WidgetPropsMap["JsCanvas"]>(
+    ({ style, hoverStyle, activeStyle, disabledStyle, onScriptError }: WidgetPropsMap["JsCanvas"], ref) => {
         const widgetRegistrationService = useWidgetRegistrationService();
         const idRef = useRef(widgetRegistrationService.generateId());
 
@@ -48,7 +48,7 @@ export const Canvas = forwardRef<CanvasImperativeHandle, WidgetPropsMap["Canvas"
         );
 
         return (
-            <di-canvas
+            <di-js-canvas
                 id={idRef.current}
                 style={style}
                 hoverStyle={hoverStyle}

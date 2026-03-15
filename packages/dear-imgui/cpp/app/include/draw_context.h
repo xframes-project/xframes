@@ -11,12 +11,12 @@
 using json = nlohmann::json;
 
 // Bridge between scripted draw calls and ImDrawList.
-// In production, drawList points to the Canvas widget's ImDrawList (set per-frame).
+// In production, drawList points to the JsCanvas/LuaCanvas widget's ImDrawList (set per-frame).
 // In tests, drawList is null and recording captures call parameters.
 struct DrawContext {
     ImDrawList* drawList = nullptr;
     ImVec2 offset = {0, 0};
-    ImFont* currentFont = nullptr; // Set per-frame in Canvas::Render() for text measurement
+    ImFont* currentFont = nullptr; // Set per-frame in JsCanvas/LuaCanvas::Render() for text measurement
 
     struct DrawCall {
         std::string function;

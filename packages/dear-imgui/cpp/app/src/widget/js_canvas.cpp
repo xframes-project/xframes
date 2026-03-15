@@ -8,29 +8,29 @@
 #include <GLES3/gl3.h>
 #endif
 
-#include "widget/canvas.h"
+#include "widget/js_canvas.h"
 #include "canvas2d_shim.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
 
 #ifdef __EMSCRIPTEN__
 struct CanvasFetchContext {
-    Canvas* widget;
+    JsCanvas* widget;
     std::string textureId;
 };
 
 struct ScriptFetchContext {
-    Canvas* widget;
+    JsCanvas* widget;
 };
 #endif
 
-Canvas::Canvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
+JsCanvas::JsCanvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
     : StyledWidget(view, id, style) {
-    m_type = "di-canvas";
+    m_type = "di-js-canvas";
     InitQuickJS();
 }
 
-Canvas::~Canvas() {
+JsCanvas::~JsCanvas() {
     for (auto& [id, tex] : m_textures) {
         if (tex.textureView) {
 #ifdef __EMSCRIPTEN__
@@ -44,7 +44,7 @@ Canvas::~Canvas() {
     CleanupQuickJS();
 }
 
-void Canvas::InitQuickJS() {
+void JsCanvas::InitQuickJS() {
     m_runtime = JS_NewRuntime();
     if (!m_runtime) return;
 
@@ -85,7 +85,7 @@ void Canvas::InitQuickJS() {
     JS_FreeValue(m_context, shimResult);
 }
 
-void Canvas::CleanupQuickJS() {
+void JsCanvas::CleanupQuickJS() {
     if (m_context) {
         if (!JS_IsUndefined(m_renderFunc)) {
             JS_FreeValue(m_context, m_renderFunc);
@@ -100,7 +100,7 @@ void Canvas::CleanupQuickJS() {
     }
 }
 
-void Canvas::SetScriptFromString(const std::string& script) {
+void JsCanvas::SetScriptFromString(const std::string& script) {
     if (!m_context) return;
 
     // Free previous render function
@@ -128,7 +128,7 @@ void Canvas::SetScriptFromString(const std::string& script) {
     m_renderFunc = val;
 }
 
-void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
+void JsCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (!m_context) return;
 
     // Process pending texture operations on the render/GL thread
@@ -234,15 +234,15 @@ void Canvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::Dummy(ImVec2(w, h));
 }
 
-void Canvas::Patch(const json& widgetPatchDef, XFrames* view) {
+void JsCanvas::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 }
 
-bool Canvas::HasInternalOps() {
+bool JsCanvas::HasInternalOps() {
     return true;
 }
 
-void Canvas::HandleInternalOp(const json& opDef) {
+void JsCanvas::HandleInternalOp(const json& opDef) {
     if (!m_context || !opDef.contains("op")) return;
 
     auto op = opDef["op"].template get<std::string>();
@@ -402,18 +402,18 @@ void Canvas::HandleInternalOp(const json& opDef) {
 }
 
 #ifdef __EMSCRIPTEN__
-void Canvas::EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data) {
+void JsCanvas::EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data) {
     std::lock_guard<std::mutex> lock(m_textureMutex);
     m_inFlightFetches.erase(textureId);
     m_pendingLoads.push_back({std::move(textureId), std::move(data)});
 }
 
-void Canvas::EnqueuePendingScript(std::string script) {
+void JsCanvas::EnqueuePendingScript(std::string script) {
     std::lock_guard<std::mutex> lock(m_textureMutex);
     m_pendingScripts.push_back(std::move(script));
 }
 
-void Canvas::ClearInFlightFetch(const std::string& textureId) {
+void JsCanvas::ClearInFlightFetch(const std::string& textureId) {
     std::lock_guard<std::mutex> lock(m_textureMutex);
     m_inFlightFetches.erase(textureId);
 }
