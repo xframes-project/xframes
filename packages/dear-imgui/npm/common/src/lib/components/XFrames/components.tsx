@@ -2,6 +2,7 @@ import { BulletText } from "./BulletText";
 import { Button } from "./Button";
 import { JsCanvas } from "./JsCanvas";
 import { LuaCanvas } from "./LuaCanvas";
+import { JanetCanvas } from "./JanetCanvas";
 import { Checkbox } from "./Checkbox";
 import { Child } from "./Child";
 import { ClippedMultiLineTextRenderer } from "./ClippedMultiLineTextRenderer";
@@ -42,6 +43,7 @@ export const components = {
     Button,
     JsCanvas,
     LuaCanvas,
+    JanetCanvas,
     Checkbox,
     Child,
     ClippedMultiLineTextRenderer,

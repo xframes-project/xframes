@@ -137,6 +137,9 @@ export type WidgetPropsMap = {
     LuaCanvas: WidgetStyleProps & {
         onScriptError?: (event: CanvasScriptErrorEvent) => void;
     };
+    JanetCanvas: WidgetStyleProps & {
+        onScriptError?: (event: CanvasScriptErrorEvent) => void;
+    };
     ColorIndicator: WidgetStyleProps & {
         color?: string;
         shape?: "rect" | "circle";
@@ -343,6 +346,7 @@ export type WidgetKeys = keyof WidgetPropsMap;
 export type WidgetsRequiringId =
     | "JsCanvas"
     | "LuaCanvas"
+    | "JanetCanvas"
     | "Button"
     | "Checkbox"
     | "ColorPicker"

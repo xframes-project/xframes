@@ -12,6 +12,7 @@ const attributesForElements = {
     child: ["defaultChecked", "label", "onChange"],
     "di-js-canvas": ["onScriptError"],
     "di-lua-canvas": ["onScriptError"],
+    "di-janet-canvas": ["onScriptError"],
     "color-indicator": ["color", "shape"],
     "color-picker": ["defaultColor", "onChange"],
     "clipped-multi-line-text-renderer": [],

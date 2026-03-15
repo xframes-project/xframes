@@ -34,6 +34,7 @@ export default class {
         "di-table",
         "di-js-canvas",
         "di-lua-canvas",
+        "di-janet-canvas",
     ];
 
     constructor() {

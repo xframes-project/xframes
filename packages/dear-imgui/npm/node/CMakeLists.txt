@@ -70,10 +70,11 @@ add_custom_command(
     COMMENT "Generating Janet core image"
 )
 
-# Stage 3: static library
+# Stage 3: static library (JANET_SINGLE_THREADED: janet_init sets thread-local VM;
+# XFrames calls InitJanet on JS thread but Render on render thread)
 add_library(janet_core STATIC ${JANET_CORE_SOURCES} "${JANET_IMAGE_FILE}")
 target_include_directories(janet_core PUBLIC "${JANET_SRC_DIR}/include" "${JANET_SRC_DIR}/conf")
-target_compile_definitions(janet_core PRIVATE ${JANET_NO_FLAGS})
+target_compile_definitions(janet_core PRIVATE ${JANET_NO_FLAGS} JANET_SINGLE_THREADED)
 if(WIN32)
     target_compile_definitions(janet_core PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_link_libraries(janet_core PRIVATE ws2_32)

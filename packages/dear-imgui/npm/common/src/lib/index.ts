@@ -49,6 +49,7 @@ import ReactNativePrivateInterface from "./react-native/ReactNativePrivateInterf
 import { TreeViewItem } from "./components/XFrames/TreeView";
 import { JsCanvasImperativeHandle } from "./components/XFrames/JsCanvas";
 import { LuaCanvasImperativeHandle } from "./components/XFrames/LuaCanvas";
+import { JanetCanvasImperativeHandle } from "./components/XFrames/JanetCanvas";
 import { MapImperativeHandle, MapMarker, MapPolyline, MapOverlay } from "./components/XFrames/MapView";
 import { ImageImperativeHandle } from "./components/XFrames/Image";
 import { WidgetRegistrationServiceContext } from "./contexts/widgetRegistrationServiceContext";
@@ -61,6 +62,7 @@ export {
     WidgetReactElement,
     JsCanvasImperativeHandle,
     LuaCanvasImperativeHandle,
+    JanetCanvasImperativeHandle,
     MapImperativeHandle,
     MapMarker,
     MapPolyline,

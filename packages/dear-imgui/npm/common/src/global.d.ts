@@ -14,6 +14,7 @@ declare global {
             checkbox: ReactElementWidgets["Checkbox"];
             "di-js-canvas": ReactElementWidgets["JsCanvas"];
             "di-lua-canvas": ReactElementWidgets["LuaCanvas"];
+            "di-janet-canvas": ReactElementWidgets["JanetCanvas"];
             "color-indicator": ReactElementWidgets["ColorIndicator"];
             "color-picker": ReactElementWidgets["ColorPicker"];
             child: ReactElementWidgets["Child"]; // Deprecated by `node`

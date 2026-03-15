@@ -14,6 +14,7 @@ import {
   MapImperativeHandle,
   JsCanvasImperativeHandle,
   LuaCanvasImperativeHandle,
+  JanetCanvasImperativeHandle,
   SliderImperativeHandle,
   PlotCandlestickDataItem,
   TabItemChangeEvent,
@@ -197,6 +198,7 @@ export const Dashboard = () => {
   const ctx2dCanvasRef = useRef<JsCanvasImperativeHandle>(null);
   const luaCanvasRef = useRef<LuaCanvasImperativeHandle>(null);
   const luaClockRef = useRef<LuaCanvasImperativeHandle>(null);
+  const janetCanvasRef = useRef<JanetCanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -498,6 +500,11 @@ export const Dashboard = () => {
     }, 1000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // JanetCanvas: Janet drawing primitives demo
+  useEffect(() => {
+    janetCanvasRef.current?.setScriptFile("./src/scripts/janet-drawing-primitives.janet");
   }, []);
 
   const handleClearCanvas = useCallback(() => {
@@ -838,6 +845,19 @@ export const Dashboard = () => {
             <XFrames.UnformattedText text="LuaCanvas (2D API - Clock)" />
             <XFrames.LuaCanvas ref={luaClockRef} style={styles.plotArea} />
           </XFrames.Node>
+        </XFrames.Node>
+
+        {/* Eleventh row: Janet Canvas demo */}
+        <XFrames.Node style={styles.row}>
+          <XFrames.Node style={styles.leftColumn}>
+            <XFrames.UnformattedText text="JanetCanvas (Drawing Primitives)" />
+            <XFrames.JanetCanvas
+              ref={janetCanvasRef}
+              style={styles.plotArea}
+            />
+          </XFrames.Node>
+
+          <XFrames.Node style={styles.rightColumn} />
         </XFrames.Node>
       </XFrames.Node>
     </>
