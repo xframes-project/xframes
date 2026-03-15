@@ -176,6 +176,22 @@ Interactive slippy map rendering OpenStreetMap raster tiles via a tile-grid mode
 
 **Warning:** `prefetchTiles()` bulk-downloads tiles. This violates the [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/). Only use with tile servers that permit bulk downloading.
 
+## QuickJS Draw Bindings
+
+QuickJS-NG is embedded for scripted canvas rendering. The bindings expose ImDrawList drawing primitives to JavaScript running in a QuickJS context.
+
+**Key file:** `cpp/tests/quickjs_draw_bindings.h` (header-only, lives in tests/ until Stage 4 integrates into app/).
+
+**`DrawContext`** struct is stored as the QuickJS context opaque pointer (`JS_SetContextOpaque`/`JS_GetContextOpaque`). It holds an `ImDrawList*` (set per-frame by the Canvas widget's `Render()`) and an `ImVec2 offset` (screen-space translation from `GetCursorScreenPos`).
+
+**14 bound JS functions:** `drawLine`, `drawRect`, `drawRectFilled`, `drawCircle`, `drawCircleFilled`, `drawTriangle`, `drawTriangleFilled`, `drawText`, `drawPolyline`, `drawBezierCubic`, `drawNgon`, `drawNgonFilled`, `drawEllipse`, `drawEllipseFilled`. Each extracts args from JSValue, parses CSS color strings, applies coordinate offset, and calls `ImDrawList::AddXxx()`.
+
+**Color handling:** CSS color strings are parsed via `extractColor()` from `color_helpers.h`, then converted to `ImU32` via `ImGui::ColorConvertFloat4ToU32()` (pure math, no ImGui context needed).
+
+**Testing pattern:** `DrawContext.recording = true` with `drawList = nullptr` captures call parameters into a `std::vector<DrawCall>` for verification without needing an ImGui/GL context. Tests verify argument parsing, color conversion, offset application, and null-safety.
+
+**vcpkg:** `quickjs-ng` is in `cpp/tests/vcpkg.json`. Will be added to `cpp/app/vcpkg.json` in Stage 4.
+
 ## C++ Gotchas
 
 - MSVC does not allow default member initializers in unnamed structs used with `using` typedefs. Use named `struct Foo { ... };` instead of `using Foo = struct { ... };` when fields have defaults.
