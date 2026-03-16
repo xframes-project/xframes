@@ -70,6 +70,7 @@ std::unique_ptr<Element> Element::makeElement(const json& nodeDef, XFrames* view
 void Element::ResetStyle() {
     m_layoutNode->ResetStyle();
     m_elementStyle.reset();
+    m_styleDirty = true;
 };
 
 BorderStyle extractBorderStyle(const json& borderStyleDef) {
@@ -143,6 +144,11 @@ void Element::ApplyStyle() {
     if (m_elementStyle.has_value()) {
         auto state = GetState();
 
+        // Skip Yoga re-application if state hasn't changed and no Patch occurred
+        if (!m_styleDirty && state == m_lastAppliedState) {
+            return;
+        }
+
         switch (state) {
             case ElementState_Hover: {
                 if (m_elementStyle.value().maybeHover.has_value()) {
@@ -170,6 +176,9 @@ void Element::ApplyStyle() {
                 break;
             }
         }
+
+        m_lastAppliedState = state;
+        m_styleDirty = false;
     }
 }
 
@@ -210,10 +219,13 @@ void Element::HandleChildren(XFrames* view, const std::optional<ImRect>& parentV
         // Extend content region to full extent so scrollbar covers all children.
         // Dummy() calls ItemSize() which updates CursorMaxPos — SetCursorPosY alone
         // does not (by ImGui design).
-        float maxBottom = view->GetChildrenMaxBottom(m_id);
+        if (m_maxBottomDirty) {
+            m_cachedMaxBottom = view->GetChildrenMaxBottom(m_id);
+            m_maxBottomDirty = false;
+        }
         float currentY = ImGui::GetCursorPosY();
-        if (maxBottom > currentY) {
-            ImGui::Dummy(ImVec2(0, maxBottom - currentY));
+        if (m_cachedMaxBottom > currentY) {
+            ImGui::Dummy(ImVec2(0, m_cachedMaxBottom - currentY));
         }
     } else {
         view->RenderChildren(m_id);
@@ -261,7 +273,13 @@ void Element::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     YGNodeRef owner = YGNodeGetOwner(m_layoutNode->m_node);
     if (owner == nullptr) { // root
-        YGNodeCalculateLayout(m_layoutNode->m_node, contentRegionAvail.x, contentRegionAvail.y, YGDirectionLTR);
+        bool sizeChanged = (contentRegionAvail.x != m_lastContentRegionAvail.x ||
+                            contentRegionAvail.y != m_lastContentRegionAvail.y);
+        if (YGNodeIsDirty(m_layoutNode->m_node) || sizeChanged) {
+            YGNodeCalculateLayout(m_layoutNode->m_node, contentRegionAvail.x, contentRegionAvail.y, YGDirectionLTR);
+            m_lastContentRegionAvail = contentRegionAvail;
+            view->InvalidateMaxBottomCaches();
+        }
     }
 
     const float left = YGNodeLayoutGetLeft(m_layoutNode->m_node);
@@ -277,7 +295,7 @@ void Element::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::BeginChild("##", size, ImGuiChildFlags_None);
 
     if (HasStyle(GetState())) {
-        DrawBaseEffects();
+        DrawBaseEffects(width, height);
     }
 
     // todo: this breaks the chain of events
@@ -369,13 +387,8 @@ const std::optional<ElementStyleParts>& Element::GetElementStyleParts(ElementSta
     return m_elementStyle.value().maybeBase;
 }
 
-void Element::DrawBaseEffects() const {
-    const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);
-    const float height = YGNodeLayoutGetHeight(m_layoutNode->m_node);
-
-    const auto size = ImVec2(width, height);
-
-    if (size.x != 0 && size.y != 0) {
+void Element::DrawBaseEffects(float width, float height) const {
+    if (width != 0 && height != 0) {
         ImDrawList* drawList = ImGui::GetWindowDrawList();
 
         const ImVec2 p0 = ImGui::GetCursorScreenPos();
@@ -508,6 +521,7 @@ void Element::PostRender(XFrames* view) {
 
 void Element::Patch(const json& elementPatchDef, XFrames* view) {
     m_elementStyle = ExtractStyle(elementPatchDef);
+    m_styleDirty = true;
 
     ApplyStyle();
 };

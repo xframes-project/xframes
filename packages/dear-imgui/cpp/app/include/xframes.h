@@ -162,6 +162,8 @@ class XFrames {
 
         float GetChildrenMaxBottom(int parentId) const;
 
+        void InvalidateMaxBottomCaches();
+
         json GetAvailableFonts();
 
         template <typename T>

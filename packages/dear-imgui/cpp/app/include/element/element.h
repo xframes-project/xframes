@@ -60,6 +60,17 @@ class Element {
         std::unique_ptr<LayoutNode> m_layoutNode;
         std::optional<ElementStyle> m_elementStyle;
 
+        // Layout dirty check (root only)
+        ImVec2 m_lastContentRegionAvail{0, 0};
+
+        // ApplyStyle skip optimization
+        ElementState m_lastAppliedState = ElementState_Base;
+        bool m_styleDirty = true;
+
+        // GetChildrenMaxBottom cache (m_cull elements)
+        float m_cachedMaxBottom = 0;
+        bool m_maxBottomDirty = true;
+
         Element(XFrames* view, int id, bool isRoot, bool cull, bool trackMouseClickEvents);
         virtual ~Element() = default;
         Element(Element&&) = default;
@@ -91,7 +102,7 @@ class Element {
 
         [[nodiscard]] const std::optional<ElementStyleParts>& GetElementStyleParts(ElementState state) const;
 
-        void DrawBaseEffects() const;
+        void DrawBaseEffects(float width, float height) const;
 
         void ResetStyle();
 

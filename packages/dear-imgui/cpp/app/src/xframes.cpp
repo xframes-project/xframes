@@ -788,6 +788,10 @@ void XFrames::SetChildren(const json& opDef) {
     }
 
     m_hierarchy[parentId] = childrenIds;
+
+    if (parentIt != m_elements.end()) {
+        parentIt->second->m_maxBottomDirty = true;
+    }
 }
 
 void XFrames::AppendChild(const json& opDef) {
@@ -817,6 +821,11 @@ void XFrames::AppendChild(const json& opDef) {
                 }
 
                 hIt->second.push_back(childId);
+
+                auto parentElIt = m_elements.find(parentId);
+                if (parentElIt != m_elements.end()) {
+                    parentElIt->second->m_maxBottomDirty = true;
+                }
             }
         }
     }
@@ -839,6 +848,14 @@ float XFrames::GetChildrenMaxBottom(int parentId) const {
         }
     }
     return maxBottom;
+}
+
+void XFrames::InvalidateMaxBottomCaches() {
+    for (auto& [id, el] : m_elements) {
+        if (el->m_cull) {
+            el->m_maxBottomDirty = true;
+        }
+    }
 }
 
 // todo: switch to ReactivePlusPlus's BehaviorSubject
