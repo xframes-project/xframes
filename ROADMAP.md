@@ -229,6 +229,42 @@ Separate `JanetCanvas` widget (`di-janet-canvas`) embedding [Janet](https://jane
 
 ---
 
+## Phase 11 — Performance Optimization
+
+Viewport culling, idle sleep (`glfwWaitEventsTimeout`), and scroll extent fixes are done. The stages below address the remaining optimization opportunities identified by auditing the render loop, widget rendering, NAPI bridge, JSON parsing, and memory allocation patterns.
+
+### Stage 1 — Render Thread Unblocking & Hot Path Deduplication
+
+- [ ] Switch all 13 NAPI event callbacks from `BlockingCall` to `NonBlockingCall` (`xframes-node.cpp:125-288`) — render thread currently stalls on every UI event waiting for JS event loop
+- [ ] Cache `m_elements[id]` lookups in `RenderElementById` (`xframes.cpp:198-207`) — same hash lookup repeated 5-6× per element per frame; one `find()` + stored pointer
+- [ ] Cache `GetState()` result per frame in `StyledWidget::PreRender`/`PostRender` (`styled_widget.cpp`) — currently called 8+ times per widget per frame
+- [ ] Fix fall-through bugs in `HasStyle()`/`GetElementStyleParts()` (`element.cpp:308-364`) — missing `break` statements cause incorrect style resolution for hover/active states
+
+### Stage 2 — Layout & Style Optimization
+
+- [ ] Guard `YGNodeCalculateLayout` with dirty check (`element.cpp:263`) — skip when `contentRegionAvail` unchanged and `YGNodeIsDirty()` is false
+- [ ] Pre-parse `ElementStyleParts::styleDef` into typed C++ struct at init time — eliminate per-state-change JSON traversal in `LayoutNode::ApplyStyle()` (~25 key lookups + virtual dispatch through `m_setters`)
+- [ ] Cache `GetChildrenMaxBottom` result (`xframes.cpp:818-830`) — invalidate on `SetChildren`/`AppendChild`/layout dirty, avoid full child scan every frame for culled containers
+- [ ] Pass layout values (left/top/width/height) through `Render()` instead of re-reading from Yoga 3-4× per element per frame
+
+### Stage 3 — Table & Widget Per-Frame Allocations
+
+- [ ] Make `filteredIndices` a persistent member in Table, rebuild only when data or filter state changes (`table.cpp:79-80`)
+- [ ] Replace column `type` string comparisons with pre-parsed enum (`table.h`) — eliminate per-cell `std::string` comparison every frame
+- [ ] Cache `GetDisplayValue` / `std::stod` results for number columns — avoid string alloc + parse per cell per frame
+- [ ] MapView: reuse scratch buffer for polyline `screenPoints` (`map_view.cpp:566`), replace `std::set<TileKey>` with bounds check for eviction (`map_view.cpp:448`), cache stats string
+- [ ] JanetCanvas: assign `textureLookup` lambda once in `InitJanet()` instead of every frame (`janet_canvas.cpp:235`)
+
+### Stage 4 — Operation Queue & Bridge Efficiency
+
+- [ ] Replace `ElementOpDef` JSON payload with typed discriminated union — eliminate heap-allocated `nlohmann::json` per operation
+- [ ] Remove `setChildren` JSON round-trip: pass `vector<int>` directly instead of vector→JSON→vector (`xframes-node.cpp:647`, `xframes.cpp:674,757`)
+- [ ] Accept NAPI array directly in `setChildren` instead of JSON string (`xframes-node.cpp:644`)
+- [ ] `QueueAppendChild`: use typed struct instead of building a JSON object for two ints (`xframes.cpp:659`)
+- [ ] WASM: pass `0` to `emscripten_set_main_loop` for `requestAnimationFrame` instead of hardcoded 30 FPS (`imgui_renderer.cpp:19`)
+
+---
+
 ## Low Priority
 
 - [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)

@@ -359,18 +359,20 @@ void StyledWidget::PreRender(XFrames* view) {
     }
 
     if (HasCustomStyles()) {
-        if (HasCustomFont(view)) {
-            view->m_renderer->PushFont(m_style.value()->GetCustomFontId(GetState(), view));
+        const auto state = GetState();
+
+        if (m_style.value()->HasCustomFont(state, view)) {
+            view->m_renderer->PushFont(m_style.value()->GetCustomFontId(state, view));
         }
 
-        if (HasCustomColors()) {
-            for (auto const& [key, val] : m_style.value()->GetCustomColors(GetState())) {
+        if (m_style.value()->HasCustomColors(state)) {
+            for (auto const& [key, val] : m_style.value()->GetCustomColors(state)) {
                 ImGui::PushStyleColor(key, val);
             }
         }
 
-        if (HasCustomStyleVars()) {
-            for (auto const& [key, val] : m_style.value()->GetCustomStyleVars(GetState())) {
+        if (m_style.value()->HasCustomStyleVars(state)) {
+            for (auto const& [key, val] : m_style.value()->GetCustomStyleVars(state)) {
                 if (std::holds_alternative<float>(val)) {
                     ImGui::PushStyleVar(key, std::get<float>(val));
                 } else if (std::holds_alternative<ImVec2>(val)) {
@@ -389,17 +391,18 @@ void StyledWidget::PostRender(XFrames* view) {
     }
 
     if (HasCustomStyles()) {
-        if (HasCustomFont(view)) {
+        const auto state = GetState();
+
+        if (m_style.value()->HasCustomFont(state, view)) {
             view->m_renderer->PopFont();
         }
 
-        if (HasCustomColors()) {
-            ImGui::PopStyleColor(m_style.value()->GetCustomColors(GetState()).size());
+        if (m_style.value()->HasCustomColors(state)) {
+            ImGui::PopStyleColor(m_style.value()->GetCustomColors(state).size());
         }
 
-        if (HasCustomStyleVars()) {
-            // Big, big assumption that this will match exactly the number of style vars being pushed above... Maybe we should actually keep track
-            ImGui::PopStyleVar(m_style.value()->GetCustomStyleVars(GetState()).size());
+        if (m_style.value()->HasCustomStyleVars(state)) {
+            ImGui::PopStyleVar(m_style.value()->GetCustomStyleVars(state).size());
         }
     }
 

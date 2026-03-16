@@ -315,16 +315,19 @@ bool Element::HasStyle(ElementState state) {
             if (m_elementStyle.value().maybeHover.has_value()) {
                 return true;
             }
+            break;
         }
         case ElementState_Active: {
             if (m_elementStyle.value().maybeActive.has_value()) {
                 return true;
             }
+            break;
         }
         case ElementState_Disabled: {
             if (m_elementStyle.value().maybeDisabled.has_value()) {
                 return true;
             }
+            break;
         }
 
         default: break;
@@ -345,16 +348,19 @@ const std::optional<ElementStyleParts>& Element::GetElementStyleParts(ElementSta
             if (m_elementStyle.value().maybeHover.has_value()) {
                 return m_elementStyle.value().maybeHover;
             }
+            break;
         }
         case ElementState_Active: {
             if (m_elementStyle.value().maybeActive.has_value()) {
                 return m_elementStyle.value().maybeActive;
             }
+            break;
         }
         case ElementState_Disabled: {
             if (m_elementStyle.value().maybeDisabled.has_value()) {
                 return m_elementStyle.value().maybeDisabled;
             }
+            break;
         }
 
         default: break;

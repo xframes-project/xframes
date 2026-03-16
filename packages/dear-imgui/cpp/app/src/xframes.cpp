@@ -195,46 +195,48 @@ void XFrames::SetUpElementCreatorFunctions() {
 };
 
 void XFrames::RenderElementById(const int id, const std::optional<ImRect>& viewport) {
-    if (m_elements[id]->ShouldRender(this)) {
-        m_elements[id]->m_layoutNode->SetDisplay(YGDisplayFlex);
+    auto* el = m_elements[id].get();
+    if (el->ShouldRender(this)) {
+        el->m_layoutNode->SetDisplay(YGDisplayFlex);
 
-        if (!viewport.has_value() || m_elements[id]->ShouldRenderContent(viewport)) {
-            m_elements[id]->PreRender(this);
-            m_elements[id]->Render(this, viewport);
-            m_elements[id]->PostRender(this);
+        if (!viewport.has_value() || el->ShouldRenderContent(viewport)) {
+            el->PreRender(this);
+            el->Render(this, viewport);
+            el->PostRender(this);
         }
     } else {
-        m_elements[id]->m_layoutNode->SetDisplay(YGDisplayNone);
+        el->m_layoutNode->SetDisplay(YGDisplayNone);
     }
 };
 
 void XFrames::RenderElements(const int id, const std::optional<ImRect>& viewport) {
-    if (m_elements.contains(id)) {
+    auto it = m_elements.find(id);
+    if (it != m_elements.end()) {
         RenderElementById(id, viewport);
-    }
-
-    if (!m_elements.contains(id) || m_elements[id]->m_handlesChildrenWithinRenderMethod == false) {
+        if (!it->second->m_handlesChildrenWithinRenderMethod) {
+            RenderChildren(id, viewport);
+        }
+    } else {
         RenderChildren(id, viewport);
     }
 };
 
 void XFrames::RenderChildren(const int id, const std::optional<ImRect>& viewport) {
-    if (m_hierarchy.contains(id)) {
-        if (!m_hierarchy[id].empty()) {
-            for (const auto& childId : m_hierarchy[id]) {
-                RenderElements(childId, viewport);
-            }
+    auto it = m_hierarchy.find(id);
+    if (it != m_hierarchy.end() && !it->second.empty()) {
+        for (const auto& childId : it->second) {
+            RenderElements(childId, viewport);
         }
     }
 };
 
 void XFrames::SetChildrenDisplay(const int id, const YGDisplay display) {
-    if (m_hierarchy.contains(id)) {
-        if (!m_hierarchy[id].empty()) {
-            for (const auto& childId : m_hierarchy[id]) {
-                if (m_elements.contains(childId)) {
-                    m_elements[childId]->m_layoutNode->SetDisplay(display);
-                }
+    auto hIt = m_hierarchy.find(id);
+    if (hIt != m_hierarchy.end() && !hIt->second.empty()) {
+        for (const auto& childId : hIt->second) {
+            auto eIt = m_elements.find(childId);
+            if (eIt != m_elements.end()) {
+                eIt->second->m_layoutNode->SetDisplay(display);
             }
         }
     }
@@ -756,26 +758,31 @@ void XFrames::SetChildren(const json& opDef) {
     const auto parentId = opDef["parentId"].template get<int>();
     const auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
 
-    if (m_elements.contains(parentId)) {
+    auto parentIt = m_elements.find(parentId);
+    if (parentIt != m_elements.end()) {
+        auto* parentEl = parentIt->second.get();
+
         // Identify and remove orphaned children (in old list but not in new list)
-        if (m_hierarchy.contains(parentId)) {
+        auto hIt = m_hierarchy.find(parentId);
+        if (hIt != m_hierarchy.end()) {
             const std::unordered_set<int> newSet(childrenIds.begin(), childrenIds.end());
-            for (const int oldChildId : m_hierarchy[parentId]) {
+            for (const int oldChildId : hIt->second) {
                 if (!newSet.contains(oldChildId)) {
                     RemoveElement(oldChildId);
                 }
             }
         }
 
-        YGNodeRemoveAllChildren(m_elements[parentId]->m_layoutNode->m_node);
+        YGNodeRemoveAllChildren(parentEl->m_layoutNode->m_node);
 
         const auto size = childrenIds.size();
 
         for (int i = 0; i < size; i++) {
             const auto childId = childrenIds[i];
 
-            if (m_elements.contains(childId)) {
-                m_elements[parentId]->m_layoutNode->InsertChild(m_elements[childId]->m_layoutNode.get(), i);
+            auto childIt = m_elements.find(childId);
+            if (childIt != m_elements.end()) {
+                parentEl->m_layoutNode->InsertChild(childIt->second->m_layoutNode.get(), i);
             }
         }
     }
@@ -789,22 +796,27 @@ void XFrames::AppendChild(const json& opDef) {
 
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
 
-    if (m_hierarchy.contains(parentId)) {
-        if ( std::find(m_hierarchy[parentId].begin(), m_hierarchy[parentId].end(), childId) == m_hierarchy[parentId].end() ) {
+    auto hIt = m_hierarchy.find(parentId);
+    if (hIt != m_hierarchy.end()) {
+        if (std::find(hIt->second.begin(), hIt->second.end(), childId) == hIt->second.end()) {
             const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
 
-            if (m_elements.contains(childId)) {
-                if (!m_elements[childId]->m_isRoot) {
-                    auto parentNode = YGNodeGetParent(m_elements[childId]->m_layoutNode->m_node);
+            auto childIt = m_elements.find(childId);
+            if (childIt != m_elements.end()) {
+                auto* childEl = childIt->second.get();
+                if (!childEl->m_isRoot) {
+                    auto parentNode = YGNodeGetParent(childEl->m_layoutNode->m_node);
 
                     if (!parentNode) {
-                        const auto childCount = m_elements[parentId]->m_layoutNode->GetChildCount();
-
-                        m_elements[parentId]->m_layoutNode->InsertChild(m_elements[childId]->m_layoutNode.get(), childCount);
+                        auto parentIt = m_elements.find(parentId);
+                        if (parentIt != m_elements.end()) {
+                            const auto childCount = parentIt->second->m_layoutNode->GetChildCount();
+                            parentIt->second->m_layoutNode->InsertChild(childEl->m_layoutNode.get(), childCount);
+                        }
                     }
                 }
 
-                m_hierarchy[parentId].push_back(childId);
+                hIt->second.push_back(childId);
             }
         }
     }

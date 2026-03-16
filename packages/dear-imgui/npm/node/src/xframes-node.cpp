@@ -122,7 +122,7 @@ class Runner {
                 jsCallback.Call({});
             };
 
-            napi_status status = pRunner->m_tsfnOnInit.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnInit.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -135,7 +135,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::String::New(env, value)});
             };
 
-            napi_status status = pRunner->m_tsfnOnTextChange.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnTextChange.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -148,7 +148,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, value)});
             };
 
-            napi_status status = pRunner->m_tsfnOnComboChange.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnComboChange.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -161,7 +161,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, value)});
             };
 
-            napi_status status = pRunner->m_tsfnOnNumericValueChange.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnNumericValueChange.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -174,27 +174,28 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Boolean::New(env, value)});
             };
 
-            napi_status status = pRunner->m_tsfnOnBooleanValueChange.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnBooleanValueChange.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
             }
         }
 
-        // todo: improve
         static void OnMultipleNumericValuesChange(const int id, const float* values, const int numValues) {
             auto pRunner = getInstance();
 
-            auto callback = [id, values, numValues](Napi::Env env, Napi::Function jsCallback) {
+            // Copy values — raw pointer would dangle with NonBlockingCall
+            std::vector<float> valuesCopy(values, values + numValues);
+            auto callback = [id, valuesCopy = std::move(valuesCopy)](Napi::Env env, Napi::Function jsCallback) {
                 std::vector<napi_value> args;
                 args.push_back(Napi::Number::New(env, id));
-                for (int i = 0; i < numValues; ++i) {
-                    args.push_back(Napi::Number::New(env, values[i]));
+                for (int i = 0; i < static_cast<int>(valuesCopy.size()); ++i) {
+                    args.push_back(Napi::Number::New(env, valuesCopy[i]));
                 }
                 jsCallback.Call(args);
             };
 
-            napi_status status = pRunner->m_tsfnOnMultipleNumericValuesChange.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnMultipleNumericValuesChange.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -207,7 +208,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id)});
             };
 
-            napi_status status = pRunner->m_tsfnOnClick.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnClick.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -220,7 +221,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, columnIndex), Napi::Number::New(env, sortDirection)});
             };
 
-            napi_status status = pRunner->m_tsfnOnTableSort.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnTableSort.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -233,7 +234,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, columnIndex), Napi::String::New(env, filterText)});
             };
 
-            napi_status status = pRunner->m_tsfnOnTableFilter.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnTableFilter.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -246,7 +247,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, rowIndex)});
             };
 
-            napi_status status = pRunner->m_tsfnOnTableRowClick.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnTableRowClick.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -259,7 +260,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, rowIndex), Napi::String::New(env, actionId)});
             };
 
-            napi_status status = pRunner->m_tsfnOnTableItemAction.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnTableItemAction.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -272,7 +273,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, completed), Napi::Number::New(env, total)});
             };
 
-            napi_status status = pRunner->m_tsfnOnPrefetchProgress.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnPrefetchProgress.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
@@ -285,7 +286,7 @@ class Runner {
                 jsCallback.Call({Napi::Number::New(env, id), Napi::String::New(env, errorMessage)});
             };
 
-            napi_status status = pRunner->m_tsfnOnScriptError.BlockingCall(callback);
+            napi_status status = pRunner->m_tsfnOnScriptError.NonBlockingCall(callback);
 
             if (status != napi_ok) {
                 // Handle error
