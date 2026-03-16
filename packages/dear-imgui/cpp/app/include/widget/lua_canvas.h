@@ -15,6 +15,8 @@ private:
     sol::protected_function m_renderFunc;
     bool m_hasRenderFunc = false;
     DrawContext m_drawContext;
+    float m_lastCanvasWidth = 0;
+    float m_lastCanvasHeight = 0;
 
     // Texture registry (modified on render thread only)
     std::unordered_map<std::string, Texture> m_textures;

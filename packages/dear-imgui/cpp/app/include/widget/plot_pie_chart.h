@@ -7,6 +7,7 @@ class PlotPieChart final : public StyledWidget {
 private:
     std::vector<std::string> m_labels;
     std::vector<double> m_values;
+    std::vector<const char*> m_labelPtrs;
 
     std::string m_labelFormat = "%.1f";
     double m_angle0 = 90;
@@ -78,10 +79,15 @@ public:
     void SetData(const std::vector<std::string>& labels, const std::vector<double>& values) {
         m_labels = labels;
         m_values = values;
+        m_labelPtrs.resize(m_labels.size());
+        for (size_t i = 0; i < m_labels.size(); i++) {
+            m_labelPtrs[i] = m_labels[i].c_str();
+        }
     }
 
     void ResetData() {
         m_labels.clear();
         m_values.clear();
+        m_labelPtrs.clear();
     }
 };

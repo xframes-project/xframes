@@ -69,6 +69,19 @@ void JsCanvas::InitQuickJS() {
     JS_SetContextOpaque(m_context, &m_drawContext);
     QuickJSDrawBindings::registerDrawBindings(m_context);
 
+    // Set textureLookup once — lambda captures `this` which is stable for widget lifetime
+    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
+        auto it = m_textures.find(id);
+        if (it != m_textures.end() && it->second.textureView) {
+#ifdef __EMSCRIPTEN__
+            return (ImTextureID)it->second.textureView;
+#else
+            return (ImTextureID)(intptr_t)it->second.textureView;
+#endif
+        }
+        return 0;
+    };
+
     // Evaluate Canvas 2D API shim — creates globalThis.ctx
     const auto& shim = getCanvas2DShim();
     JSValue shimResult = JS_Eval(m_context, shim.c_str(), shim.size(),
@@ -86,6 +99,7 @@ void JsCanvas::InitQuickJS() {
 }
 
 void JsCanvas::CleanupQuickJS() {
+    m_hasRenderFunc = false;
     if (m_context) {
         if (!JS_IsUndefined(m_renderFunc)) {
             JS_FreeValue(m_context, m_renderFunc);
@@ -102,6 +116,8 @@ void JsCanvas::CleanupQuickJS() {
 
 void JsCanvas::SetScriptFromString(const std::string& script) {
     if (!m_context) return;
+
+    m_hasRenderFunc = false;
 
     // Free previous render function
     if (!JS_IsUndefined(m_renderFunc)) {
@@ -126,6 +142,7 @@ void JsCanvas::SetScriptFromString(const std::string& script) {
     }
 
     m_renderFunc = val;
+    m_hasRenderFunc = true;
 }
 
 void JsCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
@@ -187,19 +204,6 @@ void JsCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         m_pendingScripts.clear();
     }
 
-    // Set textureLookup for this frame
-    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
-        auto it = m_textures.find(id);
-        if (it != m_textures.end() && it->second.textureView) {
-#ifdef __EMSCRIPTEN__
-            return (ImTextureID)it->second.textureView;
-#else
-            return (ImTextureID)(intptr_t)it->second.textureView;
-#endif
-        }
-        return 0;
-    };
-
     float w = YGNodeLayoutGetWidth(m_layoutNode->m_node);
     float h = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
@@ -209,13 +213,17 @@ void JsCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     m_drawContext.offset = pos;
     m_drawContext.currentFont = ImGui::GetFont();
 
-    // Set canvas dimensions for ctx.canvas.width/height (no string eval, no alloc)
-    JSValue global = JS_GetGlobalObject(m_context);
-    JS_SetPropertyStr(m_context, global, "__canvasWidth", JS_NewFloat64(m_context, w));
-    JS_SetPropertyStr(m_context, global, "__canvasHeight", JS_NewFloat64(m_context, h));
-    JS_FreeValue(m_context, global);
+    // Only update canvas dimensions when they actually change
+    if (w != m_lastCanvasWidth || h != m_lastCanvasHeight) {
+        JSValue global = JS_GetGlobalObject(m_context);
+        JS_SetPropertyStr(m_context, global, "__canvasWidth", JS_NewFloat64(m_context, w));
+        JS_SetPropertyStr(m_context, global, "__canvasHeight", JS_NewFloat64(m_context, h));
+        JS_FreeValue(m_context, global);
+        m_lastCanvasWidth = w;
+        m_lastCanvasHeight = h;
+    }
 
-    if (!JS_IsUndefined(m_renderFunc) && JS_IsFunction(m_context, m_renderFunc)) {
+    if (m_hasRenderFunc) {
         JSValue global = JS_GetGlobalObject(m_context);
         JSValue result = JS_Call(m_context, m_renderFunc, global, 0, nullptr);
         if (JS_IsException(result)) {
@@ -301,6 +309,7 @@ void JsCanvas::HandleInternalOp(const json& opDef) {
         }
         JS_FreeValue(m_context, result);
     } else if (op == "clear") {
+        m_hasRenderFunc = false;
         if (!JS_IsUndefined(m_renderFunc)) {
             JS_FreeValue(m_context, m_renderFunc);
             m_renderFunc = JS_UNDEFINED;

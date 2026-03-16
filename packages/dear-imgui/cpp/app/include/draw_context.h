@@ -4,11 +4,9 @@
 #include <vector>
 #include <string>
 #include <functional>
-#include <nlohmann/json.hpp>
+#include <unordered_map>
 
-#include "color_helpers.h"
-
-using json = nlohmann::json;
+#include "csscolorparser.hpp"
 
 // Bridge between scripted draw calls and ImDrawList.
 // In production, drawList points to the JsCanvas/LuaCanvas widget's ImDrawList (set per-frame).
@@ -27,13 +25,26 @@ struct DrawContext {
     std::vector<DrawCall> recorded;
     bool recording = false;
     std::function<ImTextureID(const std::string&)> textureLookup;
+    std::unordered_map<std::string, ImU32> colorCache;
 };
 
 // Parse CSS color string (e.g. "#FF0000", "red") to ImU32.
-// Uses extractColor() from color_helpers.h + pure ImGui math (no context needed).
-inline ImU32 parseCSSColor(const char* colorStr) {
-    json colorJson = colorStr;
-    auto maybeColor = extractColor(colorJson);
+// Calls CSSColorParser directly — no JSON wrapper, no float round-trip.
+// Optional DrawContext* enables per-widget color cache (most scripts use <10 distinct colors).
+inline ImU32 parseCSSColor(const char* colorStr, DrawContext* dc = nullptr) {
+    if (dc) {
+        auto it = dc->colorCache.find(colorStr);
+        if (it != dc->colorCache.end()) return it->second;
+    }
+
+    auto maybeColor = CSSColorParser::parse(std::string(colorStr));
     if (!maybeColor.has_value()) return IM_COL32(255, 255, 255, 255);
-    return ImGui::ColorConvertFloat4ToU32(maybeColor.value());
+
+    const auto& c = maybeColor.value();
+    ImU32 result = IM_COL32(c.r, c.g, c.b, static_cast<unsigned char>(c.a * 255.0f));
+
+    if (dc) {
+        dc->colorCache[colorStr] = result;
+    }
+    return result;
 }

@@ -238,8 +238,15 @@ class Table final : public StyledWidget {
                 } else if (i < (int)m_filters.size() && m_filters[i].IsActive()) {
                     auto it = row.find(m_columns[i].fieldId.value());
                     if (it == row.end()) return false;
-                    std::string display = GetDisplayValue(it->second, m_columns[i].type);
-                    if (!m_filters[i].PassFilter(display.c_str())) {
+                    char filterBuf[64];
+                    const char* filterStr;
+                    if (m_columns[i].type == ColumnType::Number) {
+                        FormatNumberValue(it->second, filterBuf, sizeof(filterBuf));
+                        filterStr = filterBuf;
+                    } else {
+                        filterStr = it->second.c_str();
+                    }
+                    if (!m_filters[i].PassFilter(filterStr)) {
                         return false;
                     }
                 }
@@ -257,26 +264,36 @@ class Table final : public StyledWidget {
             return false;
         }
 
+        static int FormatNumberValue(const std::string& value, char* buf, size_t bufSize) {
+            try {
+                double num = std::stod(value);
+                if (num == std::floor(num) && std::abs(num) < 1e15) {
+                    return snprintf(buf, bufSize, "%lld", (long long)num);
+                } else {
+                    return snprintf(buf, bufSize, "%.2f", num);
+                }
+            } catch (...) {
+                size_t len = value.size() < bufSize - 1 ? value.size() : bufSize - 1;
+                memcpy(buf, value.c_str(), len);
+                buf[len] = '\0';
+                return static_cast<int>(len);
+            }
+        }
+
         std::string GetDisplayValue(const std::string& value, ColumnType colType) const {
             if (colType == ColumnType::Number) {
-                try {
-                    double num = std::stod(value);
-                    char buf[64];
-                    if (num == std::floor(num) && std::abs(num) < 1e15) {
-                        snprintf(buf, sizeof(buf), "%lld", (long long)num);
-                    } else {
-                        snprintf(buf, sizeof(buf), "%.2f", num);
-                    }
-                    return buf;
-                } catch (...) { return value; }
+                char buf[64];
+                FormatNumberValue(value, buf, sizeof(buf));
+                return buf;
             }
             return value;
         }
 
         void RenderCell(const std::string& value, ColumnType colType) {
             if (colType == ColumnType::Number) {
-                std::string display = GetDisplayValue(value, colType);
-                ImGui::TextUnformatted(display.c_str());
+                char buf[64];
+                int len = FormatNumberValue(value, buf, sizeof(buf));
+                ImGui::TextUnformatted(buf, buf + len);
             } else if (colType == ColumnType::Boolean) {
                 if (value == "true" || value == "1") {
                     ImGui::TextUnformatted(ICON_FA_CHECK);

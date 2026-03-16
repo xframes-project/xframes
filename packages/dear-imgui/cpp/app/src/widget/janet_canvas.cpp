@@ -256,9 +256,13 @@ void JanetCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     // Point shared static draw context to this widget for this frame
     JanetDrawBindings::s_dc = &m_drawContext;
 
-    // Update canvas dimensions via mutable var bindings
-    janetSetVar(m_env, "canvas-width", janet_wrap_number(w));
-    janetSetVar(m_env, "canvas-height", janet_wrap_number(h));
+    // Only update canvas dimensions when they actually change
+    if (w != m_lastCanvasWidth || h != m_lastCanvasHeight) {
+        janetSetVar(m_env, "canvas-width", janet_wrap_number(w));
+        janetSetVar(m_env, "canvas-height", janet_wrap_number(h));
+        m_lastCanvasWidth = w;
+        m_lastCanvasHeight = h;
+    }
 
     if (m_hasRenderFunc && m_renderFunc) {
         Janet out;

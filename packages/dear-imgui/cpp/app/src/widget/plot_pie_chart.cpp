@@ -27,15 +27,10 @@ void PlotPieChart::Render(XFrames* view, const std::optional<ImRect>& viewport) 
         ImPlot::SetupAxesLimits(0, 1, 0, 1);
 
         if (!m_values.empty()) {
-            std::vector<const char*> labelPtrs(m_labels.size());
-            for (size_t i = 0; i < m_labels.size(); i++) {
-                labelPtrs[i] = m_labels[i].c_str();
-            }
-
             ImPlotPieChartFlags pieFlags = 0;
             if (m_normalize) pieFlags |= ImPlotPieChartFlags_Normalize;
 
-            ImPlot::PlotPieChart(labelPtrs.data(), m_values.data(),
+            ImPlot::PlotPieChart(m_labelPtrs.data(), m_values.data(),
                 static_cast<int>(m_values.size()),
                 0.5, 0.5, 0.4, m_labelFormat.c_str(), m_angle0, pieFlags);
         }

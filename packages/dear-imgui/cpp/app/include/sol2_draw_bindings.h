@@ -12,7 +12,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float x1, float y1, float x2, float y2,
         const std::string& color, sol::optional<float> thickness
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         float ox = dc.offset.x, oy = dc.offset.y;
         if (dc.recording) {
@@ -29,7 +29,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float x, float y, float w, float h,
         const std::string& color, sol::optional<float> thickness, sol::optional<float> rounding
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         float r = rounding.value_or(0.0f);
         float ox = dc.offset.x, oy = dc.offset.y;
@@ -47,7 +47,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float x, float y, float w, float h,
         const std::string& color, sol::optional<float> rounding
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float r = rounding.value_or(0.0f);
         float ox = dc.offset.x, oy = dc.offset.y;
         if (dc.recording) {
@@ -64,7 +64,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float cx, float cy, float radius,
         const std::string& color, sol::optional<float> thickness, sol::optional<int> segments
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         int seg = segments.value_or(0);
         if (dc.recording) {
@@ -81,7 +81,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float cx, float cy, float radius,
         const std::string& color, sol::optional<int> segments
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         int seg = segments.value_or(0);
         if (dc.recording) {
             dc.recorded.push_back({"drawCircleFilled",
@@ -97,7 +97,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float x1, float y1, float x2, float y2, float x3, float y3,
         const std::string& color, sol::optional<float> thickness
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         float ox = dc.offset.x, oy = dc.offset.y;
         if (dc.recording) {
@@ -115,7 +115,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float x1, float y1, float x2, float y2, float x3, float y3,
         const std::string& color
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float ox = dc.offset.x, oy = dc.offset.y;
         if (dc.recording) {
             dc.recorded.push_back({"drawTriangleFilled",
@@ -131,7 +131,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
     lua.set_function("drawText", [&dc](
         float x, float y, const std::string& color, const std::string& text
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         if (dc.recording) {
             dc.recorded.push_back({"drawText",
                 {x + dc.offset.x, y + dc.offset.y}, col, text});
@@ -147,7 +147,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         sol::table pointsTable, const std::string& color,
         sol::optional<bool> closed, sol::optional<float> thickness
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         bool isClosed = closed.value_or(false);
         float t = thickness.value_or(1.0f);
         float ox = dc.offset.x, oy = dc.offset.y;
@@ -185,7 +185,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float x3, float y3, float x4, float y4,
         const std::string& color, sol::optional<float> thickness
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         float ox = dc.offset.x, oy = dc.offset.y;
         if (dc.recording) {
@@ -205,7 +205,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float cx, float cy, float radius,
         const std::string& color, int numSegments, sol::optional<float> thickness
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         if (dc.recording) {
             dc.recorded.push_back({"drawNgon",
@@ -221,7 +221,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float cx, float cy, float radius,
         const std::string& color, int numSegments
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         if (dc.recording) {
             dc.recorded.push_back({"drawNgonFilled",
                 {cx + dc.offset.x, cy + dc.offset.y, radius, (float)numSegments}, col, ""});
@@ -236,7 +236,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float cx, float cy, float rx, float ry,
         const std::string& color, sol::optional<float> thickness, sol::optional<float> rotation
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float t = thickness.value_or(1.0f);
         float rot = rotation.value_or(0.0f);
         if (dc.recording) {
@@ -253,7 +253,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
         float cx, float cy, float rx, float ry,
         const std::string& color, sol::optional<float> rotation
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float rot = rotation.value_or(0.0f);
         if (dc.recording) {
             dc.recorded.push_back({"drawEllipseFilled",
@@ -294,7 +294,7 @@ inline void registerDrawBindings(sol::state& lua, DrawContext& dc) {
     lua.set_function("drawConvexPolyFilled", [&dc](
         sol::table pointsTable, const std::string& color
     ) {
-        ImU32 col = parseCSSColor(color.c_str());
+        ImU32 col = parseCSSColor(color.c_str(), &dc);
         float ox = dc.offset.x, oy = dc.offset.y;
 
         int len = static_cast<int>(pointsTable.size());

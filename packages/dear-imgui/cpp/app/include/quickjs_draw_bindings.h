@@ -36,7 +36,7 @@ inline JSValue js_drawLine(JSContext* ctx, JSValue this_val, int argc, JSValue* 
     float x2 = (float)getFloat(ctx, argc, argv, 2);
     float y2 = (float)getFloat(ctx, argc, argv, 3);
     const char* cs = JS_ToCString(ctx, argv[4]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float thickness = (float)getFloat(ctx, argc, argv, 5, 1.0);
 
@@ -65,7 +65,7 @@ inline JSValue js_drawRect(JSContext* ctx, JSValue this_val, int argc, JSValue* 
     float w = (float)getFloat(ctx, argc, argv, 2);
     float h = (float)getFloat(ctx, argc, argv, 3);
     const char* cs = JS_ToCString(ctx, argv[4]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float thickness = (float)getFloat(ctx, argc, argv, 5, 1.0);
     float rounding = (float)getFloat(ctx, argc, argv, 6, 0.0);
@@ -93,7 +93,7 @@ inline JSValue js_drawRectFilled(JSContext* ctx, JSValue this_val, int argc, JSV
     float w = (float)getFloat(ctx, argc, argv, 2);
     float h = (float)getFloat(ctx, argc, argv, 3);
     const char* cs = JS_ToCString(ctx, argv[4]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float rounding = (float)getFloat(ctx, argc, argv, 5, 0.0);
 
@@ -119,7 +119,7 @@ inline JSValue js_drawCircle(JSContext* ctx, JSValue this_val, int argc, JSValue
     float cy = (float)getFloat(ctx, argc, argv, 1);
     float radius = (float)getFloat(ctx, argc, argv, 2);
     const char* cs = JS_ToCString(ctx, argv[3]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float thickness = (float)getFloat(ctx, argc, argv, 4, 1.0);
     int segments = getInt(ctx, argc, argv, 5, 0);
@@ -146,7 +146,7 @@ inline JSValue js_drawCircleFilled(JSContext* ctx, JSValue this_val, int argc, J
     float cy = (float)getFloat(ctx, argc, argv, 1);
     float radius = (float)getFloat(ctx, argc, argv, 2);
     const char* cs = JS_ToCString(ctx, argv[3]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     int segments = getInt(ctx, argc, argv, 4, 0);
 
@@ -175,7 +175,7 @@ inline JSValue js_drawTriangle(JSContext* ctx, JSValue this_val, int argc, JSVal
     float x3 = (float)getFloat(ctx, argc, argv, 4);
     float y3 = (float)getFloat(ctx, argc, argv, 5);
     const char* cs = JS_ToCString(ctx, argv[6]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float thickness = (float)getFloat(ctx, argc, argv, 7, 1.0);
 
@@ -205,7 +205,7 @@ inline JSValue js_drawTriangleFilled(JSContext* ctx, JSValue this_val, int argc,
     float x3 = (float)getFloat(ctx, argc, argv, 4);
     float y3 = (float)getFloat(ctx, argc, argv, 5);
     const char* cs = JS_ToCString(ctx, argv[6]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
 
     float ox = dc->offset.x, oy = dc->offset.y;
@@ -230,7 +230,7 @@ inline JSValue js_drawText(JSContext* ctx, JSValue this_val, int argc, JSValue* 
     float x = (float)getFloat(ctx, argc, argv, 0);
     float y = (float)getFloat(ctx, argc, argv, 1);
     const char* cs = JS_ToCString(ctx, argv[2]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     const char* text = JS_ToCString(ctx, argv[3]);
 
@@ -281,7 +281,7 @@ inline JSValue js_drawPolyline(JSContext* ctx, JSValue this_val, int argc, JSVal
     }
 
     const char* cs = JS_ToCString(ctx, argv[1]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
 
     int closed = (argc > 2) ? JS_ToBool(ctx, argv[2]) : 0;
@@ -315,7 +315,7 @@ inline JSValue js_drawBezierCubic(JSContext* ctx, JSValue this_val, int argc, JS
     float x4 = (float)getFloat(ctx, argc, argv, 6);
     float y4 = (float)getFloat(ctx, argc, argv, 7);
     const char* cs = JS_ToCString(ctx, argv[8]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float thickness = (float)getFloat(ctx, argc, argv, 9, 1.0);
 
@@ -344,7 +344,7 @@ inline JSValue js_drawNgon(JSContext* ctx, JSValue this_val, int argc, JSValue* 
     float cy = (float)getFloat(ctx, argc, argv, 1);
     float radius = (float)getFloat(ctx, argc, argv, 2);
     const char* cs = JS_ToCString(ctx, argv[3]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     int numSegments = getInt(ctx, argc, argv, 4);
     float thickness = (float)getFloat(ctx, argc, argv, 5, 1.0);
@@ -371,7 +371,7 @@ inline JSValue js_drawNgonFilled(JSContext* ctx, JSValue this_val, int argc, JSV
     float cy = (float)getFloat(ctx, argc, argv, 1);
     float radius = (float)getFloat(ctx, argc, argv, 2);
     const char* cs = JS_ToCString(ctx, argv[3]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     int numSegments = getInt(ctx, argc, argv, 4);
 
@@ -398,7 +398,7 @@ inline JSValue js_drawEllipse(JSContext* ctx, JSValue this_val, int argc, JSValu
     float rx = (float)getFloat(ctx, argc, argv, 2);
     float ry = (float)getFloat(ctx, argc, argv, 3);
     const char* cs = JS_ToCString(ctx, argv[4]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float thickness = (float)getFloat(ctx, argc, argv, 5, 1.0);
     float rotation = (float)getFloat(ctx, argc, argv, 6, 0.0);
@@ -426,7 +426,7 @@ inline JSValue js_drawEllipseFilled(JSContext* ctx, JSValue this_val, int argc, 
     float rx = (float)getFloat(ctx, argc, argv, 2);
     float ry = (float)getFloat(ctx, argc, argv, 3);
     const char* cs = JS_ToCString(ctx, argv[4]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
     float rotation = (float)getFloat(ctx, argc, argv, 5, 0.0);
 
@@ -510,7 +510,7 @@ inline JSValue js_drawConvexPolyFilled(JSContext* ctx, JSValue this_val, int arg
     }
 
     const char* cs = JS_ToCString(ctx, argv[1]);
-    ImU32 color = parseCSSColor(cs);
+    ImU32 color = parseCSSColor(cs, dc);
     JS_FreeCString(ctx, cs);
 
     if (dc->recording) {

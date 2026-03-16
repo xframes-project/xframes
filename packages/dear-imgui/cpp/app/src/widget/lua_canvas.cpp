@@ -80,6 +80,19 @@ void LuaCanvas::InitLua() {
 
     Sol2DrawBindings::registerDrawBindings(m_lua, m_drawContext);
 
+    // Set textureLookup once — lambda captures `this` which is stable for widget lifetime
+    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
+        auto it = m_textures.find(id);
+        if (it != m_textures.end() && it->second.textureView) {
+#ifdef __EMSCRIPTEN__
+            return (ImTextureID)it->second.textureView;
+#else
+            return (ImTextureID)(intptr_t)it->second.textureView;
+#endif
+        }
+        return 0;
+    };
+
     // Evaluate Canvas 2D API shim — creates global `ctx` table
     const auto& shim = getLuaCanvas2DShim();
     auto shimResult = m_lua.safe_script(shim, sol::script_pass_on_error);
@@ -167,19 +180,6 @@ void LuaCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         m_pendingScripts.clear();
     }
 
-    // Set textureLookup for this frame
-    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
-        auto it = m_textures.find(id);
-        if (it != m_textures.end() && it->second.textureView) {
-#ifdef __EMSCRIPTEN__
-            return (ImTextureID)it->second.textureView;
-#else
-            return (ImTextureID)(intptr_t)it->second.textureView;
-#endif
-        }
-        return 0;
-    };
-
     float w = YGNodeLayoutGetWidth(m_layoutNode->m_node);
     float h = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
@@ -189,9 +189,13 @@ void LuaCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     m_drawContext.offset = pos;
     m_drawContext.currentFont = ImGui::GetFont();
 
-    // Set canvas dimensions as Lua globals
-    m_lua["canvasWidth"] = w;
-    m_lua["canvasHeight"] = h;
+    // Only update canvas dimensions when they actually change
+    if (w != m_lastCanvasWidth || h != m_lastCanvasHeight) {
+        m_lua["canvasWidth"] = w;
+        m_lua["canvasHeight"] = h;
+        m_lastCanvasWidth = w;
+        m_lastCanvasHeight = h;
+    }
 
     if (m_hasRenderFunc) {
         auto result = m_renderFunc();

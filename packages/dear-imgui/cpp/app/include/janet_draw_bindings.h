@@ -21,7 +21,7 @@ static Janet cfun_draw_line(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 4);
     float thickness = (float)janet_optnumber(argv, argc, 5, 1.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawLine",
@@ -43,7 +43,7 @@ static Janet cfun_draw_rect(int32_t argc, Janet *argv) {
     float thickness = (float)janet_optnumber(argv, argc, 5, 1.0);
     float rounding = (float)janet_optnumber(argv, argc, 6, 0.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawRect",
@@ -64,7 +64,7 @@ static Janet cfun_draw_rect_filled(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 4);
     float rounding = (float)janet_optnumber(argv, argc, 5, 0.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawRectFilled",
@@ -85,7 +85,7 @@ static Janet cfun_draw_circle(int32_t argc, Janet *argv) {
     float thickness = (float)janet_optnumber(argv, argc, 4, 1.0);
     int segments = janet_optinteger(argv, argc, 5, 0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawCircle",
             {cx + s_dc->offset.x, cy + s_dc->offset.y, radius, thickness, (float)segments}, col, ""});
@@ -104,7 +104,7 @@ static Janet cfun_draw_circle_filled(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 3);
     int segments = janet_optinteger(argv, argc, 4, 0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawCircleFilled",
             {cx + s_dc->offset.x, cy + s_dc->offset.y, radius, (float)segments}, col, ""});
@@ -126,7 +126,7 @@ static Janet cfun_draw_triangle(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 6);
     float thickness = (float)janet_optnumber(argv, argc, 7, 1.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawTriangle",
@@ -149,7 +149,7 @@ static Janet cfun_draw_triangle_filled(int32_t argc, Janet *argv) {
     float y3 = (float)janet_getnumber(argv, 5);
     const char* color = (const char*)janet_getstring(argv, 6);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawTriangleFilled",
@@ -169,7 +169,7 @@ static Janet cfun_draw_text(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 2);
     const char* text = (const char*)janet_getstring(argv, 3);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawText",
             {x + s_dc->offset.x, y + s_dc->offset.y}, col, text});
@@ -188,7 +188,7 @@ static Janet cfun_draw_polyline(int32_t argc, Janet *argv) {
     int isClosed = janet_optboolean(argv, argc, 2, 0);
     float thickness = (float)janet_optnumber(argv, argc, 3, 1.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
 
     int numPoints = len / 2;
@@ -231,7 +231,7 @@ static Janet cfun_draw_bezier_cubic(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 8);
     float thickness = (float)janet_optnumber(argv, argc, 9, 1.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawBezierCubic",
@@ -255,7 +255,7 @@ static Janet cfun_draw_ngon(int32_t argc, Janet *argv) {
     int numSegments = janet_getinteger(argv, 4);
     float thickness = (float)janet_optnumber(argv, argc, 5, 1.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawNgon",
             {cx + s_dc->offset.x, cy + s_dc->offset.y, radius, (float)numSegments, thickness}, col, ""});
@@ -274,7 +274,7 @@ static Janet cfun_draw_ngon_filled(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 3);
     int numSegments = janet_getinteger(argv, 4);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawNgonFilled",
             {cx + s_dc->offset.x, cy + s_dc->offset.y, radius, (float)numSegments}, col, ""});
@@ -295,7 +295,7 @@ static Janet cfun_draw_ellipse(int32_t argc, Janet *argv) {
     float thickness = (float)janet_optnumber(argv, argc, 5, 1.0);
     float rotation = (float)janet_optnumber(argv, argc, 6, 0.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawEllipse",
             {cx + s_dc->offset.x, cy + s_dc->offset.y, rx, ry, thickness, rotation}, col, ""});
@@ -315,7 +315,7 @@ static Janet cfun_draw_ellipse_filled(int32_t argc, Janet *argv) {
     const char* color = (const char*)janet_getstring(argv, 4);
     float rotation = (float)janet_optnumber(argv, argc, 5, 0.0);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     if (s_dc->recording) {
         s_dc->recorded.push_back({"drawEllipseFilled",
             {cx + s_dc->offset.x, cy + s_dc->offset.y, rx, ry, rotation}, col, ""});
@@ -359,7 +359,7 @@ static Janet cfun_draw_convex_poly_filled(int32_t argc, Janet *argv) {
     int32_t len = janet_length(argv[0]);
     const char* color = (const char*)janet_getstring(argv, 1);
 
-    ImU32 col = parseCSSColor(color);
+    ImU32 col = parseCSSColor(color, s_dc);
     float ox = s_dc->offset.x, oy = s_dc->offset.y;
 
     int numPoints = len / 2;
