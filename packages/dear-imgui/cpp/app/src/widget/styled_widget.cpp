@@ -161,6 +161,48 @@ StyleVars& WidgetStyle::GetCustomStyleVars(std::optional<ElementState> widgetSta
     return baseStyleVars;
 }
 
+StyleColors* WidgetStyle::GetCustomColorsOrNull(std::optional<ElementState> widgetState) {
+    switch(widgetState.value_or(ElementState_Base)) {
+        case ElementState_Disabled:
+            if (maybeDisabled.has_value() && maybeDisabled.value().maybeColors.has_value())
+                return &maybeDisabled.value().maybeColors.value();
+            [[fallthrough]];
+        case ElementState_Hover:
+            if (maybeHover.has_value() && maybeHover.value().maybeColors.has_value())
+                return &maybeHover.value().maybeColors.value();
+            [[fallthrough]];
+        case ElementState_Active:
+            if (maybeActive.has_value() && maybeActive.value().maybeColors.has_value())
+                return &maybeActive.value().maybeColors.value();
+            [[fallthrough]];
+        default: break;
+    }
+    if (maybeBase.has_value() && maybeBase.value().maybeColors.has_value())
+        return &maybeBase.value().maybeColors.value();
+    return nullptr;
+}
+
+StyleVars* WidgetStyle::GetCustomStyleVarsOrNull(std::optional<ElementState> widgetState) {
+    switch(widgetState.value_or(ElementState_Base)) {
+        case ElementState_Disabled:
+            if (maybeDisabled.has_value() && maybeDisabled.value().maybeStyleVars.has_value())
+                return &maybeDisabled.value().maybeStyleVars.value();
+            [[fallthrough]];
+        case ElementState_Hover:
+            if (maybeHover.has_value() && maybeHover.value().maybeStyleVars.has_value())
+                return &maybeHover.value().maybeStyleVars.value();
+            [[fallthrough]];
+        case ElementState_Active:
+            if (maybeActive.has_value() && maybeActive.value().maybeStyleVars.has_value())
+                return &maybeActive.value().maybeStyleVars.value();
+            [[fallthrough]];
+        default: break;
+    }
+    if (maybeBase.has_value() && maybeBase.value().maybeStyleVars.has_value())
+        return &maybeBase.value().maybeStyleVars.value();
+    return nullptr;
+}
+
 int WidgetStyle::GetCustomFontId(std::optional<ElementState> widgetState, XFrames* view) {
     auto fontIndex = maybeBase.value().maybeFontIndex.value();
 
@@ -365,14 +407,14 @@ void StyledWidget::PreRender(XFrames* view) {
             view->m_renderer->PushFont(m_style.value()->GetCustomFontId(state, view));
         }
 
-        if (m_style.value()->HasCustomColors(state)) {
-            for (auto const& [key, val] : m_style.value()->GetCustomColors(state)) {
+        if (auto* colors = m_style.value()->GetCustomColorsOrNull(state)) {
+            for (auto const& [key, val] : *colors) {
                 ImGui::PushStyleColor(key, val);
             }
         }
 
-        if (m_style.value()->HasCustomStyleVars(state)) {
-            for (auto const& [key, val] : m_style.value()->GetCustomStyleVars(state)) {
+        if (auto* styleVars = m_style.value()->GetCustomStyleVarsOrNull(state)) {
+            for (auto const& [key, val] : *styleVars) {
                 if (std::holds_alternative<float>(val)) {
                     ImGui::PushStyleVar(key, std::get<float>(val));
                 } else if (std::holds_alternative<ImVec2>(val)) {
@@ -397,12 +439,12 @@ void StyledWidget::PostRender(XFrames* view) {
             view->m_renderer->PopFont();
         }
 
-        if (m_style.value()->HasCustomColors(state)) {
-            ImGui::PopStyleColor(m_style.value()->GetCustomColors(state).size());
+        if (auto* colors = m_style.value()->GetCustomColorsOrNull(state)) {
+            ImGui::PopStyleColor(colors->size());
         }
 
-        if (m_style.value()->HasCustomStyleVars(state)) {
-            ImGui::PopStyleVar(m_style.value()->GetCustomStyleVars(state).size());
+        if (auto* styleVars = m_style.value()->GetCustomStyleVarsOrNull(state)) {
+            ImGui::PopStyleVar(styleVars->size());
         }
     }
 

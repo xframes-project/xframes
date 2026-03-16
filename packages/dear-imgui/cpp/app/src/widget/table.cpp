@@ -114,8 +114,9 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                             }
                             if (m_columns[i].fieldId.has_value()) {
                                 auto& fieldId = m_columns[i].fieldId.value();
-                                if (m_data[row].contains(fieldId)) {
-                                    RenderCell(m_data[row][fieldId], m_columns[i].type);
+                                auto cellIt = m_data[row].find(fieldId);
+                                if (cellIt != m_data[row].end()) {
+                                    RenderCell(cellIt->second, m_columns[i].type);
                                 }
                             }
                         }
@@ -145,8 +146,9 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                             }
                             if (m_columns[i].fieldId.has_value()) {
                                 auto& fieldId = m_columns[i].fieldId.value();
-                                if (m_data[row].contains(fieldId)) {
-                                    RenderCell(m_data[row][fieldId], m_columns[i].type);
+                                auto cellIt = m_data[row].find(fieldId);
+                                if (cellIt != m_data[row].end()) {
+                                    RenderCell(cellIt->second, m_columns[i].type);
                                 }
                             }
                         }

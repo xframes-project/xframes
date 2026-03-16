@@ -23,6 +23,8 @@ struct WidgetStyle {
     [[nodiscard]] bool HasCustomStyleVars(std::optional<ElementState> widgetState) const;
     StyleColors& GetCustomColors(std::optional<ElementState> widgetState);
     StyleVars& GetCustomStyleVars(std::optional<ElementState> widgetState);
+    StyleColors* GetCustomColorsOrNull(std::optional<ElementState> widgetState);
+    StyleVars* GetCustomStyleVarsOrNull(std::optional<ElementState> widgetState);
     int GetCustomFontId(std::optional<ElementState> widgetState, XFrames* view);
     StyleVarValue GetCustomStyleVar(std::optional<ElementState> widgetState, ImGuiStyleVar key);
 };
