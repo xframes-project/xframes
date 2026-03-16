@@ -14,7 +14,7 @@ void ColorIndicator::Patch(const json& widgetPatchDef, XFrames* view) {
     }
 
     if (widgetPatchDef.contains("shape") && widgetPatchDef["shape"].is_string()) {
-        m_shape = widgetPatchDef["shape"].template get<std::string>();
+        m_isCircle = (widgetPatchDef["shape"].template get<std::string>() == "circle");
     }
 };
 
@@ -26,7 +26,7 @@ void ColorIndicator::Render(XFrames* view, const std::optional<ImRect>& viewport
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImU32 col = ImGui::GetColorU32(m_color);
 
-    if (m_shape == "circle") {
+    if (m_isCircle) {
         float radius = std::min(w, h) * 0.5f;
         drawList->AddCircleFilled(
             ImVec2(pos.x + w * 0.5f, pos.y + h * 0.5f),

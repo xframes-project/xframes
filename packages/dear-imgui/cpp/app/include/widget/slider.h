@@ -4,7 +4,7 @@ class Slider final : public StyledWidget {
     protected:
         Slider(XFrames* view, const int id, const float defaultValue, const float min, const float max, const std::string& sliderType, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_type = "slider";
-            m_sliderType = sliderType;
+            m_isAngle = (sliderType == "angle");
             m_value = defaultValue;
             m_min = min;
             m_max = max;
@@ -15,7 +15,7 @@ class Slider final : public StyledWidget {
         }
 
     public:
-        std::string m_sliderType;
+        bool m_isAngle = false;
         float m_value;
         float m_min;
         float m_max;

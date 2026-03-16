@@ -4,7 +4,7 @@
 class ColorIndicator final : public StyledWidget {
 public:
     ImVec4 m_color;
-    std::string m_shape;
+    bool m_isCircle = false;
 
     static std::unique_ptr<ColorIndicator> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
@@ -28,7 +28,7 @@ public:
     ColorIndicator(XFrames* view, const int id, const ImVec4& color, const std::string& shape, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
         m_type = "color-indicator";
         m_color = color;
-        m_shape = shape;
+        m_isCircle = (shape == "circle");
     }
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;

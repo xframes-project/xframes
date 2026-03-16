@@ -5,7 +5,7 @@
 
 void Slider::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
-    if (m_sliderType == "angle") {
+    if (m_isAngle) {
         if (ImGui::SliderAngle("", &m_value, -360.0f, 360.0f, "%.0f")) {
             view->m_onNumericValueChange(m_id, m_value);
         }

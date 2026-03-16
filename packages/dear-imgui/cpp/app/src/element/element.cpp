@@ -188,9 +188,10 @@ const char* Element::GetElementType() {
 };
 
 ImRect Element::GetScrollingAwareViewport() {
-    auto innerClipRect = ImGui::GetCurrentWindow()->InnerClipRect;
+    auto* window = ImGui::GetCurrentWindow();
+    auto innerClipRect = window->InnerClipRect;
     auto clippedSize = ImVec2(innerClipRect.Max.x - innerClipRect.Min.x, innerClipRect.Max.y - innerClipRect.Min.y);
-    auto viewport = ImRect(ImGui::GetCurrentWindow()->Scroll.x, ImGui::GetCurrentWindow()->Scroll.y, ImGui::GetCurrentWindow()->Scroll.x + clippedSize.x, ImGui::GetCurrentWindow()->Scroll.y + clippedSize.y);
+    auto viewport = ImRect(window->Scroll.x, window->Scroll.y, window->Scroll.x + clippedSize.x, window->Scroll.y + clippedSize.y);
 
     // printf("%d %d %d %d\n", (int)viewport.Min.x, (int)viewport.Min.y, (int)viewport.Max.x, (int)viewport.Max.y);
 
