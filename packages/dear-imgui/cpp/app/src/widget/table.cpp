@@ -26,14 +26,16 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                     ImGui::TableSetColumnIndex(i);
                     ImGui::PushID(i);
                     ImGui::SetNextItemWidth(-FLT_MIN);
-                    if (m_columns[i].type == "boolean") {
+                    if (m_columns[i].type == ColumnType::Boolean) {
                         const char* boolOptions[] = { "All", "Yes", "No" };
                         if (ImGui::Combo("##filter", &m_boolFilterStates[i], boolOptions, 3)) {
+                            m_filterDirty = true;
                             const char* labels[] = { "", "Yes", "No" };
                             view->m_onTableFilter(m_id, i, std::string(labels[m_boolFilterStates[i]]));
                         }
                     } else {
                         if (m_filters[i].Draw("##filter")) {
+                            m_filterDirty = true;
                             view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
                         }
                     }
@@ -47,13 +49,14 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                     if (spec.ColumnIndex < (int)m_columns.size() && m_columns[spec.ColumnIndex].fieldId.has_value()) {
                         const auto& fieldId = m_columns[spec.ColumnIndex].fieldId.value();
                         const auto& colType = m_columns[spec.ColumnIndex].type;
+                        m_filterDirty = true;
                         bool ascending = spec.SortDirection == ImGuiSortDirection_Ascending;
                         std::sort(m_data.begin(), m_data.end(), [&](const TableRow& a, const TableRow& b) {
                             auto itA = a.find(fieldId);
                             auto itB = b.find(fieldId);
                             if (itA == a.end()) return false;
                             if (itB == b.end()) return true;
-                            if (colType == "number") {
+                            if (colType == ColumnType::Number) {
                                 try {
                                     double numA = std::stod(itA->second);
                                     double numB = std::stod(itB->second);
@@ -75,20 +78,23 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             bool openContextMenu = false;
 
             if (m_filterable && AnyFilterActive()) {
-                // Build filtered index list, then clip over that
-                std::vector<int> filteredIndices;
-                filteredIndices.reserve(m_data.size());
-                for (int r = 0; r < (int)m_data.size(); r++) {
-                    if (RowPassesAllFilters(m_data[r])) {
-                        filteredIndices.push_back(r);
+                // Rebuild filtered index list only when data or filters changed
+                if (m_filterDirty) {
+                    m_filteredIndices.clear();
+                    m_filteredIndices.reserve(m_data.size());
+                    for (int r = 0; r < (int)m_data.size(); r++) {
+                        if (RowPassesAllFilters(m_data[r])) {
+                            m_filteredIndices.push_back(r);
+                        }
                     }
+                    m_filterDirty = false;
                 }
 
                 ImGuiListClipper clipper;
-                clipper.Begin((int)filteredIndices.size());
+                clipper.Begin((int)m_filteredIndices.size());
                 while (clipper.Step()) {
                     for (int fi = clipper.DisplayStart; fi < clipper.DisplayEnd; fi++) {
-                        int row = filteredIndices[fi];
+                        int row = m_filteredIndices[fi];
                         ImGui::TableNextRow();
                         for (int i = 0; i < (int)numColumns; i++) {
                             ImGui::TableSetColumnIndex(i);
@@ -178,14 +184,16 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 ImGui::TableSetColumnIndex(i);
                 ImGui::PushID(i);
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                if (m_columns[i].type == "boolean") {
+                if (m_columns[i].type == ColumnType::Boolean) {
                     const char* boolOptions[] = { "All", "Yes", "No" };
                     if (ImGui::Combo("##filter", &m_boolFilterStates[i], boolOptions, 3)) {
+                        m_filterDirty = true;
                         const char* labels[] = { "", "Yes", "No" };
                         view->m_onTableFilter(m_id, i, std::string(labels[m_boolFilterStates[i]]));
                     }
                 } else {
                     if (m_filters[i].Draw("##filter")) {
+                        m_filterDirty = true;
                         view->m_onTableFilter(m_id, i, std::string(m_filters[i].InputBuf));
                     }
                 }
@@ -199,13 +207,14 @@ void Table::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 if (spec.ColumnIndex < (int)m_columns.size() && m_columns[spec.ColumnIndex].fieldId.has_value()) {
                     const auto& fieldId = m_columns[spec.ColumnIndex].fieldId.value();
                     const auto& colType = m_columns[spec.ColumnIndex].type;
+                    m_filterDirty = true;
                     bool ascending = spec.SortDirection == ImGuiSortDirection_Ascending;
                     std::sort(m_data.begin(), m_data.end(), [&](const TableRow& a, const TableRow& b) {
                         auto itA = a.find(fieldId);
                         auto itB = b.find(fieldId);
                         if (itA == a.end()) return false;
                         if (itB == b.end()) return true;
-                        if (colType == "number") {
+                        if (colType == ColumnType::Number) {
                             try {
                                 double numA = std::stod(itA->second);
                                 double numB = std::stod(itB->second);

@@ -4,6 +4,8 @@
 using TableRow = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
 using TableData = std::vector<TableRow>;
 
+enum class ColumnType { String, Number, Boolean };
+
 struct TableContextMenuItem {
     std::string id;
     std::string label;
@@ -15,7 +17,7 @@ class Table final : public StyledWidget {
         std::optional<std::string> fieldId;
         std::string heading;
         ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_WidthStretch;
-        std::string type = "string"; // "string", "number", "boolean"
+        ColumnType type = ColumnType::String;
     };
 
     protected:
@@ -56,6 +58,8 @@ class Table final : public StyledWidget {
         std::vector<int> m_boolFilterStates; // 0=All, 1=Yes, 2=No
         std::vector<TableContextMenuItem> m_contextMenuItems;
         int m_contextMenuRowIndex = -1;
+        std::vector<int> m_filteredIndices;
+        bool m_filterDirty = true;
 
         static std::vector<TableColumn> extractColumns(const json& columnsDef, bool tableHideable = false) {
             std::vector<TableColumn> columns;
@@ -93,9 +97,11 @@ class Table final : public StyledWidget {
                         flags |= ImGuiTableColumnFlags_NoHide;
                     }
 
-                    std::string colType = "string";
+                    ColumnType colType = ColumnType::String;
                     if (item.contains("type") && item["type"].is_string()) {
-                        colType = item["type"].template get<std::string>();
+                        auto typeStr = item["type"].template get<std::string>();
+                        if (typeStr == "number") colType = ColumnType::Number;
+                        else if (typeStr == "boolean") colType = ColumnType::Boolean;
                     }
 
                     columns.push_back({
@@ -190,11 +196,13 @@ class Table final : public StyledWidget {
                 m_boolFilterStates.clear();
                 m_boolFilterStates.resize(m_columns.size(), 0);
             }
+            m_filterDirty = true;
         }
 
         void SetColumnFilter(int columnIndex, const std::string& filterText) {
             if (columnIndex >= 0 && columnIndex < (int)m_columns.size()) {
-                if (m_columns[columnIndex].type == "boolean") {
+                m_filterDirty = true;
+                if (m_columns[columnIndex].type == ColumnType::Boolean) {
                     if (columnIndex < (int)m_boolFilterStates.size()) {
                         if (filterText == "Yes") m_boolFilterStates[columnIndex] = 1;
                         else if (filterText == "No") m_boolFilterStates[columnIndex] = 2;
@@ -212,13 +220,14 @@ class Table final : public StyledWidget {
                 filter.Clear();
             }
             std::fill(m_boolFilterStates.begin(), m_boolFilterStates.end(), 0);
+            m_filterDirty = true;
         }
 
         bool RowPassesAllFilters(const TableRow& row) const {
             for (int i = 0; i < (int)m_columns.size(); i++) {
                 if (!m_columns[i].fieldId.has_value()) continue;
 
-                if (m_columns[i].type == "boolean") {
+                if (m_columns[i].type == ColumnType::Boolean) {
                     if (i < (int)m_boolFilterStates.size() && m_boolFilterStates[i] != 0) {
                         auto it = row.find(m_columns[i].fieldId.value());
                         if (it == row.end()) return false;
@@ -248,8 +257,8 @@ class Table final : public StyledWidget {
             return false;
         }
 
-        std::string GetDisplayValue(const std::string& value, const std::string& colType) const {
-            if (colType == "number") {
+        std::string GetDisplayValue(const std::string& value, ColumnType colType) const {
+            if (colType == ColumnType::Number) {
                 try {
                     double num = std::stod(value);
                     char buf[64];
@@ -264,20 +273,11 @@ class Table final : public StyledWidget {
             return value;
         }
 
-        void RenderCell(const std::string& value, const std::string& colType) {
-            if (colType == "number") {
-                try {
-                    double num = std::stod(value);
-                    // Check if it's a whole number
-                    if (num == std::floor(num) && std::abs(num) < 1e15) {
-                        ImGui::Text("%lld", (long long)num);
-                    } else {
-                        ImGui::Text("%.2f", num);
-                    }
-                } catch (...) {
-                    ImGui::TextUnformatted(value.c_str());
-                }
-            } else if (colType == "boolean") {
+        void RenderCell(const std::string& value, ColumnType colType) {
+            if (colType == ColumnType::Number) {
+                std::string display = GetDisplayValue(value, colType);
+                ImGui::TextUnformatted(display.c_str());
+            } else if (colType == ColumnType::Boolean) {
                 if (value == "true" || value == "1") {
                     ImGui::TextUnformatted(ICON_FA_CHECK);
                 } else {
@@ -301,6 +301,7 @@ class Table final : public StyledWidget {
 
         void AppendData(TableData& data) {
             m_data.insert(m_data.end(), data.begin(), data.end());
+            m_filterDirty = true;
         }
 
         // TODO: this is repeated a million times

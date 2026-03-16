@@ -137,6 +137,19 @@ void JanetCanvas::InitJanet() {
             m_view->m_onScriptError(m_id, "Janet Canvas 2D shim failed to evaluate");
         }
     }
+
+    // Set textureLookup once — lambda captures `this` which is stable for widget lifetime
+    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
+        auto it = m_textures.find(id);
+        if (it != m_textures.end() && it->second.textureView) {
+#ifdef __EMSCRIPTEN__
+            return (ImTextureID)it->second.textureView;
+#else
+            return (ImTextureID)(intptr_t)it->second.textureView;
+#endif
+        }
+        return 0;
+    };
 }
 
 void JanetCanvas::SetScriptFromString(const std::string& script) {
@@ -230,19 +243,6 @@ void JanetCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
         m_pendingScripts.clear();
     }
-
-    // Set textureLookup for this frame
-    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
-        auto it = m_textures.find(id);
-        if (it != m_textures.end() && it->second.textureView) {
-#ifdef __EMSCRIPTEN__
-            return (ImTextureID)it->second.textureView;
-#else
-            return (ImTextureID)(intptr_t)it->second.textureView;
-#endif
-        }
-        return 0;
-    };
 
     float w = YGNodeLayoutGetWidth(m_layoutNode->m_node);
     float h = YGNodeLayoutGetHeight(m_layoutNode->m_node);
