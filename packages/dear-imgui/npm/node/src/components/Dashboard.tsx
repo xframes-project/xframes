@@ -199,6 +199,7 @@ export const Dashboard = () => {
   const luaCanvasRef = useRef<LuaCanvasImperativeHandle>(null);
   const luaClockRef = useRef<LuaCanvasImperativeHandle>(null);
   const janetCanvasRef = useRef<JanetCanvasImperativeHandle>(null);
+  const janetClockRef = useRef<JanetCanvasImperativeHandle>(null);
   const zoomSliderRef = useRef<SliderImperativeHandle>(null);
 
   const [dataPointCount, setDataPointCount] = useState(0);
@@ -507,6 +508,22 @@ export const Dashboard = () => {
     janetCanvasRef.current?.setScriptFile("./src/scripts/janet-drawing-primitives.janet");
   }, []);
 
+  // JanetCanvas: ctx 2D API demo — analog clock using Janet Canvas 2D API
+  useEffect(() => {
+    janetClockRef.current?.setScriptFile("./src/scripts/janet-analog-clock.janet");
+
+    const now = new Date();
+    let elapsed = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    janetClockRef.current?.setData({ time: elapsed });
+
+    const interval = setInterval(() => {
+      elapsed++;
+      janetClockRef.current?.setData({ time: elapsed });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleClearCanvas = useCallback(() => {
     dataCanvasRef.current?.clear();
   }, []);
@@ -533,7 +550,7 @@ export const Dashboard = () => {
         />
       </XFrames.Node>
 
-      <XFrames.Node style={styles.scrollContainer}>
+      <XFrames.Node style={styles.scrollContainer} cull>
         {/* Top row: Table + Plot */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
@@ -857,7 +874,10 @@ export const Dashboard = () => {
             />
           </XFrames.Node>
 
-          <XFrames.Node style={styles.rightColumn} />
+          <XFrames.Node style={styles.rightColumn}>
+            <XFrames.UnformattedText text="JanetCanvas (2D API - Clock)" />
+            <XFrames.JanetCanvas ref={janetClockRef} style={styles.plotArea} />
+          </XFrames.Node>
         </XFrames.Node>
       </XFrames.Node>
     </>

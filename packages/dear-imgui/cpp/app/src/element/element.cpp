@@ -190,13 +190,31 @@ ImRect Element::GetScrollingAwareViewport() {
 
 void Element::HandleChildren(XFrames* view, const std::optional<ImRect>& parentViewport) {
     if (parentViewport.has_value()) {
-        // printf("%d has parent viewport\n", m_id);
-
-        view->RenderChildren(m_id, parentViewport);
+        // Transform viewport from parent's coordinate space into this element's
+        // local space. Children's Yoga positions are relative to this element,
+        // so the viewport must be too for ShouldRenderContent AABB checks.
+        float myLeft = YGNodeLayoutGetLeft(m_layoutNode->m_node);
+        float myTop = YGNodeLayoutGetTop(m_layoutNode->m_node);
+        ImRect localViewport(
+            parentViewport->Min.x - myLeft,
+            parentViewport->Min.y - myTop,
+            parentViewport->Max.x - myLeft,
+            parentViewport->Max.y - myTop
+        );
+        view->RenderChildren(m_id, localViewport);
     } else if (m_cull) {
         auto viewport = GetScrollingAwareViewport();
 
         view->RenderChildren(m_id, viewport);
+
+        // Extend content region to full extent so scrollbar covers all children.
+        // Dummy() calls ItemSize() which updates CursorMaxPos — SetCursorPosY alone
+        // does not (by ImGui design).
+        float maxBottom = view->GetChildrenMaxBottom(m_id);
+        float currentY = ImGui::GetCursorPosY();
+        if (maxBottom > currentY) {
+            ImGui::Dummy(ImVec2(0, maxBottom - currentY));
+        }
     } else {
         view->RenderChildren(m_id);
     }
@@ -437,11 +455,6 @@ void Element::DrawBaseEffects() const {
 };
 
 bool Element::ShouldRenderContent(const std::optional<ImRect>& viewport) const {
-    if (m_type != "node") {
-        // TODO: are we sure about this? Limits culling of content to nodes - not their contents. Hence, quite coarse at the moment.
-        return true;
-    }
-
     const float left = YGNodeLayoutGetLeft(m_layoutNode->m_node);
     const float top = YGNodeLayoutGetTop(m_layoutNode->m_node);
     const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);

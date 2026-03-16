@@ -160,6 +160,8 @@ class XFrames {
 
         std::vector<int> GetChildren(int id);
 
+        float GetChildrenMaxBottom(int parentId) const;
+
         json GetAvailableFonts();
 
         template <typename T>

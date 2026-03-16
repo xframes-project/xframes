@@ -496,7 +496,11 @@ void ImGuiRenderer::BeginRenderLoop() {
     while (!glfwWindowShouldClose(m_glfwWindow))
 #endif
     {
+#ifndef __EMSCRIPTEN__
+        glfwWaitEventsTimeout(1.0 / 30.0);
+#else
         glfwPollEvents();
+#endif
         glfwGetWindowSize(m_glfwWindow, &m_window_width, &m_window_height);
 
         HandleScreenSizeChanged();

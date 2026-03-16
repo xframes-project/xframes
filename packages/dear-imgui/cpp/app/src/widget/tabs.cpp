@@ -74,6 +74,7 @@ void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         if (width > 0 && height > 0) {
             ImGui::SetCursorPos(ImVec2(0, 25.f));
+            ImGui::Dummy(ImVec2(0, 0));
             ImGui::BeginChild("##", ImVec2(width, height), ImGuiChildFlags_None);
             Widget::HandleChildren(view, viewport);
             ImGui::EndChild();

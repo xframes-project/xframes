@@ -7,6 +7,7 @@
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
+#include <GLFW/glfw3.h>
 #include "implot.h"
 #include "implot_internal.h"
 
@@ -633,6 +634,9 @@ void XFrames::QueueCreateElement(std::string& elementJsonAsString) {
     try {
         ElementOpDef elementOp{OpCreateElement,json::parse(elementJsonAsString)};
         m_elementOpSubject.get_observer().on_next(elementOp);
+#ifndef __EMSCRIPTEN__
+        glfwPostEmptyEvent();
+#endif
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueueCreateElement, parse error: %s\n", parseError.what());
     }
@@ -644,6 +648,9 @@ void XFrames::QueuePatchElement(const int id, std::string& elementJsonAsString) 
         opDef["id"] = id;
         ElementOpDef elementOp{OpPatchElement,opDef};
         m_elementOpSubject.get_observer().on_next(elementOp);
+#ifndef __EMSCRIPTEN__
+        glfwPostEmptyEvent();
+#endif
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueuePatchElement, parse error: %s\n", parseError.what());
     }
@@ -656,6 +663,9 @@ void XFrames::QueueAppendChild(int parentId, int childId) {
         opDef["childId"] = childId;
         ElementOpDef elementOp{OpAppendChild,opDef};
         m_elementOpSubject.get_observer().on_next(elementOp);
+#ifndef __EMSCRIPTEN__
+        glfwPostEmptyEvent();
+#endif
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueueAppendChild, parse error: %s\n", parseError.what());
     }
@@ -668,6 +678,9 @@ void XFrames::QueueSetChildren(const int parentId, const std::vector<int>& child
         opDef["childrenIds"] = childrenIds;
         ElementOpDef elementOp{OpSetChildren,opDef};
         m_elementOpSubject.get_observer().on_next(elementOp);
+#ifndef __EMSCRIPTEN__
+        glfwPostEmptyEvent();
+#endif
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueueSetChildren, parse error: %s\n", parseError.what());
     }
@@ -679,6 +692,9 @@ void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
 
         if (m_elementInternalOpsSubject.contains(id)) {
             m_elementInternalOpsSubject[id].get_observer().on_next(opDef);
+#ifndef __EMSCRIPTEN__
+            glfwPostEmptyEvent();
+#endif
         }
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueueElementInternalOp, parse error: %s\n", parseError.what());
@@ -798,6 +814,20 @@ std::vector<int> XFrames::GetChildren(int id) {
     const std::lock_guard<std::mutex> lock(m_hierarchy_mutex);
     return m_hierarchy[id];
 };
+
+float XFrames::GetChildrenMaxBottom(int parentId) const {
+    float maxBottom = 0;
+    if (m_hierarchy.contains(parentId)) {
+        for (const auto& childId : m_hierarchy.at(parentId)) {
+            if (m_elements.contains(childId)) {
+                auto* node = m_elements.at(childId)->m_layoutNode->m_node;
+                float bottom = YGNodeLayoutGetTop(node) + YGNodeLayoutGetHeight(node);
+                if (bottom > maxBottom) maxBottom = bottom;
+            }
+        }
+    }
+    return maxBottom;
+}
 
 // todo: switch to ReactivePlusPlus's BehaviorSubject
 void XFrames::AppendTextToClippedMultiLineTextRenderer(const int id, const std::string& data) {

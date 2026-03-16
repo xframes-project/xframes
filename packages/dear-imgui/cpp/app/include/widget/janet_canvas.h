@@ -14,6 +14,8 @@ extern "C" {
 
 class JanetCanvas final : public StyledWidget {
 private:
+    static int s_janetRefCount;
+
     JanetTable* m_env = nullptr;
     Janet m_renderFuncValue = janet_wrap_nil();
     JanetFunction* m_renderFunc = nullptr;

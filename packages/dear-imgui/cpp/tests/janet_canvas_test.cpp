@@ -8,6 +8,7 @@ extern "C" {
 
 #include "draw_context.h"
 #include "janet_draw_bindings.h"
+#include "janet_canvas2d_shim.h"
 
 // Tests exercise JanetCanvas's draw bindings directly (no ImGui context needed).
 // Uses DrawContext recording mode to verify draw calls.
@@ -535,4 +536,596 @@ TEST_F(JanetCanvasTest, MathAvailable) {
     )");
     callRender();
     EXPECT_EQ(dc.recorded.size(), 12u);
+}
+
+// =============================================================================
+// JanetCanvas2DTest — Canvas 2D API shim tests
+// =============================================================================
+
+class JanetCanvas2DTest : public ::testing::Test {
+protected:
+    JanetTable* env = nullptr;
+    DrawContext dc;
+    Janet renderFuncValue = janet_wrap_nil();
+    JanetFunction* renderFunc = nullptr;
+    bool hasRenderFunc = false;
+
+    void janetSetVar(const char* name, Janet value) {
+        Janet sym = janet_csymbolv(name);
+        Janet slot = janet_table_get(env, sym);
+        if (janet_checktype(slot, JANET_TABLE)) {
+            JanetTable* slotTable = janet_unwrap_table(slot);
+            Janet ref = janet_table_get(slotTable, janet_ckeywordv("ref"));
+            if (janet_checktype(ref, JANET_ARRAY)) {
+                JanetArray* arr = janet_unwrap_array(ref);
+                if (arr->count > 0) {
+                    arr->data[0] = value;
+                    return;
+                }
+            }
+        }
+        janet_var(env, name, value, NULL);
+    }
+
+    void SetUp() override {
+        janet_init();
+        env = janet_core_env(NULL);
+
+        dc.drawList = nullptr;
+        dc.offset = {0, 0};
+        dc.recording = true;
+        dc.recorded.clear();
+
+        JanetDrawBindings::registerDrawBindings(env, dc);
+
+        // Create mutable var bindings (before shim)
+        janet_var(env, "data", janet_wrap_nil(), NULL);
+        janet_var(env, "canvas-width", janet_wrap_number(400), NULL);
+        janet_var(env, "canvas-height", janet_wrap_number(300), NULL);
+
+        // Evaluate Canvas 2D shim
+        const auto& shim = getJanetCanvas2DShim();
+        Janet shimOut;
+        int status = janet_dostring(env, shim.c_str(), "canvas2d_shim", &shimOut);
+        ASSERT_EQ(status, 0) << "Janet Canvas 2D shim failed to evaluate";
+    }
+
+    void TearDown() override {
+        if (hasRenderFunc) {
+            janet_gcunroot(renderFuncValue);
+        }
+        janet_deinit();
+    }
+
+    bool setScript(const char* script) {
+        if (hasRenderFunc) {
+            janet_gcunroot(renderFuncValue);
+            hasRenderFunc = false;
+            renderFunc = nullptr;
+        }
+
+        std::string wrapped = std::string("(fn [] ") + script + ")";
+        Janet out;
+        int status = janet_dostring(env, wrapped.c_str(), "test", &out);
+        if (status != 0) return false;
+        if (!janet_checktype(out, JANET_FUNCTION)) return false;
+
+        renderFuncValue = out;
+        renderFunc = janet_unwrap_function(out);
+        janet_gcroot(renderFuncValue);
+        hasRenderFunc = true;
+        return true;
+    }
+
+    void setData(const char* janetExpr) {
+        Janet out;
+        janet_dostring(env, janetExpr, "data", &out);
+        janetSetVar("data", out);
+    }
+
+    void callRender() {
+        dc.recorded.clear();
+        if (hasRenderFunc && renderFunc) {
+            Janet out;
+            JanetFiber* fiber = nullptr;
+            janet_pcall(renderFunc, 0, NULL, &out, &fiber);
+        }
+    }
+};
+
+// --- Basic drawing ---
+
+TEST_F(JanetCanvas2DTest, FillRectBasic) {
+    setScript(R"(
+        (put ctx :fill-style "red")
+        (ctx-fill-rect 10 20 100 50)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawRectFilled");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 10.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 20.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 100.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[3], 50.0f);
+}
+
+TEST_F(JanetCanvas2DTest, StrokeRectBasic) {
+    setScript(R"(
+        (put ctx :stroke-style "blue")
+        (put ctx :line-width 3)
+        (ctx-stroke-rect 5 10 80 40)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawRect");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 5.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 10.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 80.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[3], 40.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[4], 3.0f);
+}
+
+TEST_F(JanetCanvas2DTest, FillTextBasic) {
+    setScript(R"(
+        (put ctx :fill-style "#00ff00")
+        (ctx-fill-text "Hello" 10 20)
+    )");
+    callRender();
+
+    // measureText may or may not be called (depends on alignment)
+    // Find the drawText call
+    bool foundText = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawText") {
+            foundText = true;
+            EXPECT_FLOAT_EQ(call.floatArgs[0], 10.0f);
+            EXPECT_FLOAT_EQ(call.floatArgs[1], 20.0f);
+            EXPECT_EQ(call.textArg, "Hello");
+        }
+    }
+    EXPECT_TRUE(foundText);
+}
+
+TEST_F(JanetCanvas2DTest, ClearRect) {
+    setScript("(ctx-clear-rect 0 0 100 50)");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawRectFilled");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 100.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[3], 50.0f);
+}
+
+// --- State: save/restore ---
+
+TEST_F(JanetCanvas2DTest, SaveRestore) {
+    setScript(R"(
+        (put ctx :fill-style "#ff0000")
+        (ctx-save)
+        (put ctx :fill-style "#0000ff")
+        (ctx-fill-rect 0 0 10 10)
+        (ctx-restore)
+        (ctx-fill-rect 20 0 10 10)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 2u);
+    // First rect uses blue (set after save)
+    EXPECT_EQ(dc.recorded[0].function, "drawRectFilled");
+    // Second rect uses red (restored)
+    EXPECT_EQ(dc.recorded[1].function, "drawRectFilled");
+}
+
+// --- Canvas dimensions ---
+
+TEST_F(JanetCanvas2DTest, CanvasDimensions) {
+    setScript("(ctx-fill-rect 0 0 canvas-width canvas-height)");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[2], 400.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[3], 300.0f);
+}
+
+// --- Path API ---
+
+TEST_F(JanetCanvas2DTest, ArcFullCircle) {
+    setScript(R"(
+        (ctx-begin-path)
+        (ctx-arc 50 50 25 0 (* math/pi 2))
+        (put ctx :fill-style "red")
+        (ctx-fill)
+    )");
+    callRender();
+
+    // Should produce a drawConvexPolyFilled call
+    ASSERT_GE(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawConvexPolyFilled");
+}
+
+TEST_F(JanetCanvas2DTest, StrokeAndFillPath) {
+    setScript(R"(
+        (ctx-begin-path)
+        (ctx-move-to 0 0)
+        (ctx-line-to 100 0)
+        (ctx-line-to 100 100)
+        (ctx-line-to 0 100)
+        (ctx-close-path)
+        (put ctx :fill-style "red")
+        (ctx-fill)
+        (put ctx :stroke-style "blue")
+        (ctx-stroke)
+    )");
+    callRender();
+
+    // fill emits drawConvexPolyFilled, stroke emits drawPolyline
+    bool hasFill = false, hasStroke = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawConvexPolyFilled") hasFill = true;
+        if (call.function == "drawPolyline") hasStroke = true;
+    }
+    EXPECT_TRUE(hasFill);
+    EXPECT_TRUE(hasStroke);
+}
+
+TEST_F(JanetCanvas2DTest, BezierCurve) {
+    setScript(R"(
+        (ctx-begin-path)
+        (ctx-move-to 0 0)
+        (ctx-bezier-curve-to 50 0 50 100 100 100)
+        (put ctx :stroke-style "purple")
+        (ctx-stroke)
+    )");
+    callRender();
+
+    // Bezier tessellated into polyline
+    ASSERT_GE(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawPolyline");
+}
+
+TEST_F(JanetCanvas2DTest, QuadraticCurve) {
+    setScript(R"(
+        (ctx-begin-path)
+        (ctx-move-to 0 0)
+        (ctx-quadratic-curve-to 50 100 100 0)
+        (put ctx :stroke-style "green")
+        (ctx-stroke)
+    )");
+    callRender();
+
+    ASSERT_GE(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawPolyline");
+}
+
+// --- Transforms ---
+
+TEST_F(JanetCanvas2DTest, TranslateAndFill) {
+    setScript(R"(
+        (ctx-translate 100 200)
+        (ctx-fill-rect 0 0 10 10)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawRectFilled");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 100.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 200.0f);
+}
+
+TEST_F(JanetCanvas2DTest, RotateTransform) {
+    setScript(R"(
+        (ctx-rotate (/ math/pi 4))
+        (ctx-fill-rect 0 0 10 10)
+    )");
+    callRender();
+
+    // Rotated rect → drawConvexPolyFilled (non-identity transform)
+    ASSERT_GE(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawConvexPolyFilled");
+}
+
+TEST_F(JanetCanvas2DTest, ScaleTransform) {
+    setScript(R"(
+        (ctx-scale 2 3)
+        (ctx-fill-rect 10 10 5 5)
+    )");
+    callRender();
+
+    ASSERT_GE(dc.recorded.size(), 1u);
+    EXPECT_EQ(dc.recorded[0].function, "drawConvexPolyFilled");
+}
+
+TEST_F(JanetCanvas2DTest, SaveRestoreTransform) {
+    setScript(R"(
+        (ctx-save)
+        (ctx-translate 100 200)
+        (ctx-fill-rect 0 0 10 10)
+        (ctx-restore)
+        (ctx-fill-rect 0 0 10 10)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 2u);
+    // First rect translated
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 100.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 200.0f);
+    // Second rect at origin (transform restored)
+    EXPECT_FLOAT_EQ(dc.recorded[1].floatArgs[0], 0.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[1].floatArgs[1], 0.0f);
+}
+
+TEST_F(JanetCanvas2DTest, ResetTransform) {
+    setScript(R"(
+        (ctx-translate 50 50)
+        (ctx-reset-transform)
+        (ctx-fill-rect 0 0 10 10)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 0.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 0.0f);
+}
+
+TEST_F(JanetCanvas2DTest, SetTransform) {
+    setScript(R"(
+        (ctx-set-transform 1 0 0 1 50 75)
+        (ctx-fill-rect 0 0 10 10)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 50.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 75.0f);
+}
+
+TEST_F(JanetCanvas2DTest, GetTransform) {
+    setScript(R"(
+        (ctx-translate 10 20)
+        (def t (ctx-get-transform))
+        (draw-rect-filled (t :e) (t :f) 5 5 "red")
+    )");
+    callRender();
+
+    ASSERT_GE(dc.recorded.size(), 1u);
+    // Find the drawRectFilled call
+    bool found = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawRectFilled") {
+            found = true;
+            EXPECT_FLOAT_EQ(call.floatArgs[0], 10.0f); // e = tx
+            EXPECT_FLOAT_EQ(call.floatArgs[1], 20.0f); // f = ty
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+// --- Text ---
+
+TEST_F(JanetCanvas2DTest, MeasureText) {
+    setScript(R"(
+        (def m (ctx-measure-text "Hello"))
+        (draw-rect-filled 0 0 (m :width) 10 "red")
+    )");
+    callRender();
+
+    // measureText recording + drawRectFilled
+    bool foundRect = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawRectFilled") {
+            foundRect = true;
+            EXPECT_GT(call.floatArgs[2], 0.0f); // width > 0
+        }
+    }
+    EXPECT_TRUE(foundRect);
+}
+
+TEST_F(JanetCanvas2DTest, TextAlignCenter) {
+    setScript(R"(
+        (put ctx :text-align "center")
+        (ctx-fill-text "Hi" 100 50)
+    )");
+    callRender();
+
+    bool foundText = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawText") {
+            foundText = true;
+            // X should be less than 100 (shifted left by half text width)
+            EXPECT_LT(call.floatArgs[0], 100.0f);
+        }
+    }
+    EXPECT_TRUE(foundText);
+}
+
+TEST_F(JanetCanvas2DTest, TextAlignRight) {
+    setScript(R"(
+        (put ctx :text-align "right")
+        (ctx-fill-text "Hi" 100 50)
+    )");
+    callRender();
+
+    bool foundText = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawText") {
+            foundText = true;
+            EXPECT_LT(call.floatArgs[0], 100.0f);
+        }
+    }
+    EXPECT_TRUE(foundText);
+}
+
+TEST_F(JanetCanvas2DTest, TextBaselineMiddle) {
+    setScript(R"(
+        (put ctx :text-baseline "middle")
+        (ctx-fill-text "Hi" 10 50)
+    )");
+    callRender();
+
+    bool foundText = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawText") {
+            foundText = true;
+            EXPECT_LT(call.floatArgs[1], 50.0f);
+        }
+    }
+    EXPECT_TRUE(foundText);
+}
+
+TEST_F(JanetCanvas2DTest, TextBaselineBottom) {
+    setScript(R"(
+        (put ctx :text-baseline "bottom")
+        (ctx-fill-text "Hi" 10 50)
+    )");
+    callRender();
+
+    bool foundText = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawText") {
+            foundText = true;
+            EXPECT_LT(call.floatArgs[1], 50.0f);
+        }
+    }
+    EXPECT_TRUE(foundText);
+}
+
+// --- Dashed lines ---
+
+TEST_F(JanetCanvas2DTest, SetLineDash) {
+    setScript(R"(
+        (ctx-set-line-dash @[10 5])
+        (ctx-begin-path)
+        (ctx-move-to 0 0)
+        (ctx-line-to 100 0)
+        (ctx-stroke)
+    )");
+    callRender();
+
+    // Dashed line should produce multiple drawPolyline calls
+    int polylineCount = 0;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawPolyline") polylineCount++;
+    }
+    EXPECT_GE(polylineCount, 1);
+}
+
+TEST_F(JanetCanvas2DTest, GetLineDash) {
+    setScript(R"(
+        (ctx-set-line-dash @[10 5])
+        (def d (ctx-get-line-dash))
+        (draw-rect-filled 0 0 (d 0) (d 1) "red")
+    )");
+    callRender();
+
+    bool foundRect = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawRectFilled") {
+            foundRect = true;
+            EXPECT_FLOAT_EQ(call.floatArgs[2], 10.0f); // width = dash[0]
+            EXPECT_FLOAT_EQ(call.floatArgs[3], 5.0f);  // height = dash[1]
+        }
+    }
+    EXPECT_TRUE(foundRect);
+}
+
+TEST_F(JanetCanvas2DTest, LineDashSavedAndRestored) {
+    setScript(R"(
+        (ctx-set-line-dash @[10 5])
+        (ctx-save)
+        (ctx-set-line-dash @[])
+        (ctx-restore)
+        (def d (ctx-get-line-dash))
+        (draw-rect-filled 0 0 (length d) 1 "red")
+    )");
+    callRender();
+
+    bool foundRect = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "drawRectFilled") {
+            foundRect = true;
+            EXPECT_FLOAT_EQ(call.floatArgs[2], 2.0f); // length of restored [10 5] = 2
+        }
+    }
+    EXPECT_TRUE(foundRect);
+}
+
+// --- Clipping ---
+
+TEST_F(JanetCanvas2DTest, ClipPushesRect) {
+    setScript(R"(
+        (ctx-begin-path)
+        (ctx-rect 10 10 100 100)
+        (ctx-clip)
+        (ctx-fill-rect 0 0 200 200)
+    )");
+    callRender();
+
+    bool foundClip = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "pushClipRect") {
+            foundClip = true;
+        }
+    }
+    EXPECT_TRUE(foundClip);
+}
+
+TEST_F(JanetCanvas2DTest, ClipPopsOnRestore) {
+    setScript(R"(
+        (ctx-save)
+        (ctx-begin-path)
+        (ctx-rect 10 10 100 100)
+        (ctx-clip)
+        (ctx-restore)
+    )");
+    callRender();
+
+    bool foundPush = false, foundPop = false;
+    for (auto& call : dc.recorded) {
+        if (call.function == "pushClipRect") foundPush = true;
+        if (call.function == "popClipRect") foundPop = true;
+    }
+    EXPECT_TRUE(foundPush);
+    EXPECT_TRUE(foundPop);
+}
+
+// --- Coexistence ---
+
+TEST_F(JanetCanvas2DTest, RawFunctionsCoexist) {
+    setScript(R"(
+        (draw-rect-filled 0 0 50 50 "red")
+        (ctx-fill-rect 60 0 50 50)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 2u);
+    EXPECT_EQ(dc.recorded[0].function, "drawRectFilled");
+    EXPECT_EQ(dc.recorded[1].function, "drawRectFilled");
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 0.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[1].floatArgs[0], 60.0f);
+}
+
+TEST_F(JanetCanvas2DTest, SetDataWithCtx) {
+    setData("{:x 42 :y 84}");
+    setScript(R"(
+        (ctx-fill-rect (data :x) (data :y) 10 10)
+    )");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 42.0f);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 84.0f);
+}
+
+// --- Offset ---
+
+TEST_F(JanetCanvas2DTest, OffsetAppliedWithShim) {
+    dc.offset = {50, 100};
+    setScript("(ctx-fill-rect 10 20 30 40)");
+    callRender();
+
+    ASSERT_EQ(dc.recorded.size(), 1u);
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[0], 60.0f);  // 10 + 50
+    EXPECT_FLOAT_EQ(dc.recorded[0].floatArgs[1], 120.0f); // 20 + 100
 }

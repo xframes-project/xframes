@@ -10,10 +10,13 @@
 
 #include "widget/janet_canvas.h"
 #include "janet_draw_bindings.h"
+#include "janet_canvas2d_shim.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
 
 using json = nlohmann::json;
+
+int JanetCanvas::s_janetRefCount = 0;
 
 #ifdef __EMSCRIPTEN__
 struct JanetCanvasFetchContext {
@@ -91,12 +94,28 @@ JanetCanvas::~JanetCanvas() {
     if (m_hasRenderFunc) {
         janet_gcunroot(m_renderFuncValue);
     }
-    janet_deinit();
+    if (m_env) {
+        janet_gcunroot(janet_wrap_table(m_env));
+        m_env = nullptr;
+    }
+    s_janetRefCount--;
+    if (s_janetRefCount == 0) {
+        janet_deinit();
+    }
 }
 
 void JanetCanvas::InitJanet() {
-    janet_init();
-    m_env = janet_core_env(NULL);
+    if (s_janetRefCount == 0) {
+        janet_init();
+    }
+    s_janetRefCount++;
+
+    // Create a per-widget child env so vars/bindings don't collide
+    // (janet_core_env returns the SAME cached table on every call)
+    JanetTable* coreEnv = janet_core_env(NULL);
+    m_env = janet_table(0);
+    m_env->proto = coreEnv;
+    janet_gcroot(janet_wrap_table(m_env));
 
     m_drawContext.drawList = nullptr;
     m_drawContext.offset = {0, 0};
@@ -108,6 +127,16 @@ void JanetCanvas::InitJanet() {
     janet_var(m_env, "data", janet_wrap_nil(), NULL);
     janet_var(m_env, "canvas-width", janet_wrap_number(0), NULL);
     janet_var(m_env, "canvas-height", janet_wrap_number(0), NULL);
+
+    // Evaluate Canvas 2D API shim — creates global `ctx` table + ctx-xxx functions
+    const auto& shim = getJanetCanvas2DShim();
+    Janet shimOut;
+    int shimStatus = janet_dostring(m_env, shim.c_str(), "canvas2d_shim", &shimOut);
+    if (shimStatus != 0) {
+        if (m_view->m_onScriptError) {
+            m_view->m_onScriptError(m_id, "Janet Canvas 2D shim failed to evaluate");
+        }
+    }
 }
 
 void JanetCanvas::SetScriptFromString(const std::string& script) {
@@ -223,6 +252,9 @@ void JanetCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     m_drawContext.drawList = ImGui::GetWindowDrawList();
     m_drawContext.offset = pos;
     m_drawContext.currentFont = ImGui::GetFont();
+
+    // Point shared static draw context to this widget for this frame
+    JanetDrawBindings::s_dc = &m_drawContext;
 
     // Update canvas dimensions via mutable var bindings
     janetSetVar(m_env, "canvas-width", janet_wrap_number(w));
