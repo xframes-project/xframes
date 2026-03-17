@@ -1,6 +1,6 @@
 {
     "name": "@xframes/wasm",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "description": "DOM-less, GPU-accelerated GUI development for the browser",
     "main": "dist/index.js",
     "files": [
@@ -16,7 +16,7 @@
         "build:common": "cd ../common && npx tsup --format cjs --external react,react-dom",
         "prestart": "npm run build:common && cpy --flat ../common/dist/*.* node_modules/@xframes/common/dist/",
         "start": "webpack serve",
-        "build:library": "rimraf ./dist && yarn tsup && yarn copy-wasm-to-dist-folder",
+        "build:library": "rimraf ./dist && npm run tsup && npm run copy-wasm-to-dist-folder",
         "tsup": "tsup --format cjs --external react,react-dom",
         "copy-wasm-to-dist-folder": "cpy --flat ./src/lib/xframes.* dist/",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
@@ -101,6 +101,5 @@
         "webpack-cli": "^5.1.4",
         "webpack-dev-server": "^5.0.4",
         "yaml": "^2.4.3"
-    },
-    "packageManager": "yarn@4.1.1"
+    }
 }

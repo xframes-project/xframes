@@ -47,6 +47,8 @@ render(App, resolve("./assets"), fontDefs, theme);
 
 **Data**: Table (sorting, filtering, column reorder/hide, context menus), PlotLine, PlotBar, PlotScatter, PlotHeatmap, PlotHistogram, PlotPieChart, PlotCandlestick
 
+**Canvas**: JsCanvas (QuickJS), LuaCanvas (Lua/Sol2), JanetCanvas (Janet) — scripted 2D rendering with Canvas 2D API shim
+
 **Other**: Image, ProgressBar, ColorIndicator, ClippedMultiLineTextRenderer, ItemTooltip
 
 ## Key Features
@@ -56,6 +58,8 @@ render(App, resolve("./assets"), fontDefs, theme);
 - **Per-state styling** — base, hover, active, and disabled style variants
 - **Imperative handles** — refs for Table, Plot widgets, InputText, and more
 - **Font Awesome icons** — built-in icon support in tables and text
+- **Scripted canvas rendering** — embed JavaScript, Lua, or Janet scripts for custom 2D drawing with an HTML5 Canvas 2D-style API
+- **Interactive maps** — MapView widget with OpenStreetMap tiles, markers, polylines, and overlays
 - **Theme system** — runtime theme switching via `patchStyle`
 - **Prebuilt binaries** — `npm install` downloads platform-specific native addons (NAPI v9)
 

@@ -1,6 +1,6 @@
 {
     "name": "@xframes/common",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Common components for xframes WASM and Node modules",
     "main": "dist/index.js",
     "files": [
@@ -16,7 +16,7 @@
         "convert-fa-yaml-to-json": "tsx ./scripts/convert-fa-yaml-to-json.ts",
         "extract-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts",
         "tsup": "tsup --format cjs --external react,react-dom",
-        "build:library": "rimraf ./dist && yarn tsup",
+        "build:library": "rimraf ./dist && npm run tsup",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
     },
     "tsup": {
@@ -99,6 +99,5 @@
         "webpack-cli": "^5.1.4",
         "webpack-dev-server": "^5.0.4",
         "yaml": "^2.4.3"
-    },
-    "packageManager": "yarn@4.1.1"
+    }
 }

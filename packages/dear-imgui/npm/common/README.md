@@ -34,6 +34,9 @@ Node, Child, Group, DIWindow, Separator, ItemTooltip, TabBar, TabItem, Collapsin
 **Data Visualization**
 Table, PlotLine, PlotBar, PlotScatter, PlotHeatmap, PlotHistogram, PlotPieChart, PlotCandlestick
 
+**Canvas**
+JsCanvas (QuickJS), LuaCanvas (Lua/Sol2), JanetCanvas (Janet) — scripted 2D rendering with Canvas 2D API shim
+
 **Other**
 Image, MapView, ProgressBar, ColorIndicator, ClippedMultiLineTextRenderer
 
