@@ -2,7 +2,7 @@
 
 ## Vision
 
-Build a lightweight u-center 2 alternative as the flagship showcase for XFrames — proving that a React-driven, DOM-free, ImGui-based framework can replace Electron for real-time data-heavy desktop applications. The showcase is built on XFrames + a native npm module wrapping [cc.ublox.generated](https://github.com/commschamp/cc.ublox.generated) for sub-millisecond UBX message parsing.
+Build [ubx-monitor](https://github.com/andreamancuso/ubx-monitor) as the flagship showcase for XFrames — proving that a React-driven, DOM-free, ImGui-based framework can replace Electron for real-time data-heavy desktop applications. The showcase is built on XFrames + [ubx-parser](https://www.npmjs.com/package/ubx-parser) for sub-millisecond UBX binary protocol parsing (315+ message types).
 
 ---
 
@@ -27,37 +27,49 @@ Stages 1–7 and Stage 10 complete: submodule plumbing, desktop activation, demo
 - [x] GPU texture eviction, VRAM budget (512-tile LRU), prefetching, request deduplication
 - [ ] `TileCache` tuning: increase `maxEntries` via `TileCache::configure()` at MapView init (default 256 is low for tile-grid); expose `configure()` via NAPI for runtime tuning from JS; consider multi-zoom-level prefetching to warm cache for adjacent zoom levels
 
-### Stage 9 — Map Overlays & u-center lite Integration
+### Stage 9 — Map Overlays & ubx-monitor Integration
 
 - [x] Pin marker overlay, route/polyline overlay
-- [ ] Wire into u-center lite Position Tracking panel (Phase 3) — live position dot on map updated from NAV-PVT messages
+- [ ] Wire into ubx-monitor Position Tracking panel (Phase 3) — live position dot on map updated from NAV-PVT messages
 - [ ] Map center follows GPS fix when in "follow" mode
 
 ---
 
-## Phase 2 — Showcase Foundation (u-center lite)
+## Phase 2 — Showcase Foundation (ubx-monitor)
 
-Integrate the UBX native npm module and build the core panels of the showcase app.
+Integrate ubx-parser and build the core panels of the showcase app. Repo: [ubx-monitor](https://github.com/andreamancuso/ubx-monitor).
 
-### UBX Module Integration
+### UBX Module Integration (done)
 
-- [ ] Publish the cc.ublox.generated npm wrapper (or integrate as a local dependency)
-- [ ] Define TypeScript types for key UBX message classes (NAV-PVT, NAV-SAT, NAV-STATUS, MON-VER, CFG-VALSET, etc.)
-- [ ] Serial port connection management (device selection, baud rate, connect/disconnect)
+- [x] Publish ubx-parser npm wrapper (0.2.3 on npm, 315+ message types, streaming `feed()` API)
+- [x] TypeScript types shipped with ubx-parser (`types.d.ts`)
+
+### Scaffolding (done)
+
+- [x] Repo created, `@xframes/node` + `@xframes/common` + `ubx-parser` + `serialport` installed
+- [x] TabBar with 3 tabs (Connection, Messages, Navigation) rendering
+- [x] Ocean theme, fonts (Roboto + Font Awesome)
+
+### Serial Connection Wiring
+
+- [ ] `SerialManager.ts` — wrap `serialport`: `listPorts()`, `connect(path, baudRate)`, `disconnect()`, pipe `data` events to `UbxParser.feed()`
+- [ ] `useSerialConnection` hook — React state for port list, selected port, baud rate, connection status, connect/disconnect actions
+- [ ] ConnectionPanel: Combo for port selection (`SerialPort.list()`), baud rate Combo (9600/38400/115200/921600), connect/disconnect Button, ColorIndicator for status
 
 ### Message View
 
-- [ ] Live UBX message table — columns: timestamp, class, ID, length, summary
-- [ ] Message filtering by class/ID
+- [ ] `useUbxMessages` hook — subscribe to UbxParser `'message'` event, buffer last N messages with timestamps
+- [ ] Table with columns: timestamp, name (e.g. `NAV-PVT`), length
+- [ ] Message filtering by name (Table's built-in column filtering)
 - [ ] Message rate indicator (messages/sec)
-- [ ] Hex dump detail view for selected message (ClippedMultiLineTextRenderer)
 
 ### Navigation Status Panel
 
+- [ ] Subscribe to UbxParser `'NAV-PVT'` event
 - [ ] Fix type indicator (No Fix / 2D / 3D / DGNSS / RTK Float / RTK Fixed) with color coding
 - [ ] Position display: latitude, longitude, altitude (MSL + ellipsoid)
 - [ ] Accuracy estimates: horizontal, vertical, speed
-- [ ] Time display: UTC, GPS time, time accuracy
+- [ ] Time display: UTC time, time accuracy
 - [ ] Number of satellites used / in view
 
 ---
@@ -265,9 +277,17 @@ Viewport culling, idle sleep (`glfwWaitEventsTimeout`), and scroll extent fixes 
 
 ---
 
+## npm Publishing Fixes (done)
+
+- [x] Remove broken `install` script from `@xframes/node` package.json
+- [x] Remove `prebuild-install` from dependencies
+- [x] Verify native addon loads from `dist/` correctly
+- [x] Rebuild `dist/` with all DLLs (fmt, glfw3, libcurl, lua, zlib) and publish 0.1.3
+
 ## Low Priority
 
 - [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)
+- [ ] Restructure `@xframes/node` into platform-specific packages (`@xframes/node-win32-x64`, etc.) following the esbuild/swc pattern — each user only downloads binaries for their platform
 
 ---
 

@@ -25,7 +25,9 @@
       "WebFetch(domain:vcpkg.io)",
       "WebFetch(domain:vcpkg.roundtrip.dev)",
       "WebFetch(domain:janet-lang.org)",
-      "WebFetch(domain:janet.guide)"
+      "WebFetch(domain:janet.guide)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npm install:*)"
     ]
   }
 }

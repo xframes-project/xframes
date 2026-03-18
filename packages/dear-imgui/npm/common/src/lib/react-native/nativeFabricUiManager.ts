@@ -115,6 +115,20 @@ export default class {
 
         return newWidget;
     };
+    cloneNodeWithNewChildrenAndProps = (node: any, newProps: any) => {
+        const newWidget = { ...node, ...newProps };
+        this.wasmModule?.patchElement(node.id, JSON.stringify(newWidget));
+
+        if (this.cloningNode) {
+            this.wasmModule?.setChildren(
+                this.cloningNode.id,
+                JSON.stringify(this.cloningNode.childrenIds),
+            );
+        }
+        this.cloningNode = { id: newWidget.id, childrenIds: [] };
+
+        return newWidget;
+    };
     // This is a rather problematic method
     // I should drop all children then re-append them but naturally this causes out of memory bounds issues
     // Also, I still don't understand at which point I am supposed to delete widgets/nodes
