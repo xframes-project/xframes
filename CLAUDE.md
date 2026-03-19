@@ -230,6 +230,10 @@ Wraps the 15 ImDrawList draw bindings in an HTML5 Canvas 2D-style API. Created b
 
 **Limitations:** `clearRect` fills with black (no true erase), `globalAlpha` stored but not applied to colors, `font` parses px size but doesn't switch ImGui fonts, `fill()` only correct for convex paths, `clip()` is axis-aligned bounding box only.
 
+## Font Loading
+
+Font files (.ttf) must be placed in `{assetsBasePath}/fonts/` (e.g. `assets/fonts/roboto-regular.ttf`). The C++ font loader resolves paths as `fmt::format("{}/fonts/{}.ttf", m_assetsBasePath, fontName)` — the font `name` in `fontDefs` must match the filename without extension. Font Awesome 6 Solid is automatically merged into every loaded font. Per-widget font is set via style: `font: { name: "roboto-mono", size: 14 }`. The font name+size must be declared in `fontDefs` at startup or it won't be loaded.
+
 ## C++ Gotchas
 
 - MSVC does not allow default member initializers in unnamed structs used with `using` typedefs. Use named `struct Foo { ... };` instead of `using Foo = struct { ... };` when fields have defaults.

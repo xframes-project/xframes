@@ -169,13 +169,15 @@ export class WidgetRegistrationService {
         }
     }
 
-    setPlotBarData(id: string, data: { x: number; y: number }[]) {
+    setPlotBarData(id: string, data: { x: number; y: number }[], tickLabels?: string[]) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {
             try {
+                const op: Record<string, unknown> = { op: "setData", data };
+                if (tickLabels) op.tickLabels = tickLabels;
                 this.wasmModule.elementInternalOp(
                     fabricWidgetId,
-                    JSON.stringify({ op: "setData", data }),
+                    JSON.stringify(op),
                 );
             } catch (error) {
                 // todo: propagate this?

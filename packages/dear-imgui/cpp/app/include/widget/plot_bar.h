@@ -8,6 +8,9 @@ private:
     std::vector<double> m_xValues;
     std::vector<double> m_yValues;
 
+    std::vector<std::string> m_tickLabels;
+    std::vector<const char*> m_tickLabelPtrs;
+
     int m_dataPointsLimit = 6000;
 
     bool m_axisAutoFit;
@@ -102,9 +105,25 @@ public:
         m_yValues.push_back(y);
     }
 
+    void SetTickLabels(const std::vector<std::string>& labels) {
+        m_tickLabels = labels;
+        m_tickLabelPtrs.resize(m_tickLabels.size());
+        for (size_t i = 0; i < m_tickLabels.size(); i++) {
+            m_tickLabelPtrs[i] = m_tickLabels[i].c_str();
+        }
+    }
+
     void SetData(const std::vector<double>& xs, const std::vector<double>& ys) {
         m_xValues = xs;
         m_yValues = ys;
+        m_tickLabels.clear();
+        m_tickLabelPtrs.clear();
+    }
+
+    void SetData(const std::vector<double>& xs, const std::vector<double>& ys, const std::vector<std::string>& tickLabels) {
+        m_xValues = xs;
+        m_yValues = ys;
+        SetTickLabels(tickLabels);
     }
 
     void SetAxesAutoFit(const bool enabled) {
@@ -114,5 +133,7 @@ public:
     void ResetData() {
         m_xValues.clear();
         m_yValues.clear();
+        m_tickLabels.clear();
+        m_tickLabelPtrs.clear();
     }
 };

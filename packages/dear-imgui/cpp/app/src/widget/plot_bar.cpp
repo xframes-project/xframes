@@ -32,6 +32,11 @@ void PlotBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             ImPlot::SetupAxes(xLabel, yLabel);
         }
 
+        if (!m_tickLabelPtrs.empty() && m_tickLabelPtrs.size() == m_xValues.size()) {
+            ImPlot::SetupAxisTicks(ImAxis_X1, m_xValues.data(),
+                static_cast<int>(m_tickLabelPtrs.size()), m_tickLabelPtrs.data());
+        }
+
         double* x_valuesPtr = m_xValues.data();
         double* y_valuesPtr = m_yValues.data();
 
@@ -96,7 +101,15 @@ void PlotBar::HandleInternalOp(const json& opDef) {
                 }
             }
 
-            SetData(xs, ys);
+            if (opDef.contains("tickLabels") && opDef["tickLabels"].is_array()) {
+                std::vector<std::string> labels;
+                for (auto& lbl : opDef["tickLabels"]) {
+                    labels.push_back(lbl.template get<std::string>());
+                }
+                SetData(xs, ys, labels);
+            } else {
+                SetData(xs, ys);
+            }
         } else if (op == "setAxesAutoFit" && opDef.contains("enabled")) {
             const auto enabled = opDef["enabled"].template get<bool>();
 

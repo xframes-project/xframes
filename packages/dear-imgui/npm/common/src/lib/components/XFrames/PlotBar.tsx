@@ -3,7 +3,7 @@ import { WidgetPropsMap } from "./types";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotBarImperativeHandle = {
-    setData: (data: { x: number; y: number }[]) => void;
+    setData: (data: { x: number; y: number }[], tickLabels?: string[]) => void;
     appendData: (x: number, y: number) => void;
     setAxesAutoFit: (enabled: boolean) => void;
     resetData: () => void;
@@ -37,8 +37,8 @@ export const PlotBar = forwardRef<PlotBarImperativeHandle, WidgetPropsMap["PlotB
             ref,
             () => {
                 return {
-                    setData: (data: { x: number; y: number }[]) => {
-                        widgetRegistratonService.setPlotBarData(idRef.current, data);
+                    setData: (data: { x: number; y: number }[], tickLabels?: string[]) => {
+                        widgetRegistratonService.setPlotBarData(idRef.current, data, tickLabels);
                     },
                     appendData: (x: number, y: number) => {
                         widgetRegistratonService.appendDataToPlotLine(idRef.current, x, y);

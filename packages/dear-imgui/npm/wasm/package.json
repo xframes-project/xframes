@@ -1,6 +1,6 @@
 {
     "name": "@xframes/wasm",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "DOM-less, GPU-accelerated GUI development for the browser",
     "main": "dist/index.js",
     "files": [
