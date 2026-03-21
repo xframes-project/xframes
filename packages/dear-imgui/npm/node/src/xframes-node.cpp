@@ -80,6 +80,7 @@ class Runner {
         Napi::ThreadSafeFunction m_tsfnOnTableItemAction;
         Napi::ThreadSafeFunction m_tsfnOnPrefetchProgress;
         Napi::ThreadSafeFunction m_tsfnOnScriptError;
+        Napi::ThreadSafeFunction m_tsfnOnBeforeExit;
 
         static Runner* instance;
 
@@ -112,6 +113,14 @@ class Runner {
             m_tsfnOnTableItemAction.Release();
             m_tsfnOnPrefetchProgress.Release();
             m_tsfnOnScriptError.Release();
+        }
+
+        void fireOnBeforeExit() {
+            auto callback = [](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({});
+            };
+            m_tsfnOnBeforeExit.NonBlockingCall(callback);
+            m_tsfnOnBeforeExit.Release();
         }
 
         static void OnInit() {
@@ -295,7 +304,7 @@ class Runner {
 
         // @see https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md
         void SetHandlers(
-            const Napi::CallbackInfo& info,
+            Napi::Env env,
             Napi::Function onInit,
             Napi::Function onTextChanged,
             Napi::Function onComboChanged,
@@ -308,9 +317,9 @@ class Runner {
             Napi::Function onTableRowClick,
             Napi::Function onTableItemAction,
             Napi::Function onPrefetchProgress,
-            Napi::Function onScriptError
+            Napi::Function onScriptError,
+            Napi::Function onBeforeExit
             ) {
-            Napi::Env env = info.Env();
 
             m_tsfnOnInit = Napi::ThreadSafeFunction::New(
                     env,
@@ -400,6 +409,13 @@ class Runner {
                     env,
                     onScriptError,
                     "onScriptError",
+                    0,
+                    1);
+
+            m_tsfnOnBeforeExit = Napi::ThreadSafeFunction::New(
+                    env,
+                    onBeforeExit,
+                    "onBeforeExit",
                     0,
                     1);
         }
@@ -730,8 +746,7 @@ int run()
 
     pRunner->run();
     pRunner->releaseTSFNs();
-
-    std::exit(0);
+    pRunner->fireOnBeforeExit();
 
     return 0;
 }
@@ -742,97 +757,36 @@ std::thread uiThread;
 std::thread nativeThread;
 Napi::ThreadSafeFunction tsfn;
 
-/**
- * [0] assets base path
- * [1] raw font definitions (stringified JSON)
- * [2] raw style override definitions (stringified JSON)
- * [3] onInit function
- * [4] onTextChanged function
- * [5] onComboChanged function
- * [6] onNumericValueChanged function
- * [7] OnBooleanValueChanged function
- * [8] OnMultipleNumericValuesChanged function
- * [9] OnClick function
- * [10] OnTableSort function
- * [11] OnTableFilter function
- * [12] OnTableRowClick function
- * [13] OnTableItemAction function
- * [14] OnPrefetchProgress function
- */
 static Napi::Value init(const Napi::CallbackInfo& info) {
-    auto pRunner = Runner::getInstance();
-
     Napi::Env env = info.Env();
 
-    if (info.Length() < 16) {
-        throw Napi::TypeError::New(env, "Expected sixteen arguments");
-    } else if (!info[0].IsString()) {
-        throw Napi::TypeError::New(env, "Expected first arg to be string");
-    } else if (!info[1].IsString()) {
-        throw Napi::TypeError::New(env, "Expected second arg to be string");
-    } else if (!info[2].IsString()) {
-        throw Napi::TypeError::New(env, "Expected third arg to be string");
-    } else if (!info[3].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected fourth arg to be function");
-    } else if (!info[4].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected fifth arg to be function");
-    } else if (!info[5].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected sixth arg to be function");
-    } else if (!info[6].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected seventh arg to be function");
-    } else if (!info[7].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected eighth arg to be function");
-    } else if (!info[8].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected ninth arg to be function");
-    } else if (!info[9].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected tenth arg to be function");
-    } else if (!info[10].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected eleventh arg to be function");
-    } else if (!info[11].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected twelfth arg to be function");
-    } else if (!info[12].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected thirteenth arg to be function");
-    } else if (!info[13].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected fourteenth arg to be function");
-    } else if (!info[14].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected fifteenth arg to be function");
-    } else if (!info[15].IsFunction()) {
-        throw Napi::TypeError::New(env, "Expected sixteenth arg to be function");
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        throw Napi::TypeError::New(env, "Expected options object");
     }
 
-    pRunner->SetAssetsBasePath(info[0].As<Napi::String>().Utf8Value());
-    pRunner->SetRawFontDefs(info[1].As<Napi::String>().Utf8Value());
-    pRunner->SetRawStyleOverridesDefs(info[2].As<Napi::String>().Utf8Value());
+    auto options = info[0].As<Napi::Object>();
+    auto pRunner = Runner::getInstance();
 
-    const auto onInit = info[3].As<Napi::Function>();
-    const auto onTextChanged = info[4].As<Napi::Function>();
-    const auto onComboChanged = info[5].As<Napi::Function>();
-    const auto onNumericValueChanged = info[6].As<Napi::Function>();
-    const auto onBooleanValueChanged = info[7].As<Napi::Function>();
-    const auto onMultipleNumericValuesChanged = info[8].As<Napi::Function>();
-    const auto onClick = info[9].As<Napi::Function>();
-    const auto onTableSort = info[10].As<Napi::Function>();
-    const auto onTableFilter = info[11].As<Napi::Function>();
-    const auto onTableRowClick = info[12].As<Napi::Function>();
-    const auto onTableItemAction = info[13].As<Napi::Function>();
-    const auto onPrefetchProgress = info[14].As<Napi::Function>();
-    const auto onScriptError = info[15].As<Napi::Function>();
+    pRunner->SetAssetsBasePath(options.Get("assetsBasePath").As<Napi::String>().Utf8Value());
+    pRunner->SetRawFontDefs(options.Get("fontDefs").As<Napi::String>().Utf8Value());
+    pRunner->SetRawStyleOverridesDefs(options.Get("theme").As<Napi::String>().Utf8Value());
 
     pRunner->SetHandlers(
-        info,
-        onInit,
-        onTextChanged,
-        onComboChanged,
-        onNumericValueChanged,
-        onBooleanValueChanged,
-        onMultipleNumericValuesChanged,
-        onClick,
-        onTableSort,
-        onTableFilter,
-        onTableRowClick,
-        onTableItemAction,
-        onPrefetchProgress,
-        onScriptError
+        env,
+        options.Get("onInit").As<Napi::Function>(),
+        options.Get("onTextChange").As<Napi::Function>(),
+        options.Get("onComboChange").As<Napi::Function>(),
+        options.Get("onNumericValueChange").As<Napi::Function>(),
+        options.Get("onBooleanValueChange").As<Napi::Function>(),
+        options.Get("onMultiValueChange").As<Napi::Function>(),
+        options.Get("onClick").As<Napi::Function>(),
+        options.Get("onTableSort").As<Napi::Function>(),
+        options.Get("onTableFilter").As<Napi::Function>(),
+        options.Get("onTableRowClick").As<Napi::Function>(),
+        options.Get("onTableItemAction").As<Napi::Function>(),
+        options.Get("onPrefetchProgress").As<Napi::Function>(),
+        options.Get("onScriptError").As<Napi::Function>(),
+        options.Get("onBeforeExit").As<Napi::Function>()
     );
 
     pRunner->init();

@@ -171,10 +171,10 @@ export const render = (
     );
   };
 
-  xframes.init(
+  xframes.init({
     assetsBasePath,
-    JSON.stringify(fontDefs),
-    JSON.stringify(theme),
+    fontDefs: JSON.stringify(fontDefs),
+    theme: JSON.stringify(theme),
     onInit,
     onTextChange,
     onComboChange,
@@ -187,8 +187,9 @@ export const render = (
     onTableRowClick,
     onTableItemAction,
     onPrefetchProgress,
-    onScriptError
-  );
+    onScriptError,
+    onBeforeExit: () => { process.exit(0); },
+  });
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);
 

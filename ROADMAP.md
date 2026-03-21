@@ -138,6 +138,10 @@ Table ColumnType enum, persistent filteredIndices with dirty flag, FormatNumberV
 
 Removed broken `prebuild-install` script from `@xframes/node`, verified native addon loads from `dist/`, published 0.1.3 with all DLLs.
 
+## API Cleanup — init() Refactor & onBeforeExit (done)
+
+Refactored Node `init()` from 16 positional arguments to a single options object with named keys (`assetsBasePath`, `fontDefs`, `theme`, `onInit`, `onTextChange`, etc.). Added `onBeforeExit` callback — C++ calls it after the GLFW window closes and TSFNs are released, replacing `std::exit(0)`. JS controls shutdown (default: `process.exit(0)`), enabling cleanup (config persistence, etc.) before exit.
+
 ## Low Priority
 
 - [ ] Allow plain numbers for `padding` and `margin` (e.g. `padding: 8` as shorthand for `padding: { all: 8 }`)

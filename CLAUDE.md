@@ -104,7 +104,7 @@ The Table widget supports sorting, per-column filtering, row selection, column r
 
 **Flag logic:** When `hideable` is set on the table, columns are hideable by default (the `NoHide` flag is dropped). Use `noHide: true` on individual columns to pin them. When `hideable` is not set, all columns get `NoHide` automatically (original behavior).
 
-**Event callbacks:** `onSort`, `onFilter`, `onRowClick`, `onItemAction`, `onPrefetchProgress` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The `init()` function takes 16 arguments (indices 0–15).
+**Event callbacks:** `onSort`, `onFilter`, `onRowClick`, `onItemAction`, `onPrefetchProgress` — each follows the same pipeline: C++ Render() → XFrames callback → NAPI TSFN / WASM EM_ASM → JS `dispatchEvent`. The Node `init()` function takes a single options object with named keys: `assetsBasePath`, `fontDefs`, `theme`, `onInit`, `onTextChange`, `onComboChange`, `onNumericValueChange`, `onBooleanValueChange`, `onMultiValueChange`, `onClick`, `onTableSort`, `onTableFilter`, `onTableRowClick`, `onTableItemAction`, `onPrefetchProgress`, `onScriptError`, `onBeforeExit`.
 
 **Context menu:** Set `contextMenuItems` prop (array of `{ id, label }`) to show a right-click context menu on table rows. `onItemAction` fires with `{ rowIndex, actionId }` when a menu item is clicked.
 
@@ -222,7 +222,7 @@ Wraps the 15 ImDrawList draw bindings in an HTML5 Canvas 2D-style API. Created b
 
 **`onScriptError` callback** surfaces QuickJS errors (compilation + runtime) back to React. Pipeline: `JS_GetException` → `JS_ToCString` → `m_view->m_onScriptError(m_id, msg)` → NAPI TSFN / WASM EM_ASM → `dispatchEvent(id, "onScriptError", { errorMessage })`. Three error sites: shim evaluation (`InitQuickJS`), script compilation (`SetScriptFromString`), per-frame execution (`Render`).
 
-**`init()` now takes 16 arguments** (indices 0–15). Index 15 is `onScriptError`.
+**Node `init()`** takes a single options object (see Table Widget section for full key list). `onBeforeExit` is called when the GLFW window closes, replacing the old `std::exit(0)` — JS controls shutdown via `process.exit(0)` in the callback.
 
 **Demo scripts** live in `npm/node/src/scripts/` (filesystem paths) and `npm/wasm/public/assets/scripts/` (web-relative URLs). Both dashboards use `setScriptFile()` instead of inline `setScript()` template strings.
 

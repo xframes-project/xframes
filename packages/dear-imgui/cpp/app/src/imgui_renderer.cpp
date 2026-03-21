@@ -365,6 +365,7 @@ void ImGuiRenderer::CleanUp() {
 
     glfwDestroyWindow(m_glfwWindow);
     glfwTerminate();
+    glfwSetErrorCallback(nullptr);
 #endif
 }
 
