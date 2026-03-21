@@ -3,10 +3,15 @@
 #include <implot.h>
 #include "styled_widget.h"
 
+struct PlotBarSeries {
+    std::string label;
+    std::vector<double> xValues;
+    std::vector<double> yValues;
+};
+
 class PlotBar final : public StyledWidget {
 private:
-    std::vector<double> m_xValues;
-    std::vector<double> m_yValues;
+    std::vector<PlotBarSeries> m_series;
 
     std::vector<std::string> m_tickLabels;
     std::vector<const char*> m_tickLabelPtrs;
@@ -61,6 +66,18 @@ public:
         widget->m_showLegend = showLegend;
         widget->m_legendLocation = legendLocation;
         widget->m_legendLabel = legendLabel;
+
+        if (widgetDef.contains("series") && widgetDef["series"].is_array()) {
+            widget->m_series.clear();
+            for (auto& [key, seriesDef] : widgetDef["series"].items()) {
+                PlotBarSeries s;
+                s.label = seriesDef.value("label", "series-" + key);
+                s.xValues.reserve(dataPointsLimit);
+                s.yValues.reserve(dataPointsLimit);
+                widget->m_series.push_back(std::move(s));
+            }
+        }
+
         return widget;
     }
 
@@ -83,8 +100,11 @@ public:
         m_xAxisLabel = xAxisLabel;
         m_yAxisLabel = yAxisLabel;
 
-        m_xValues.reserve(m_dataPointsLimit);
-        m_yValues.reserve(m_dataPointsLimit);
+        PlotBarSeries defaultSeries;
+        defaultSeries.label = m_legendLabel;
+        defaultSeries.xValues.reserve(m_dataPointsLimit);
+        defaultSeries.yValues.reserve(m_dataPointsLimit);
+        m_series.push_back(std::move(defaultSeries));
     }
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
@@ -96,13 +116,18 @@ public:
     void HandleInternalOp(const json& opDef) override;
 
     void AppendData(const double x, const double y) {
-        if (m_xValues.size() >= m_dataPointsLimit) {
-            m_xValues.erase(m_xValues.begin());
-            m_yValues.erase(m_yValues.begin());
-        }
+        AppendSeriesData(0, x, y);
+    }
 
-        m_xValues.push_back(x);
-        m_yValues.push_back(y);
+    void AppendSeriesData(const int seriesIndex, const double x, const double y) {
+        if (seriesIndex < 0 || seriesIndex >= static_cast<int>(m_series.size())) return;
+        auto& s = m_series[seriesIndex];
+        if (static_cast<int>(s.xValues.size()) >= m_dataPointsLimit) {
+            s.xValues.erase(s.xValues.begin());
+            s.yValues.erase(s.yValues.begin());
+        }
+        s.xValues.push_back(x);
+        s.yValues.push_back(y);
     }
 
     void SetTickLabels(const std::vector<std::string>& labels) {
@@ -114,16 +139,43 @@ public:
     }
 
     void SetData(const std::vector<double>& xs, const std::vector<double>& ys) {
-        m_xValues = xs;
-        m_yValues = ys;
+        auto& s = m_series[0];
+        s.xValues = xs;
+        s.yValues = ys;
         m_tickLabels.clear();
         m_tickLabelPtrs.clear();
     }
 
     void SetData(const std::vector<double>& xs, const std::vector<double>& ys, const std::vector<std::string>& tickLabels) {
-        m_xValues = xs;
-        m_yValues = ys;
+        auto& s = m_series[0];
+        s.xValues = xs;
+        s.yValues = ys;
         SetTickLabels(tickLabels);
+    }
+
+    void SetSeriesData(const json& seriesData) {
+        for (auto& [key, item] : seriesData.items()) {
+            int idx = std::stoi(key);
+            if (idx < 0 || idx >= static_cast<int>(m_series.size())) continue;
+            auto& s = m_series[idx];
+            s.xValues.clear();
+            s.yValues.clear();
+            if (item.contains("data") && item["data"].is_array()) {
+                for (auto& [dkey, d] : item["data"].items()) {
+                    if (d.is_object()) {
+                        s.xValues.push_back(d["x"].template get<double>());
+                        s.yValues.push_back(d["y"].template get<double>());
+                    }
+                }
+            }
+            if (item.contains("tickLabels") && item["tickLabels"].is_array()) {
+                std::vector<std::string> labels;
+                for (auto& lbl : item["tickLabels"]) {
+                    labels.push_back(lbl.template get<std::string>());
+                }
+                SetTickLabels(labels);
+            }
+        }
     }
 
     void SetAxesAutoFit(const bool enabled) {
@@ -131,8 +183,10 @@ public:
     }
 
     void ResetData() {
-        m_xValues.clear();
-        m_yValues.clear();
+        for (auto& s : m_series) {
+            s.xValues.clear();
+            s.yValues.clear();
+        }
         m_tickLabels.clear();
         m_tickLabelPtrs.clear();
     }

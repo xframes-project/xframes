@@ -33,6 +33,10 @@ export type PlotLineSeriesDef = {
     markerStyle?: ImPlotMarker;
 };
 
+export type PlotBarSeriesDef = {
+    label: string;
+};
+
 export type PlotCandlestickDataItem = {
     date: number;
     open: number;
@@ -206,6 +210,7 @@ export type WidgetPropsMap = {
         showLegend?: boolean;
         legendLocation?: number;
         legendLabel?: string;
+        series?: PlotBarSeriesDef[];
     };
     PlotHistogram: WidgetStyleProps & {
         bins?: number;

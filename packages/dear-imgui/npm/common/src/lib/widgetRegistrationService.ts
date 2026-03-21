@@ -186,6 +186,34 @@ export class WidgetRegistrationService {
         }
     }
 
+    setPlotBarSeriesData(id: string, seriesData: { data: { x: number; y: number }[]; tickLabels?: string[] }[]) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "setSeriesData", series: seriesData }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
+    appendPlotBarSeriesData(id: string, seriesIndex: number, x: number, y: number) {
+        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+        if (fabricWidgetId !== undefined) {
+            try {
+                this.wasmModule.elementInternalOp(
+                    fabricWidgetId,
+                    JSON.stringify({ op: "appendSeriesData", seriesIndex, x, y }),
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+
     setPlotHeatmapData(id: string, rows: number, cols: number, values: number[]) {
         const fabricWidgetId = this.fabricWidgetsMapping.get(id);
         if (fabricWidgetId !== undefined) {

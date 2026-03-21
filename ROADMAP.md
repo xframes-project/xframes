@@ -48,12 +48,12 @@ Requires PlotBar multi-series support in XFrames (mirroring PlotLine's existing 
 
 Add `PlotBarSeries` struct and `std::vector<PlotBarSeries> m_series` to PlotBar (same pattern as `PlotLineSeries` in `plot_line.h`). Backward compatible — constructor creates default series[0].
 
-- [ ] `plot_bar.h` — Add `PlotBarSeries` struct (label + xValues/yValues vectors), replace flat `m_xValues`/`m_yValues` with `m_series` vector, add `AppendSeriesData(seriesIndex, x, y)` and `SetSeriesData(json)`, parse `series` prop in `makeWidget`
-- [ ] `plot_bar.cpp` — Loop `m_series` in `Render()` calling `ImPlot::PlotBars()` per series, add `"setSeriesData"` and `"appendSeriesData"` ops in `HandleInternalOp`, add `series` prop handling in `Patch()` (grow/shrink/relabel per PlotLine pattern)
-- [ ] `PlotBar.tsx` — Add `series` to destructured props and JSX, add `setSeriesData()` and `appendSeriesData()` to imperative handle
-- [ ] `types.ts` — Add `PlotBarSeriesDef` type (`{ label: string }`), add `series?: PlotBarSeriesDef[]` to PlotBar props
-- [ ] `widgetRegistrationService.ts` — Add `setPlotBarSeriesData(id, seriesData)` and `appendPlotBarSeriesData(id, seriesIndex, x, y)`
-- [ ] `ReactNativePrivateInterface.js` — Add `"series"` to `plot-bar` attribute list
+- [x] `plot_bar.h` — Add `PlotBarSeries` struct (label + xValues/yValues vectors), replace flat `m_xValues`/`m_yValues` with `m_series` vector, add `AppendSeriesData(seriesIndex, x, y)` and `SetSeriesData(json)`, parse `series` prop in `makeWidget`
+- [x] `plot_bar.cpp` — Loop `m_series` in `Render()` calling `ImPlot::PlotBars()` per series, add `"setSeriesData"` and `"appendSeriesData"` ops in `HandleInternalOp`, add `series` prop handling in `Patch()` (grow/shrink/relabel per PlotLine pattern)
+- [x] `PlotBar.tsx` — Add `series` to destructured props and JSX, add `setSeriesData()` and `appendSeriesData()` to imperative handle
+- [x] `types.ts` — Add `PlotBarSeriesDef` type (`{ label: string }`), add `series?: PlotBarSeriesDef[]` to PlotBar props
+- [x] `widgetRegistrationService.ts` — Add `setPlotBarSeriesData(id, seriesData)` and `appendPlotBarSeriesData(id, seriesIndex, x, y)`
+- [x] `ReactNativePrivateInterface.js` — Add `"series"` to `plot-bar` attribute list
 
 #### CNO Quality Color Coding (ubx-monitor)
 

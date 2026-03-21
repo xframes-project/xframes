@@ -221,16 +221,12 @@ export const Dashboard = () => {
     tableRef.current?.setTableData(cityData);
   }, []);
 
-  // Load bar chart data
+  // Load bar chart data (multi-series: quarterly revenue by product)
   useEffect(() => {
-    barRef.current?.setData([
-      { x: 1, y: 45 },
-      { x: 2, y: 72 },
-      { x: 3, y: 58 },
-      { x: 4, y: 91 },
-      { x: 5, y: 36 },
-      { x: 6, y: 67 },
-      { x: 7, y: 83 },
+    barRef.current?.setSeriesData([
+      { data: [{ x: 1, y: 45 }, { x: 2, y: 58 }, { x: 3, y: 72 }, { x: 4, y: 91 }], tickLabels: ["Q1", "Q2", "Q3", "Q4"] },
+      { data: [{ x: 1, y: 32 }, { x: 2, y: 41 }, { x: 3, y: 55 }, { x: 4, y: 67 }] },
+      { data: [{ x: 1, y: 18 }, { x: 2, y: 25 }, { x: 3, y: 30 }, { x: 4, y: 42 }] },
     ]);
   }, []);
 
@@ -664,12 +660,14 @@ export const Dashboard = () => {
         {/* Third row: Bar Chart + Scatter Plot */}
         <XFrames.Node style={styles.row}>
           <XFrames.Node style={styles.leftColumn}>
-            <XFrames.UnformattedText text="Bar Chart" />
+            <XFrames.UnformattedText text="Bar Chart (Multi-Series)" />
             <XFrames.PlotBar
               ref={barRef}
               axisAutoFit
-              xAxisLabel="Category"
-              yAxisLabel="Value"
+              xAxisLabel="Quarter"
+              yAxisLabel="Revenue ($k)"
+              showLegend
+              series={[{ label: "Product A" }, { label: "Product B" }, { label: "Product C" }]}
               style={styles.plotArea}
             />
           </XFrames.Node>

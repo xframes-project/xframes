@@ -32,18 +32,29 @@ void PlotBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             ImPlot::SetupAxes(xLabel, yLabel);
         }
 
-        if (!m_tickLabelPtrs.empty() && m_tickLabelPtrs.size() == m_xValues.size()) {
-            ImPlot::SetupAxisTicks(ImAxis_X1, m_xValues.data(),
-                static_cast<int>(m_tickLabelPtrs.size()), m_tickLabelPtrs.data());
+        if (!m_tickLabelPtrs.empty()) {
+            // Use xValues from first non-empty series for tick positions
+            for (const auto& series : m_series) {
+                if (!series.xValues.empty() && m_tickLabelPtrs.size() == series.xValues.size()) {
+                    ImPlot::SetupAxisTicks(ImAxis_X1, series.xValues.data(),
+                        static_cast<int>(m_tickLabelPtrs.size()), m_tickLabelPtrs.data());
+                    break;
+                }
+            }
         }
 
-        double* x_valuesPtr = m_xValues.data();
-        double* y_valuesPtr = m_yValues.data();
-
-        int count = static_cast<int>(m_xValues.size());
         double barSize = 0.67;
 
-        ImPlot::PlotBars(m_legendLabel.c_str(), x_valuesPtr, y_valuesPtr, count, barSize);
+        for (const auto& series : m_series) {
+            if (series.xValues.empty()) continue;
+            ImPlot::PlotBars(
+                series.label.c_str(),
+                series.xValues.data(),
+                series.yValues.data(),
+                static_cast<int>(series.xValues.size()),
+                barSize
+            );
+        }
 
         ImPlot::EndPlot();
     }
@@ -75,6 +86,34 @@ void PlotBar::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("legendLabel") && widgetPatchDef["legendLabel"].is_string()) {
         m_legendLabel = widgetPatchDef["legendLabel"].template get<std::string>();
     }
+
+    if (widgetPatchDef.contains("series") && widgetPatchDef["series"].is_array()) {
+        const auto& seriesDef = widgetPatchDef["series"];
+        size_t newCount = seriesDef.size();
+
+        if (newCount > m_series.size()) {
+            for (size_t i = m_series.size(); i < newCount; i++) {
+                PlotBarSeries s;
+                s.xValues.reserve(m_dataPointsLimit);
+                s.yValues.reserve(m_dataPointsLimit);
+                m_series.push_back(std::move(s));
+            }
+        } else if (newCount < m_series.size()) {
+            m_series.resize(newCount);
+        }
+
+        for (size_t i = 0; i < newCount; i++) {
+            const auto& item = seriesDef[i];
+            if (item.contains("label") && item["label"].is_string()) {
+                m_series[i].label = item["label"].template get<std::string>();
+            }
+        }
+    }
+
+    // Sync single-series backward compat
+    if (!widgetPatchDef.contains("series") && m_series.size() == 1) {
+        m_series[0].label = m_legendLabel;
+    }
 };
 
 bool PlotBar::HasInternalOps() {
@@ -90,6 +129,15 @@ void PlotBar::HandleInternalOp(const json& opDef) {
             const auto y = opDef["y"].template get<double>();
 
             AppendData(x, y);
+        } else if (op == "appendSeriesData" && opDef.contains("seriesIndex")
+                   && opDef.contains("x") && opDef.contains("y")) {
+            const auto seriesIndex = opDef["seriesIndex"].template get<int>();
+            const auto x = opDef["x"].template get<double>();
+            const auto y = opDef["y"].template get<double>();
+
+            AppendSeriesData(seriesIndex, x, y);
+        } else if (op == "setSeriesData" && opDef.contains("series") && opDef["series"].is_array()) {
+            SetSeriesData(opDef["series"]);
         } else if (op == "setData" && opDef.contains("data") && opDef["data"].is_array()) {
             std::vector<double> xs;
             std::vector<double> ys;
