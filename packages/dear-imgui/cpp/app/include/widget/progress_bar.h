@@ -25,7 +25,11 @@ public:
         if (context) {
             const auto widget = static_cast<ProgressBar*>(context);
 
-            size.width = width;
+            if (widthMode == YGMeasureModeExactly || widthMode == YGMeasureModeAtMost) {
+                size.width = width;
+            } else {
+                size.width = 0;
+            }
             size.height = widget->m_view->GetWidgetFontSize(widget) + ImGui::GetStyle().FramePadding.y * 2.0f;
         }
 

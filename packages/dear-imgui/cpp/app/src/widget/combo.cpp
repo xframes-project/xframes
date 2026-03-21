@@ -40,6 +40,10 @@ void Combo::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("options") && widgetPatchDef["options"].is_array()) {
         SetOptions(widgetPatchDef["options"]);
     }
+
+    if (widgetPatchDef.contains("initialSelectedIndex") && widgetPatchDef["initialSelectedIndex"].is_number()) {
+        m_selectedIndex = widgetPatchDef["initialSelectedIndex"].template get<int>();
+    }
 };
 
 bool Combo::HasInternalOps() {
