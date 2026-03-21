@@ -8,7 +8,7 @@ Build [ubx-monitor](https://github.com/andreamancuso/ubx-monitor) as the flagshi
 
 ## Phases 1–1.5 — Core Widget Hardening & Early Adopter Features (done)
 
-Table (sorting, filtering, typed cells, reordering, visibility, column flags, context menus), InputText, Plotting (bar, scatter, heatmap, histogram, pie, candlestick), ProgressBar, ColorIndicator, Tab close/reorder, ColorPicker.
+Table (sorting, filtering, typed cells, reordering, visibility, column flags, context menus), InputText, Plotting (bar, scatter, heatmap, histogram, pie, candlestick), ProgressBar (fixed: Render now uses Yoga layout width instead of ImGui's fill-available), ColorIndicator, Tab close/reorder, ColorPicker.
 
 ---
 

@@ -17,5 +17,6 @@ void ProgressBar::Patch(const json& widgetPatchDef, XFrames* view) {
 
 void ProgressBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     const char* overlay_ptr = m_overlay.empty() ? nullptr : m_overlay.c_str();
-    ImGui::ProgressBar(m_fraction, ImVec2(-FLT_MIN, 0), overlay_ptr);
+    const float w = YGNodeLayoutGetWidth(m_layoutNode->m_node);
+    ImGui::ProgressBar(m_fraction, ImVec2(w, 0), overlay_ptr);
 };
