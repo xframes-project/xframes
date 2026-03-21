@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <imgui.h>
 
 #include "widget/plot_bar.h"
@@ -33,13 +34,18 @@ void PlotBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
 
         if (!m_tickLabelPtrs.empty()) {
-            // Use xValues from first non-empty series for tick positions
+            std::vector<double> allPositions;
             for (const auto& series : m_series) {
-                if (!series.xValues.empty() && m_tickLabelPtrs.size() == series.xValues.size()) {
-                    ImPlot::SetupAxisTicks(ImAxis_X1, series.xValues.data(),
-                        static_cast<int>(m_tickLabelPtrs.size()), m_tickLabelPtrs.data());
-                    break;
+                for (double x : series.xValues) {
+                    allPositions.push_back(x);
                 }
+            }
+            std::sort(allPositions.begin(), allPositions.end());
+            allPositions.erase(std::unique(allPositions.begin(), allPositions.end()), allPositions.end());
+
+            if (allPositions.size() == m_tickLabelPtrs.size()) {
+                ImPlot::SetupAxisTicks(ImAxis_X1, allPositions.data(),
+                    static_cast<int>(m_tickLabelPtrs.size()), m_tickLabelPtrs.data());
             }
         }
 

@@ -48,12 +48,9 @@ void JsCanvas::InitQuickJS() {
     m_runtime = JS_NewRuntime();
     if (!m_runtime) return;
 
-#ifdef __EMSCRIPTEN__
-    // WASM linear memory confuses QuickJS's C-stack-pointer heuristic,
-    // causing immediate "Maximum call stack size exceeded" on JS_Eval.
-    // Disable the check — WASM has its own trap-based stack protection.
+    // QuickJS's C-stack-pointer heuristic is unreliable in multi-threaded
+    // contexts where InitQuickJS and JS_Eval run on different threads.
     JS_SetMaxStackSize(m_runtime, 0);
-#endif
 
     m_context = JS_NewContext(m_runtime);
     if (!m_context) {
