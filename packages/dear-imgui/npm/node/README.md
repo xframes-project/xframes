@@ -37,6 +37,20 @@ const App = () => (
 render(App, resolve("./assets"), fontDefs, theme);
 ```
 
+## Screenshot Capture
+
+The Node/OpenGL runtime can save the next fully rendered framebuffer as a PNG:
+
+```tsx
+import { captureScreenshot } from "@xframes/node";
+
+await captureScreenshot("./screenshots/current.png");
+```
+
+Call `captureScreenshot` after XFrames has initialized. The returned promise resolves after the PNG has been written and rejects when the renderer is not ready, the framebuffer is unavailable, OpenGL readback fails, or the file cannot be written. The destination directory must already exist.
+
+This captures XFrames' OpenGL framebuffer, not operating-system window decorations or other windows. Screenshot capture is not currently available in the Wasm/WebGPU runtime.
+
 ## Available Widgets
 
 **Input**: Button, Checkbox, Combo, InputText, Slider, MultiSlider, ColorPicker
