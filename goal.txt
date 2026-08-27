@@ -1,0 +1,81 @@
+/goal
+
+Implement a first-class desktop screenshot capture API for XFrames, focused initially on the Node/OpenGL runtime used by @xframes/node.
+
+Context:
+- XFrames renders React-style components through Dear ImGui, Yoga layout, GLFW, and OpenGL on the Node desktop path.
+- The current render loop lives in packages/dear-imgui/cpp/app/src/imgui_renderer.cpp.
+- On desktop, the frame is rendered by XFrames::Render(...), then ImGuiRenderer::PerformRendering(), then glfwSwapBuffers(...).
+- A correct framebuffer capture should happen after PerformRendering() and before glfwSwapBuffers(), while the OpenGL context is current on the render/UI thread.
+- Do not read pixels directly from a JS/N-API call, because those calls happen on the Node thread and the GL context belongs to the render thread.
+
+Primary objective:
+- Add an API that lets a Node/XFrames app capture the current rendered UI to a PNG file, for example:
+
+  await captureScreenshot("./screenshots/current.png");
+
+Recommended implementation:
+1. Add desktop-only screenshot request plumbing to ImGuiRenderer.
+   - Add a request type containing at least output path and completion callback.
+   - Add a mutex-protected queue of pending screenshot requests.
+   - Add RequestScreenshot(path, callback) that enqueues a request and wakes the render loop with glfwPostEmptyEvent().
+   - Add FlushScreenshotRequests() that runs on the render thread immediately after PerformRendering().
+
+2. Capture pixels on the render thread.
+   - Use glfwGetFramebufferSize(m_glfwWindow, &width, &height).
+   - Use glPixelStorei(GL_PACK_ALIGNMENT, 1).
+   - Use glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data()).
+   - Flip rows vertically before writing, because OpenGL framebuffer origin is bottom-left.
+   - Return useful errors for invalid paths, zero-sized framebuffer, GL failures, or PNG write failure.
+
+3. Encode PNG.
+   - The project already depends on vcpkg Stb and includes stb_image.h.
+   - Add stb_image_write support, preferably in a single implementation file to avoid duplicate STB implementation symbols:
+
+     #define STB_IMAGE_WRITE_IMPLEMENTATION
+     #include "stb_image_write.h"
+
+   - Add the new source file to both relevant CMake targets:
+     - packages/dear-imgui/npm/node/CMakeLists.txt
+     - packages/dear-imgui/cpp/app/CMakeLists.txt
+
+4. Expose through the Node addon.
+   - Modify packages/dear-imgui/npm/node/src/xframes-node.cpp.
+   - Add Runner::captureScreenshot(path, callback) or equivalent.
+   - Use Napi::ThreadSafeFunction to resolve/reject back on the JS thread from the render thread.
+   - Export a native captureScreenshot function alongside init, patchStyle, showDebugWindow, etc.
+
+5. Add a TypeScript-facing API.
+   - Modify packages/dear-imgui/npm/node/src/lib/index.ts and/or render.tsx.
+   - Low-churn acceptable API:
+
+     export const captureScreenshot = (path: string): Promise<void>;
+
+   - Longer-term preferred API, if practical without broad refactor:
+
+     const app = render(App, assetsBasePath, fontDefs, theme);
+     await app.captureScreenshot(path);
+
+   - Prefer the low-churn singleton API for the first implementation if the controller-style render return would require unrelated architecture changes.
+
+Constraints:
+- Keep the first version desktop/OpenGL-only. Guard with #ifndef __EMSCRIPTEN__ as needed.
+- Do not attempt WebGPU/WASM capture in this goal. WebGPU requires a separate texture-copy/readback path.
+- Do not add OS-level screenshot capture. Capture the rendered framebuffer, not the window manager surface.
+- Avoid blocking the render loop on slow filesystem work more than necessary. A simple synchronous PNG write is acceptable for the initial version, but isolate it so it can be moved off-thread later.
+- Preserve existing init/render behavior and onBeforeExit behavior.
+- Keep changes scoped to screenshot support; do not refactor the renderer or N-API singleton architecture unless required.
+
+Validation:
+- Build @xframes/node after the native changes.
+- Launch the existing node example.
+- Call captureScreenshot("./screenshots/test.png") after the first frame has rendered.
+- Verify the PNG exists, has the expected window dimensions, is not vertically flipped, and contains the rendered XFrames UI rather than a blank/cleared frame.
+- Verify multiple successive screenshot requests work.
+- Verify a bad output path rejects/reports an error rather than crashing.
+
+Future follow-up:
+- Add a controller object returned by render() for app-level operations such as captureScreenshot, resizeWindow, showDebugWindow, and patchStyle.
+- Add screenshot capture to the WASM/WebGPU path using texture copy to a CPU-readable buffer.
+- Add automated visual regression helpers once screenshots are reliable.
+- Expose screenshot capture as an MCP tool in ubx-monitor, so an agent can collect a UI snapshot alongside receiver diagnostics.

@@ -6,6 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 XFrames is a DOM-free GUI framework that renders native desktop and browser UIs using Dear ImGui. Developers write React/TypeScript components that drive an ImGui widget tree through a custom React Native Fabric renderer. The C++ core is exposed via Node-API (NAPI v9) for desktop and WebAssembly (Emscripten/WebGPU) for browsers.
 
+## Current Strategic Direction
+
+XFrames is focused on GPU-accelerated technical visualization: Plot, Table, Map, Canvas, streaming data, and cross-platform React integration. It is not attempting broad parity with conventional desktop or web UI frameworks.
+
+The project deliberately retains its battle-tested React Native Fabric reconciler and its RxJS/ReactivePlusPlus bindings. The current architectural priority is to harden the bridge around them:
+
+- Publish one versioned atomic native transaction at Fabric's `completeRoot` boundary.
+- Derive destruction and JavaScript/native mapping cleanup from final committed reachability.
+- Replace fixed 30 Hz rendering with event/deadline-driven invalidation.
+- Correlate transactions with frames for measurement, recording, replay, and automation.
+
+Read these documents before changing the Fabric adapter, native operation queue, or render-loop policy:
+
+- [`docs/strategy/gpuix-comparison-2026-08.md`](docs/strategy/gpuix-comparison-2026-08.md)
+- [`docs/architecture/fabric-runtime-hardening.md`](docs/architecture/fabric-runtime-hardening.md)
+- [`ROADMAP.md`](ROADMAP.md)
+
+Visual Studio 17/2022 is the supported Windows toolchain. macOS is technically plausible through the existing portable dependencies but remains unvalidated until it is built and tested on Mac hardware.
+
 ## Build Commands
 
 ### Node.js Native Addon (desktop)
@@ -61,7 +80,7 @@ Element → Widget → StyledWidget → (Button, Checkbox, InputText, Table, Win
 - **`LayoutNode`** (`element/layout_node.h/.cpp`) — Wraps a Yoga `YGNodeRef`. Translates JSON style definitions into Yoga flexbox API calls.
 
 **Key patterns:**
-- **Reactive event queue**: JS-thread operations are pushed onto an RPP `serialized_replay_subject<ElementOpDef>` and consumed on the render thread for thread safety.
+- **Reactive operation delivery**: Native operations are published through an RPP `serialized_replay_subject<ElementOpDef>`. Handlers mutate retained state under the element/hierarchy mutexes while the renderer reads that state from its render thread. A replay subject serializes delivery but is not itself a durable operation log.
 - **JSON as API contract**: All element definitions, patches, styles, and font configs cross the C++/JS boundary as JSON strings (nlohmann/json).
 - **Per-state styling**: Widgets support base/hover/active/disabled style variants for both Yoga layout and ImGui color/stylevar overrides.
 

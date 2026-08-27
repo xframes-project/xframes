@@ -39,7 +39,12 @@ Please refer to the ['technologies used'](https://xframes.dev/technologies-used)
 
 ## Roadmap
 
-XFrames is actively maintained with planned features and enhancements. The focus at the moment is to add support for more widgets and programming languages.
+XFrames is actively maintained. The current focus is technical visualization and hardening the Fabric-to-native runtime: commit correctness, lifecycle management, observable performance, and event-driven rendering.
+
+- [Project roadmap](ROADMAP.md)
+- [Engineering and strategy documentation](docs/README.md)
+- [XFrames and GPUIX assessment](docs/strategy/gpuix-comparison-2026-08.md)
+- [Fabric-compatible runtime hardening design](docs/architecture/fabric-runtime-hardening.md)
 
 
 ## Supported platforms

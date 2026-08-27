@@ -4,6 +4,10 @@
 
 Build [ubx-monitor](https://github.com/andreamancuso/ubx-monitor) as the flagship showcase for XFrames — proving that a React-driven, DOM-free, ImGui-based framework can replace Electron for real-time data-heavy desktop applications. The showcase is built on XFrames + [ubx-parser](https://www.npmjs.com/package/ubx-parser) for sub-millisecond UBX binary protocol parsing (315+ message types).
 
+XFrames is focused on GPU-accelerated technical visualization rather than broad parity with conventional desktop or web UI frameworks. Plot, Table, Map, Canvas, streaming data, and cross-platform React integration are the primary product surface.
+
+The strategic basis for this focus is documented in [XFrames and GPUIX: Technical and Strategic Assessment](docs/strategy/gpuix-comparison-2026-08.md). The proposed runtime work is specified in [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
+
 ---
 
 ## Phases 1–1.5 — Core Widget Hardening & Early Adopter Features (done)
@@ -127,10 +131,86 @@ Table ColumnType enum, persistent filteredIndices with dirty flag, FormatNumberV
 
 ### Stage 4 — Operation Queue & Bridge Efficiency (deferred)
 
-- [ ] Replace `ElementOpDef` JSON payload with typed discriminated union
-- [ ] Remove `setChildren` JSON round-trip: pass `vector<int>` directly
-- [ ] `QueueAppendChild`: use typed struct instead of JSON object
-- [ ] WASM: pass `0` to `emscripten_set_main_loop` for `requestAnimationFrame`
+- [ ] Superseded by Phase 12 transaction work: introduce a versioned operation envelope before optimizing its encoding
+- [ ] Preserve JSON initially for trace readability; replace it only if post-batching profiles justify a typed/binary representation
+- [ ] Fold `setChildren` and `appendChild` into one committed Fabric transaction
+- [ ] Replace the fixed Wasm loop with the Phase 12 request-animation-frame invalidation policy
+
+---
+
+## Phase 12 — Fabric Runtime Hardening (proposed)
+
+Detailed design: [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
+
+This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlusPlus architecture. It introduces an XFrames-owned transaction boundary at Fabric's `completeRoot`, then uses that boundary for lifecycle correctness, render scheduling, observability, replay, and automation.
+
+### Stage 0 — Characterization and Lifecycle Tests
+
+- [ ] Add JavaScript bridge tests with a fake native module
+- [ ] Add native element, hierarchy, registration, and subject count assertions
+- [ ] Cover mount, unmount, deep deletion, reorder, keyed replacement, and reparenting
+- [ ] Cover rapid commits, abandoned work where supported, and events racing with deletion
+- [ ] Capture current operation counts, serialized bytes, and commit-to-frame timing
+
+### Stage 1 — Explicit Cross-Runtime Cleanup
+
+- [ ] Add reverse native-ID/public-ID widget mappings
+- [ ] Drop and count events whose targets are no longer live
+- [ ] Return or emit destroyed IDs from native structural application
+- [ ] Remove destroyed IDs from `fiberNodesMap` and widget registrations idempotently
+- [ ] Add repeated lifecycle stress tests and bounded live-count assertions
+
+### Stage 2 — Versioned Native Transaction API
+
+- [ ] Define commit schema version 1, sequence, and surface identifiers
+- [ ] Add a common `ApplyCommit` path for Node and Wasm
+- [ ] Make current single-operation exports delegate to one-operation transactions during migration
+- [ ] Parse and validate the complete transaction before published state changes
+- [ ] Increment one native revision per successfully applied transaction
+
+### Stage 3 — One Atomic Batch per Fabric Commit
+
+- [ ] Stage prospective Fabric work without mutating the live native tree
+- [ ] Publish one structural transaction from `completeRoot`
+- [ ] Prevent rendering from observing intermediate transaction state
+- [ ] Calculate destruction from final reachability so reparenting is safe
+- [ ] Invalidate the renderer once per committed batch
+- [ ] Verify that abandoned React work never enters the live tree or trace
+
+### Stage 4 — Invalidation-Driven Rendering and Instrumentation
+
+- [ ] Add an invalidation generation and frame revision
+- [ ] Audit commits, imperative operations, input, resources, animations, screenshots, and debug state as invalidation sources
+- [ ] Replace desktop `1 / 30` timeout rendering with event/deadline scheduling
+- [ ] Replace the 30 Hz Wasm policy with dirty/active `requestAnimationFrame` scheduling
+- [ ] Correlate data receipt, Fabric commit, native apply, frame construction, submission, and presentation where available
+- [ ] Report p50, p95, p99, maximum, live-object counts, idle frames avoided, and dropped-event counters
+
+### Stage 5 — Native Operation Recording and Replay
+
+- [ ] Persist versioned committed transactions and imperative widget commands
+- [ ] Record initial dimensions, scale, theme, fonts, assets, and logical time inputs
+- [ ] Replay native visual state without React
+- [ ] Add periodic full-state snapshots for seeking and recovery
+- [ ] Use tolerant screenshot assertions plus semantic state and bounds
+
+### Stage 6 — Automation
+
+- [ ] Query by test ID and inspect native type, props, state, bounds, visibility, and revision
+- [ ] Inject mouse, wheel, keyboard, text, focus, resize, and controlled-clock input
+- [ ] Wait for a transaction, a frame containing a revision, or a stable frame
+- [ ] Integrate screenshot capture with revision-aware test results
+- [ ] Run representative Node and Wasm functional tests in application-code CI
+
+### Phase 12 Exit Criteria
+
+- [ ] One native structural call and one native revision per accepted Fabric commit
+- [ ] Repeated lifecycle tests retain no stale JavaScript mappings or native elements
+- [ ] Reparenting preserves the moved node and its native widget state
+- [ ] Idle rendering approaches zero while active interaction is not capped at 30 Hz
+- [ ] Every committed transaction can be correlated with a rendered frame
+- [ ] A recorded representative session recreates the same native tree and widget state
+- [ ] Automation can locate, interact with, wait for, and assert a rendered widget
 
 ---
 
