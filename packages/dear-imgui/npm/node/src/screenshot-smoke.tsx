@@ -1,8 +1,16 @@
+import * as React from "react";
 import { resolve } from "path";
-import { App } from "./App";
-import { captureScreenshot } from "./lib";
+import { captureScreenshot, XFrames } from "./lib";
 import { render } from "./lib/render";
 import { theme2 } from "./themes";
+
+const ScreenshotSmokeApp = () => (
+  <XFrames.Node root style={{ width: "100%", height: "100%" }}>
+    <XFrames.SeparatorText label="XFrames screenshot smoke test" />
+    <XFrames.UnformattedText text="First and second frame captures" />
+    <XFrames.Button label="Rendered by Dear ImGui" />
+  </XFrames.Node>
+);
 
 const fontDefs = {
   defs: [
@@ -15,7 +23,7 @@ const outputPath = resolve(
 );
 const secondOutputPath = outputPath.replace(/\.png$/i, "-second.png");
 
-render(App, "../../assets", fontDefs, theme2);
+render(ScreenshotSmokeApp, "../../assets", fontDefs, theme2);
 
 setTimeout(() => {
   captureScreenshot(outputPath)
