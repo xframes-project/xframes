@@ -24,8 +24,12 @@ static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
 
 #include "./xframes.h"
 #include "imgui_renderer.h"
+#include "screenshot_writer.h"
 
+#include <cstring>
+#include <exception>
 #include <utility>
+#include <vector>
 
 void glfw_error_callback(int error, const char* description)
 {
@@ -364,6 +368,7 @@ void ImGuiRenderer::CleanUp() {
     ImGui::DestroyContext(m_imGuiCtx);
 
     glfwDestroyWindow(m_glfwWindow);
+    m_glfwWindow = nullptr;
     glfwTerminate();
     glfwSetErrorCallback(nullptr);
 #endif
@@ -471,6 +476,111 @@ void ImGuiRenderer::HandleNextImageJob() {
 
     m_xframes->m_imageJobs.pop();
 };
+
+void ImGuiRenderer::RequestScreenshot(
+    std::string path,
+    std::function<void(std::optional<std::string>)> callback
+) {
+    bool accepted = false;
+    {
+        const std::lock_guard<std::mutex> lock(m_screenshotMutex);
+        if (m_acceptScreenshotRequests) {
+            m_screenshotRequests.push(ScreenshotRequest{std::move(path), std::move(callback)});
+            accepted = true;
+        }
+    }
+
+    if (!accepted) {
+        callback("Renderer is not ready for screenshot capture");
+        return;
+    }
+
+    glfwPostEmptyEvent();
+}
+
+void ImGuiRenderer::StartScreenshotRequests() {
+    const std::lock_guard<std::mutex> lock(m_screenshotMutex);
+    m_acceptScreenshotRequests = true;
+}
+
+void ImGuiRenderer::StopScreenshotRequests(const std::string& errorMessage) {
+    std::queue<ScreenshotRequest> requests;
+    {
+        const std::lock_guard<std::mutex> lock(m_screenshotMutex);
+        m_acceptScreenshotRequests = false;
+        std::swap(requests, m_screenshotRequests);
+    }
+
+    while (!requests.empty()) {
+        auto request = std::move(requests.front());
+        requests.pop();
+        request.callback(errorMessage);
+    }
+}
+
+void ImGuiRenderer::FlushScreenshotRequests() {
+    std::queue<ScreenshotRequest> requests;
+    {
+        const std::lock_guard<std::mutex> lock(m_screenshotMutex);
+        std::swap(requests, m_screenshotRequests);
+    }
+
+    while (!requests.empty()) {
+        auto request = std::move(requests.front());
+        requests.pop();
+
+        std::optional<std::string> maybeError;
+        try {
+            maybeError = CaptureScreenshotToPng(request.path);
+        } catch (const std::exception& error) {
+            maybeError = fmt::format("Screenshot capture failed: {}", error.what());
+        } catch (...) {
+            maybeError = "Screenshot capture failed with an unknown error";
+        }
+
+        request.callback(std::move(maybeError));
+    }
+}
+
+std::optional<std::string> ImGuiRenderer::CaptureScreenshotToPng(const std::string& path) {
+    if (m_glfwWindow == nullptr) {
+        return "Renderer window is not initialized";
+    }
+
+    int width = 0;
+    int height = 0;
+    glfwGetFramebufferSize(m_glfwWindow, &width, &height);
+
+    if (width <= 0 || height <= 0) {
+        return fmt::format("Invalid framebuffer size: {}x{}", width, height);
+    }
+
+    const int channels = 4;
+    const int strideBytes = width * channels;
+    std::vector<unsigned char> pixels(static_cast<size_t>(strideBytes) * static_cast<size_t>(height));
+    std::vector<unsigned char> flipped(pixels.size());
+
+    while (glGetError() != GL_NO_ERROR) {}
+
+    GLint previousPackAlignment = 0;
+    glGetIntegerv(GL_PACK_ALIGNMENT, &previousPackAlignment);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    glPixelStorei(GL_PACK_ALIGNMENT, previousPackAlignment);
+
+    const GLenum glError = glGetError();
+    if (glError != GL_NO_ERROR) {
+        return fmt::format("glReadPixels failed with GL error 0x{:x}", static_cast<unsigned int>(glError));
+    }
+
+    for (int y = 0; y < height; y++) {
+        const auto srcOffset = static_cast<size_t>(height - 1 - y) * static_cast<size_t>(strideBytes);
+        const auto dstOffset = static_cast<size_t>(y) * static_cast<size_t>(strideBytes);
+        memcpy(flipped.data() + dstOffset, pixels.data() + srcOffset, static_cast<size_t>(strideBytes));
+    }
+
+    return WritePngToFile(path, width, height, channels, flipped.data(), strideBytes);
+}
 #endif
 
 void ImGuiRenderer::BeginRenderLoop() {
@@ -486,6 +596,10 @@ void ImGuiRenderer::BeginRenderLoop() {
     // m_imGuiCtx->IO.FontDefault = m_imGuiCtx->IO.Fonts->Fonts[0];
 
     // printf("Default font added\n");
+#endif
+
+#ifndef __EMSCRIPTEN__
+    StartScreenshotRequests();
 #endif
 
     m_xframes->Init(this);
@@ -525,11 +639,14 @@ void ImGuiRenderer::BeginRenderLoop() {
         PerformRendering();
 
 #ifndef __EMSCRIPTEN__
+        FlushScreenshotRequests();
         glfwSwapBuffers(m_glfwWindow);
 #endif
     }
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_MAINLOOP_END;
+#else
+    StopScreenshotRequests("Renderer stopped before the screenshot could be captured");
 #endif
 
     CleanUp();

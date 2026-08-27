@@ -7,6 +7,12 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 
+#include <functional>
+#include <mutex>
+#include <optional>
+#include <queue>
+#include <string>
+
 #ifdef __EMSCRIPTEN__
 #include "imgui_impl_wgpu.h"
 #include <webgpu/webgpu.h>
@@ -26,7 +32,7 @@ using json = nlohmann::json;
 
 class ImGuiRenderer {
     protected:
-        GLFWwindow* m_glfwWindow;
+        GLFWwindow* m_glfwWindow = nullptr;
 
         std::string m_rawFontDefs;
 
@@ -60,6 +66,18 @@ class ImGuiRenderer {
         int m_wgpu_surface_height = 0;
     #else
         ImVec4 m_clearColor;
+
+        struct ScreenshotRequest {
+            std::string path;
+            std::function<void(std::optional<std::string>)> callback;
+        };
+
+        std::mutex m_screenshotMutex;
+        std::queue<ScreenshotRequest> m_screenshotRequests;
+        bool m_acceptScreenshotRequests = false;
+
+        void StartScreenshotRequests();
+        void StopScreenshotRequests(const std::string& errorMessage);
     #endif
 
     public:
@@ -84,6 +102,12 @@ class ImGuiRenderer {
 #else
         void HandleNextImageJob();
         GLuint LoadTexture(const void* data, int numBytes);
+        void RequestScreenshot(
+            std::string path,
+            std::function<void(std::optional<std::string>)> callback
+        );
+        void FlushScreenshotRequests();
+        std::optional<std::string> CaptureScreenshotToPng(const std::string& path);
 #endif
         // virtual void PrepareForRender() = 0;
         // virtual void Render(int window_width, int window_height) = 0;

@@ -5,6 +5,8 @@
 
 #include <thread>
 #include <cstdio>
+#include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -585,6 +587,18 @@ class Runner {
         void showDebugWindow() const {
             m_xframes->ShowDebugWindow();
         }
+
+        void captureScreenshot(
+            std::string path,
+            std::function<void(std::optional<std::string>)> callback
+        ) const {
+            if (m_renderer == nullptr) {
+                callback("Renderer is not initialized");
+                return;
+            }
+
+            m_renderer->RequestScreenshot(std::move(path), std::move(callback));
+        }
 };
 
 Runner* Runner::instance = nullptr;
@@ -740,6 +754,47 @@ void showDebugWindow(const Napi::CallbackInfo& info) {
     pRunner->showDebugWindow();
 }
 
+static Napi::Value captureScreenshot(const Napi::CallbackInfo& info) {
+    auto pRunner = Runner::getInstance();
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 2) {
+        throw Napi::TypeError::New(env, "Expected two arguments");
+    } else if (!info[0].IsString()) {
+        throw Napi::TypeError::New(env, "Expected first arg to be string");
+    } else if (!info[1].IsFunction()) {
+        throw Napi::TypeError::New(env, "Expected second arg to be function");
+    }
+
+    auto path = info[0].As<Napi::String>().Utf8Value();
+    auto callback = info[1].As<Napi::Function>();
+    auto tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(
+            env,
+            callback,
+            "captureScreenshot",
+            0,
+            1
+        )
+    );
+
+    pRunner->captureScreenshot(std::move(path), [tsfn](std::optional<std::string> maybeError) {
+        auto errorMessage = maybeError.value_or("");
+        auto callback = [hasError = maybeError.has_value(), errorMessage](Napi::Env env, Napi::Function jsCallback) {
+            if (hasError) {
+                jsCallback.Call({Napi::String::New(env, errorMessage)});
+            } else {
+                jsCallback.Call({env.Null()});
+            }
+        };
+
+        tsfn->NonBlockingCall(callback);
+        tsfn->Release();
+    });
+
+    return env.Null();
+}
+
 int run()
 {
     auto pRunner = Runner::getInstance();
@@ -804,6 +859,7 @@ static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports["setChildren"] = Napi::Function::New(env, setChildren);
     exports["appendChild"] = Napi::Function::New(env, appendChild);
     exports["showDebugWindow"] = Napi::Function::New(env, showDebugWindow);
+    exports["captureScreenshot"] = Napi::Function::New(env, captureScreenshot);
     exports["elementInternalOp"] = Napi::Function::New(env, elementInternalOp);
     exports["patchStyle"] = Napi::Function::New(env, patchStyle);
     exports["appendTextToClippedMultiLineTextRenderer"] = Napi::Function::New(env, appendTextToClippedMultiLineTextRenderer);

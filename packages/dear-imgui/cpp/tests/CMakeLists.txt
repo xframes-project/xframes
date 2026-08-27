@@ -189,6 +189,7 @@ add_executable(Google_Tests_run
 
         ../app/src/xframes.cpp
         ../app/src/disk_tile_cache.cpp
+        ../app/src/screenshot_writer.cpp
         ../app/src/imgui_renderer.cpp
         ../app/src/implot_renderer.cpp
 
@@ -199,6 +200,7 @@ add_executable(Google_Tests_run
         element/layout_node_test.cpp
         element/element_test.cpp
         xframes_test.cpp
+        screenshot_writer_test.cpp
         quickjs_test.cpp
         canvas_test.cpp
         lua_canvas_test.cpp
