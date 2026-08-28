@@ -1,7 +1,7 @@
 import * as React from "react";
 import {
   Primitive,
-  ReactFabricProdInitialiser,
+  ReactFabricInitialiser,
   ReactNativePrivateInterface,
   WidgetRegistrationService,
   WidgetRegistrationServiceContext,
@@ -9,18 +9,16 @@ import {
 
 const xframes = require("./xframes.node");
 
-export const ReactFabricProd = ReactFabricProdInitialiser(
-  ReactNativePrivateInterface
-);
+export const ReactFabric = ReactFabricInitialiser(ReactNativePrivateInterface);
 
 export const render = (
-  EntryPointComponent: () => JSX.Element,
+  EntryPointComponent: () => React.JSX.Element,
   assetsBasePath: string,
   fontDefs: any,
-  theme: any
+  theme: any,
 ) => {
   const onInit = () => {
-    ReactFabricProd.render(
+    ReactFabric.render(
       <WidgetRegistrationServiceContext.Provider
         value={widgetRegistrationService}
       >
@@ -30,7 +28,8 @@ export const render = (
       () => {
         // console.log("initialised");
       },
-      1
+      1,
+      undefined,
     );
   };
 
@@ -42,7 +41,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -54,7 +53,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -66,7 +65,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -78,7 +77,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -90,7 +89,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -103,11 +102,15 @@ export const render = (
       topLevelType,
       {
         value: "clicked",
-      }
+      },
     );
   };
 
-  const onTableSort = (id: number, columnIndex: number, sortDirection: number) => {
+  const onTableSort = (
+    id: number,
+    columnIndex: number,
+    sortDirection: number,
+  ) => {
     const rootNodeID = id;
     const topLevelType = "onSort";
     const nativeEventParam = { columnIndex, sortDirection };
@@ -115,11 +118,15 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
-  const onTableFilter = (id: number, columnIndex: number, filterText: string) => {
+  const onTableFilter = (
+    id: number,
+    columnIndex: number,
+    filterText: string,
+  ) => {
     const rootNodeID = id;
     const topLevelType = "onFilter";
     const nativeEventParam = { columnIndex, filterText };
@@ -127,7 +134,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -139,11 +146,15 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
-  const onTableItemAction = (id: number, rowIndex: number, actionId: string) => {
+  const onTableItemAction = (
+    id: number,
+    rowIndex: number,
+    actionId: string,
+  ) => {
     const rootNodeID = id;
     const topLevelType = "onItemAction";
     const nativeEventParam = { rowIndex, actionId };
@@ -151,7 +162,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       rootNodeID,
       topLevelType,
-      nativeEventParam
+      nativeEventParam,
     );
   };
 
@@ -159,7 +170,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       id,
       "onPrefetchProgress",
-      { completed, total }
+      { completed, total },
     );
   };
 
@@ -167,7 +178,7 @@ export const render = (
     ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
       id,
       "onScriptError",
-      { errorMessage }
+      { errorMessage },
     );
   };
 
@@ -188,14 +199,16 @@ export const render = (
     onTableItemAction,
     onPrefetchProgress,
     onScriptError,
-    onBeforeExit: () => { process.exit(0); },
+    onBeforeExit: () => {
+      process.exit(0);
+    },
   });
 
   const widgetRegistrationService = new WidgetRegistrationService(xframes);
 
   ReactNativePrivateInterface.nativeFabricUIManager.init(
     xframes,
-    widgetRegistrationService
+    widgetRegistrationService,
   );
 
   let flag = true;

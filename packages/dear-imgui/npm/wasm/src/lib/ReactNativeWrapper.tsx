@@ -3,12 +3,12 @@ import { useEffect, useRef, PropsWithChildren } from "react";
 import {
   WidgetRegistrationServiceContext,
   WidgetRegistrationService,
-  ReactFabricProdInitialiser,
+  ReactFabricInitialiser,
   ReactNativePrivateInterface,
 } from "@xframes/common";
 import { MainModule } from "./wasm-app-types";
 
-const ReactFabricProd = ReactFabricProdInitialiser(ReactNativePrivateInterface);
+const ReactFabric = ReactFabricInitialiser(ReactNativePrivateInterface);
 
 export type ReactNativeWrapperProps = PropsWithChildren & {
   wasmModule: MainModule;
@@ -18,7 +18,7 @@ export const ReactNativeWrapper: React.ComponentType<
   ReactNativeWrapperProps
 > = ({ wasmModule, children }: ReactNativeWrapperProps) => {
   const widgetRegistrationServiceRef = useRef(
-    new WidgetRegistrationService(wasmModule)
+    new WidgetRegistrationService(wasmModule),
   );
   const initialisedRef = useRef(false);
 
@@ -33,10 +33,10 @@ export const ReactNativeWrapper: React.ComponentType<
       // todo: inject via Context
       ReactNativePrivateInterface.nativeFabricUIManager.init(
         wasmModule,
-        widgetRegistrationServiceRef.current
+        widgetRegistrationServiceRef.current,
       );
 
-      ReactFabricProd.render(
+      ReactFabric.render(
         <WidgetRegistrationServiceContext.Provider
           value={widgetRegistrationServiceRef.current}
         >
@@ -46,7 +46,8 @@ export const ReactNativeWrapper: React.ComponentType<
         () => {
           // console.log("initialised");
         },
-        1
+        1,
+        undefined,
       );
     }
   }, [wasmModule, initialisedRef]);

@@ -4,9 +4,11 @@ DOM-free, GPU-accelerated GUI development for the browser — powered by [Dear I
 
 Write React/TypeScript components that render as native widgets in the browser with zero DOM overhead.
 
-## Online Demo
+Maintainers: see [React Native Fabric embedding](../FABRIC_EMBEDDING.md) for the React Native 0.87 integration, Docker build, and browser smoke procedure.
 
-[Live demo](https://andreamancuso.github.io/react-wasm/dear-imgui) (requires a browser with WebGPU support)
+## Documentation and examples
+
+See [xframes.dev](https://xframes.dev) (requires a browser with WebGPU support for live Wasm examples).
 
 ## Installation
 
@@ -43,12 +45,14 @@ npm install @xframes/wasm @xframes/common react
 
 Requires native WebGPU support:
 
-| Browser | Status |
-|---|---|
-| Chrome | Supported |
-| Edge | Supported |
+| Browser         | Status    |
+| --------------- | --------- |
+| Chrome          | Supported |
+| Edge            | Supported |
 | Firefox Nightly | Supported |
-| Safari | Untested |
+| Safari          | Untested  |
+
+The repository smoke test currently covers a Docker-built Wasm module in headless Chromium. Other browser rows describe intended runtime support and still require release-platform verification.
 
 ## Links
 

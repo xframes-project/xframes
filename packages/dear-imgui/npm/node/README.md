@@ -4,6 +4,8 @@ DOM-free, GPU-accelerated desktop GUI development for Node.js — powered by [De
 
 Write React/TypeScript components that render as native desktop widgets with zero browser overhead.
 
+Maintainers: see [React Native Fabric embedding](../FABRIC_EMBEDDING.md) for renderer generation, version compatibility, and the full-App smoke procedure.
+
 ## Quick Start
 
 ```bash
@@ -25,7 +27,9 @@ const fontDefs = {
     .flat(),
 };
 
-const theme = { /* ... */ };
+const theme = {
+  /* ... */
+};
 
 const App = () => (
   <XFrames.Node root style={{ height: "100%" }}>
@@ -50,6 +54,8 @@ await captureScreenshot("./screenshots/current.png");
 Call `captureScreenshot` after XFrames has initialized. The returned promise resolves after the PNG has been written and rejects when the renderer is not ready, the framebuffer is unavailable, OpenGL readback fails, or the file cannot be written. The destination directory must already exist.
 
 This captures XFrames' OpenGL framebuffer, not operating-system window decorations or other windows. Screenshot capture is not currently available in the Wasm/WebGPU runtime.
+
+The repository's Wasm browser smoke does capture the browser viewport through Chromium for integration testing; that is not a public `@xframes/wasm` framebuffer API.
 
 ## Available Widgets
 
@@ -79,31 +85,34 @@ This captures XFrames' OpenGL framebuffer, not operating-system window decoratio
 
 ## Platform Support
 
-| Architecture | OS | Notes |
-|---|---|---|
-| x64-windows | Windows 11 | Works |
-| x64-linux | WSL2 Ubuntu 24.04 | Set `export GALLIUM_DRIVER=d3d12` |
-| x64-linux | Debian Trixie | Works |
-| x64-linux | Ubuntu 22.04 / 24.04 | Works |
-| arm64-linux | Raspberry Pi OS (Bookworm) | Works |
+| Architecture | OS                         | Notes                             |
+| ------------ | -------------------------- | --------------------------------- |
+| x64-windows  | Windows 11                 | Works                             |
+| x64-linux    | WSL2 Ubuntu 24.04          | Set `export GALLIUM_DRIVER=d3d12` |
+| x64-linux    | Debian Trixie              | Works                             |
+| x64-linux    | Ubuntu 22.04 / 24.04       | Works                             |
+| arm64-linux  | Raspberry Pi OS (Bookworm) | Works                             |
 
 ## Building from Source
 
 If a prebuilt binary isn't available for your platform, the native addon compiles from source during `npm install`. Requirements:
 
-**Windows**: Visual Studio 2022
+**Windows**: Visual Studio 2022. Visual Studio 2019 and older are not supported.
 
 **Ubuntu 24.04**:
+
 ```bash
 sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
 ```
 
 **Fedora 41**:
+
 ```bash
 sudo dnf install @development-tools gcc-c++ cmake glfw-devel
 ```
 
 **Raspberry Pi OS**:
+
 ```bash
 sudo apt install curl zip unzip tar build-essential cmake libglfw3 libglfw3-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
 export ARM64_LINUX=1

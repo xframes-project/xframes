@@ -1,0 +1,25 @@
+{
+    "name": "xframes-dear-imgui-packages",
+    "private": true,
+    "workspaces": [
+        "common",
+        "node",
+        "wasm"
+    ],
+    "scripts": {
+        "fabric:generate": "npm run extract-rn-fabric-renderer --workspace @xframes/common",
+        "fabric:check": "npm run check-rn-fabric-renderer --workspace @xframes/common",
+        "fabric:typecheck": "npm run typecheck:fabric-tools --workspace @xframes/common",
+        "fabric:test": "npm run test:fabric-host --workspace @xframes/common",
+        "fabric:verify": "npm run verify:rn-fabric --workspace @xframes/common",
+        "build:common": "npm run build:library --workspace @xframes/common",
+        "build:node": "npm run build:library --workspace @xframes/node",
+        "build:wasm": "npm run build:library --workspace @xframes/wasm"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
+        "react": "19.2.3",
+        "react-dom": "19.2.3"
+    }
+}

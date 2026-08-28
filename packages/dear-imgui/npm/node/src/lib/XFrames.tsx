@@ -10,8 +10,5 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
   return null;
 };
 
-export const XFrames = attachSubComponents(
-  "XFrames",
-  MainComponent,
-  components
-);
+export const XFrames: React.ComponentType<MainComponentProps> &
+  typeof components = attachSubComponents("XFrames", MainComponent, components);

@@ -4,13 +4,14 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const webpack = require("webpack");
 const path = require("path");
 
-const { NODE_ENV } = process.env;
+const mode =
+    process.env.NODE_ENV === "production" ? "production" : "development";
 
 module.exports = [
     {
         name: "main",
         entry: path.resolve(__dirname, "./src/index.tsx"),
-        mode: "development",
+        mode,
         devServer: {
             port: 3000,
             open: true,
@@ -21,6 +22,7 @@ module.exports = [
             },
         },
         output: {
+            path: path.resolve(__dirname, "build"),
             publicPath: "/",
         },
         experiments: {
@@ -29,7 +31,11 @@ module.exports = [
         },
         resolve: {
             extensions: [".ts", ".tsx", ".js", ".mjs", ".css"],
-            modules: [path.resolve(__dirname, "./"), path.resolve(__dirname, "./node_modules/")],
+            modules: [
+                path.resolve(__dirname, "./"),
+                path.resolve(__dirname, "../node_modules"),
+                "node_modules",
+            ],
         },
         module: {
             rules: [
@@ -71,12 +77,8 @@ module.exports = [
                 template: path.resolve(__dirname, "./public/index.html"),
             }),
             new CleanWebpackPlugin(),
-            new webpack.HotModuleReplacementPlugin(),
             new webpack.DefinePlugin({
-                "process.env": {
-                    // This has effect on the react lib size
-                    NODE_ENV: JSON.stringify("development"),
-                },
+                "process.env.NODE_ENV": JSON.stringify(mode),
             }),
         ],
     },

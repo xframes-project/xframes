@@ -24,7 +24,7 @@ This decision does not call for replacing React Native Fabric, ReactiveX/RxJS, R
 
 ### XFrames uses a battle-tested reconciler
 
-XFrames does not use a newly invented React reconciler. It vendors the React Native 0.74.1 Fabric production renderer and provides its own `nativeFabricUIManager` implementation.
+XFrames does not use a newly invented React reconciler. It vendors generated development and production snapshots of the React Native 0.87.0 Fabric renderer and provides its own `nativeFabricUIManager` implementation. See the verified [Fabric embedding guide](../../packages/dear-imgui/npm/FABRIC_EMBEDDING.md).
 
 The reconciler itself is proven at React Native scale. The rough area is the XFrames host adapter, particularly its current node cloning, destruction, and operation publication behavior. The relevant implementation is [`nativeFabricUiManager.ts`](../../packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts).
 
@@ -156,7 +156,7 @@ Assessed GPUIX source revision: [`64241ce`](https://github.com/remorses/gpuix/tr
 
 ### XFrames
 
-XFrames uses the React Native Fabric production renderer with a custom JavaScript `nativeFabricUIManager`. Fabric calls `createNode`, clone methods, child-set methods, and `completeRoot`; the adapter translates those operations to Node-API or Emscripten calls.
+XFrames uses generated development and production React Native Fabric renderers with a custom JavaScript `nativeFabricUIManager`. Fabric calls `createNode`, clone methods, child-set methods, and `completeRoot`; the adapter translates those operations to Node-API or Emscripten calls.
 
 C++ maintains:
 
@@ -176,7 +176,7 @@ The correct conclusion is not that XFrames chose the wrong reconciler. It is tha
 
 | Area | GPUIX | XFrames | Current lead |
 | --- | --- | --- | --- |
-| Reconciliation foundation | Custom host over `react-reconciler` | React Native Fabric production renderer | XFrames foundation; GPUIX bridge implementation |
+| Reconciliation foundation | Custom host over `react-reconciler` | React Native Fabric development/production snapshots | XFrames foundation; GPUIX bridge implementation |
 | Commit bridge | One typed batch per accepted commit | Separate JSON/native calls | GPUIX |
 | Reactive architecture | Event callback and retained-tree mutation system | RxJS plus ReactivePlusPlus on opposite sides | XFrames has more leverage than its current bridge uses |
 | General application shell | Strong focus, overlays, motion, scrolling, virtual lists | Basic controls and Dear ImGui-oriented behavior | GPUIX |

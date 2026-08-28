@@ -1,5 +1,10 @@
 import NativeFabricUIManager from "./nativeFabricUiManager.ts";
 import deepDiffer from "./deepDiffer.js";
+import flattenStyle from "./flattenStyle.js";
+import {
+    create as createAttributePayload,
+    diff as diffAttributePayloads,
+} from "./ReactNativeAttributePayload.js";
 
 const uiManager = new NativeFabricUIManager();
 
@@ -24,9 +29,26 @@ const attributesForElements = {
     "help-marker": ["text"],
     "di-image": ["url", "width", "number"],
     indent: [],
-    "input-text": ["defaultValue", "hint", "multiline", "password", "readOnly", "numericOnly", "onChange"],
+    "input-text": [
+        "defaultValue",
+        "hint",
+        "multiline",
+        "password",
+        "readOnly",
+        "numericOnly",
+        "onChange",
+    ],
     "item-tooltip": [],
-    "map-view": ["onChange", "onPrefetchProgress", "tileUrlTemplate", "tileRequestHeaders", "attribution", "minZoom", "maxZoom", "cachePath"],
+    "map-view": [
+        "onChange",
+        "onPrefetchProgress",
+        "tileUrlTemplate",
+        "tileRequestHeaders",
+        "attribution",
+        "minZoom",
+        "maxZoom",
+        "cachePath",
+    ],
     "multi-slider": [
         "numValues",
         "label",
@@ -36,11 +58,47 @@ const attributesForElements = {
         "decimalDigits",
         "onChange",
     ],
-    "plot-bar": ["axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel", "series"],
-    "plot-histogram": ["bins", "axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
+    "plot-bar": [
+        "axisAutoFit",
+        "dataPointsLimit",
+        "xAxisLabel",
+        "yAxisLabel",
+        "showLegend",
+        "legendLocation",
+        "legendLabel",
+        "series",
+    ],
+    "plot-histogram": [
+        "bins",
+        "axisAutoFit",
+        "dataPointsLimit",
+        "xAxisLabel",
+        "yAxisLabel",
+        "showLegend",
+        "legendLocation",
+        "legendLabel",
+    ],
     "plot-pie-chart": ["labelFormat", "angle0", "normalize", "showLegend", "legendLocation"],
-    "plot-heatmap": ["axisAutoFit", "scaleMin", "scaleMax", "colormap", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
-    "plot-scatter": ["axisAutoFit", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
+    "plot-heatmap": [
+        "axisAutoFit",
+        "scaleMin",
+        "scaleMax",
+        "colormap",
+        "xAxisLabel",
+        "yAxisLabel",
+        "showLegend",
+        "legendLocation",
+        "legendLabel",
+    ],
+    "plot-scatter": [
+        "axisAutoFit",
+        "dataPointsLimit",
+        "xAxisLabel",
+        "yAxisLabel",
+        "showLegend",
+        "legendLocation",
+        "legendLabel",
+    ],
     "plot-line": [
         "xAxisDecimalDigits",
         "yAxisDecimalDigits",
@@ -56,14 +114,36 @@ const attributesForElements = {
         "legendLabel",
         "series",
     ],
-    "plot-candlestick": ["axisAutoFit", "bullColor", "bearColor", "dataPointsLimit", "xAxisLabel", "yAxisLabel", "showLegend", "legendLocation", "legendLabel"],
+    "plot-candlestick": [
+        "axisAutoFit",
+        "bullColor",
+        "bearColor",
+        "dataPointsLimit",
+        "xAxisLabel",
+        "yAxisLabel",
+        "showLegend",
+        "legendLocation",
+        "legendLabel",
+    ],
     "progress-bar": ["fraction", "overlay"],
     separator: [],
     "separator-text": ["label"],
     slider: ["sliderType", "label", "defaultValue", "min", "max", "onChange"],
     "tab-bar": ["reorderable"],
     "tab-item": ["label", "closeable", "onChange"],
-    "di-table": ["columns", "initialData", "clipRows", "filterable", "reorderable", "hideable", "contextMenuItems", "onSort", "onFilter", "onRowClick", "onItemAction"],
+    "di-table": [
+        "columns",
+        "initialData",
+        "clipRows",
+        "filterable",
+        "reorderable",
+        "hideable",
+        "contextMenuItems",
+        "onSort",
+        "onFilter",
+        "onRowClick",
+        "onItemAction",
+    ],
     "text-wrap": ["width"],
     "tree-node": [
         "itemId",
@@ -102,6 +182,9 @@ export default {
         // console.log("createPublicInstance", current, renderLanes, workInProgress);
 
         return {};
+    },
+    createPublicRootInstance(containerTag) {
+        return { containerTag };
     },
     get BatchedBridge() {
         return {};
@@ -142,7 +225,7 @@ export default {
     get nativeFabricUIManager() {
         return uiManager;
     },
-    // TODO: Remove when React has migrated to `createAttributePayload` and `diffAttributePayloads`
+    // React Native <= 0.81 reads these helpers directly from the private interface.
     get deepDiffer() {
         return deepDiffer;
     },
@@ -152,7 +235,7 @@ export default {
         return (...args) => {};
     },
     get flattenStyle() {
-        return {};
+        return flattenStyle;
     },
     get ReactFiberErrorDialog() {
         return {
@@ -162,7 +245,7 @@ export default {
         };
     },
     get legacySendAccessibilityEvent() {
-        return {};
+        return () => {};
     },
     get RawEventEmitter() {
         return {
@@ -175,21 +258,27 @@ export default {
         return {};
     },
     get createAttributePayload() {
-        return {};
+        return createAttributePayload;
     },
     get diffAttributePayloads() {
-        return {};
+        return diffAttributePayloads;
     },
     get createPublicTextInstance() {
-        return {};
+        return () => ({});
     },
     get getNativeTagFromPublicInstance() {
-        return {};
+        return () => null;
     },
     get getNodeFromPublicInstance() {
-        return {};
+        return () => null;
     },
     get getInternalInstanceHandleFromPublicInstance() {
-        return {};
+        return () => null;
+    },
+    get UIManager() {
+        return {
+            dispatchViewManagerCommand() {},
+            sendAccessibilityEvent() {},
+        };
     },
 };

@@ -59,7 +59,7 @@ The transaction is the common seam. Batching, destruction, replay, timings, and 
 
 ### Fabric side
 
-XFrames vendors the React Native 0.74.1 Fabric production renderer. The custom [`nativeFabricUiManager.ts`](../../packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts) implements the methods expected by that renderer.
+XFrames vendors generated development and production snapshots of the React Native 0.87.0 Fabric renderer. The current embedding, upgrade procedure, and verification matrix are documented in [React Native Fabric Embedding](../../packages/dear-imgui/npm/FABRIC_EMBEDDING.md). The custom [`nativeFabricUiManager.ts`](../../packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts) implements the methods expected by that renderer.
 
 The important current methods are:
 

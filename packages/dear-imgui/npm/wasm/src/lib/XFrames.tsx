@@ -107,7 +107,7 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
         try {
           wasmModule.resizeWindow(
             containerRef.current.clientWidth,
-            containerRef.current.clientHeight - 62
+            containerRef.current.clientHeight - 62,
           );
         } catch (exception) {
           console.log("Unable to set initial window size");
@@ -124,13 +124,13 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
             try {
               wasmModule.resizeWindow(
                 containerRef.current.clientWidth - 1,
-                containerRef.current.clientHeight - 10
+                containerRef.current.clientHeight - 10,
               );
             } catch (exception) {
               console.log("Unable to resize window");
             }
           }
-        }, 20)
+        }, 20),
       );
 
       resizeObserver.observe(containerRef.current);
@@ -153,8 +153,5 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
   );
 };
 
-export const XFrames = attachSubComponents(
-  "XFrames",
-  MainComponent,
-  components
-);
+export const XFrames: React.ComponentType<MainComponentProps> &
+  typeof components = attachSubComponents("XFrames", MainComponent, components);

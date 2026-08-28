@@ -44,19 +44,30 @@ import { ImGuiCol, ImVec2, ImGuiStyleVar, ImPlotScale, ImPlotMarker } from "./ty
 import { components } from "./components/XFrames/components";
 import { WidgetRegistrationService } from "./widgetRegistrationService";
 import { attachSubComponents } from "./attachSubComponents";
+import ReactFabricDevInitialiser from "./react-native/ReactFabric-dev";
 import ReactFabricProdInitialiser from "./react-native/ReactFabric-prod";
 import ReactNativePrivateInterface from "./react-native/ReactNativePrivateInterface";
 import { TreeViewItem } from "./components/XFrames/TreeView";
 import { JsCanvasImperativeHandle } from "./components/XFrames/JsCanvas";
 import { LuaCanvasImperativeHandle } from "./components/XFrames/LuaCanvas";
 import { JanetCanvasImperativeHandle } from "./components/XFrames/JanetCanvas";
-import { MapImperativeHandle, MapMarker, MapPolyline, MapOverlay } from "./components/XFrames/MapView";
+import {
+    MapImperativeHandle,
+    MapMarker,
+    MapPolyline,
+    MapOverlay,
+} from "./components/XFrames/MapView";
 import { ImageImperativeHandle } from "./components/XFrames/Image";
 import { WidgetRegistrationServiceContext } from "./contexts/widgetRegistrationServiceContext";
 import { useWidgetEventManagement } from "./hooks/useWidgetEventManagement";
 import { useWidgetRegistrationService } from "./hooks/useWidgetRegistrationService";
 import { useXFramesFonts } from "./hooks/useXFramesFonts";
 import { useXFramesWasm } from "./hooks/useXFramesWasm";
+
+const ReactFabricInitialiser: typeof ReactFabricProdInitialiser =
+    process.env.NODE_ENV === "production"
+        ? ReactFabricProdInitialiser
+        : (ReactFabricDevInitialiser as typeof ReactFabricProdInitialiser);
 
 export {
     WidgetReactElement,
@@ -72,6 +83,7 @@ export {
     TreeViewItem,
     PlotCandlestickDataItem,
     PlotLineSeriesDef,
+    ReactFabricInitialiser,
     ReactFabricProdInitialiser,
     ReactNativePrivateInterface,
     attachSubComponents,

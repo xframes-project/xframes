@@ -1,122 +1,57 @@
-# React bindings for Dear ImGui (and ImPlot)
+# XFrames WebAssembly build
 
-Please note that only Chrome, Edge and [Firefox Nightlies](https://www.mozilla.org/en-US/firefox/channel/desktop/) are currently supported.
+This directory builds the Dear ImGui/ImPlot XFrames runtime for Emscripten and WebGPU. React/Fabric packaging and browser verification live under `packages/dear-imgui/npm`.
 
-## Building instructions
+See [React Native Fabric embedding](../../npm/FABRIC_EMBEDDING.md) for the supported React Native version, JavaScript workspace, full verification matrix, and known gaps.
 
-### Docker-based build (recommended)
+## Docker build (recommended)
 
-Requires only [Docker](https://www.docker.com/products/docker-desktop/) installed. Works on Windows (Git Bash), macOS, and Linux:
+Docker is the supported reproducible build path. From the repository root in Git Bash, macOS, or Linux:
 
 ```bash
 ./packages/dear-imgui/cpp/wasm/build-wasm-docker.sh
 ```
 
-First run will be slow (vcpkg bootstrap + dependency install). Subsequent runs use cached dependencies.
+For a faster development build using `-O0`:
 
-Output: `packages/dear-imgui/npm/wasm/src/lib/xframes.mjs`
+```bash
+./packages/dear-imgui/cpp/wasm/build-wasm-docker.sh --fast
+```
 
----
+The script builds `Dockerfile.wasm`, currently pinned to Emscripten 5.0.2, mounts the repository at `/src`, and reuses the `xframes-ccache` Docker volume. The first vcpkg build is slow; later builds reuse cached dependencies.
 
-We also provide instructions for manual setup on Windows as well as a devcontainer configuration. We recommend to use the Dev Container approach or JetBrain's CLion:
+Outputs are written directly to:
 
-![React Dear Imgui Electron demo](/screenshots/dear-imgui/clion-toolchain.png?raw=true)
+- `packages/dear-imgui/npm/wasm/src/lib/xframes.mjs`
+- `packages/dear-imgui/npm/wasm/src/lib/xframes.data`
 
-### Requirements for devcontainer-based setup (massive kudos to [@genautz](https://github.com/genautz))
+## Browser verification
 
-We recommend you let VS Code clone the repo in a separate Docker volume
+Install the shared npm workspace once, then run the browser smoke:
 
-- [VS Code](https://code.visualstudio.com/)
-    -  Install extension `Dev Containers`, Id: `ms-vscode-remote.remote-containers` [Marketplace Link](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-    -  Install extension `WSL` Id: `ms-vscode-remote.remote-wsl` [Marketplace Link](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+```powershell
+cd packages/dear-imgui/npm
+npm ci
+cd wasm
+npm run smoke:browser
+```
 
-#### Building (Dev Container)
+The test compiles the current common/Fabric package, serves the full `<App>`, launches Edge or Chrome with WebGPU, fails on browser/runtime exceptions or timeout, waits for the native `ready` callback, and writes `build/browser-smoke.png`.
 
--   `cd packages/dear-imgui/cpp`
--   `cmake -S . -B build`
--   `cmake --build ./build --target reactDearImgui`
+The default SwiftShader flags are for trusted local/CI content. Set `XFRAMES_WEBGPU_ADAPTER=default` to use the machine's normal adapter. A restricted process sandbox may prevent Chromium's GPU subprocess from starting; the smoke needs normal driver and temporary-profile access.
 
-Note: no need to run `emsdk_env` as this has already been added to `.bash_profile`
+## Manual and dev-container builds
 
-----
+Manual Emscripten and dev-container builds remain possible, but they are not the release verification path. Keep them aligned with `Dockerfile.wasm` and use the same CMake target:
 
-### Requirements for manual setup
+```bash
+cd packages/dear-imgui/cpp/wasm
+cmake -S . -B build-wasm -GNinja
+cmake --build ./build-wasm --target xframes
+```
 
-Tested with:
+On Windows, only Visual Studio 2022 is supported for native tooling. Do not reinstall React inside this C++ directory; all JavaScript dependencies are owned by the npm workspace lockfile.
 
--   Windows 11
--   Visual Studio 2022
--   emscripten 3.1.60, follow these instructions https://emscripten.org/docs/getting_started/downloads.html
--   Node.js v20 (LTS) download it from https://nodejs.org/dist/v20.13.1/node-v20.13.1-x64.msi or install via [Node Version Manager](https://github.com/coreybutler/nvm-windows)
--   Yarn, follow these instructions https://yarnpkg.com/getting-started/install
+## Native unit tests
 
-#### Manual installation of Emscripten
-
--   Open a VS Studio 2022 developer prompt
--   Run `git submodule update --init --recursive` to retrieve all dependencies in the `deps` folder
--   Install emsdk:
-    -   `git clone https://github.com/emscripten-core/emsdk.git`
-    -   `cd emsdk`
-    -   `./emsdk install 3.1.60` (`emsdk.bat` on Windows)
-    -   `./emsdk activate 3.1.60` (`emsdk.bat` on Windows)
-    -   cd into `emsdk/upstream/emscripten` and run `npm install` (this ensures `tsc` is available so that TypeScript typings can be generated)
-
-#### Manual installation of React and other dependencies
-
--   `cd react-wasm/packages/dear-imgui/ts`
--   `npm i react@18.2.0 react-dom@18.2.0` (you may delete the package-lock.json file generated as part of running this command)
--   `yarn`
-
-#### Building (on Windows)
-
--   Open a VS Studio 2022 developer prompt
--   **IMPORTANT**: Run `<emsdk-dir>/emsdk_env.bat` (if you haven't done so already)
--   `cd react-wasm/packages/dear-imgui/`
--   Build the WASM:
-    -   `cd cpp`
-    -   `cmake -S . -B build -GNinja`
-    -   `cmake --build ./build --target reactDearImgui`
-
-## Verifying
-
--   `cd react-wasm/packages/dear-imgui/ts`
--   `yarn start`
-
-Your default browser will open, the URL should http://localhost:3000
-
-Please note, not all browsers are currently supported.
-
-## Notes
-
-Terminating the WASM process throws an `ExitStatus` exception - this is expected, so long as the status is `0` then it's all good.
-
-`Pthread` support was recently added. At the time of writing this causes Webpack to issue a warning on startup. The warning can be dismissed by clicking on the close (X) button. Enabling the `-s STRICT` linker flag should fix it, however this currently introduces our issues.
-
-## Tests
-
-### Unit tests (Google Test)
-
-#### Windows
-
-Open an x64 Developer Command Prompt then run the following commands:
-
-- `cd tests`
-- `cmake -S . -B build`
-- `cmake --build ./build --target Google_tests_run`
-- `build\Debug\Google_Tests_run.exe`
-
-For convenience, you can run the `build_and_run_tests.bat` batch script to run all the above.
-Also, `run_tests.bat` runs just the last two commands (this is useful when making changes to existing files only).
-
-#### Linux
-
-Run the following commands from a terminal:
-
-- `cmake -S . -B build`
-- `cd build`
-- `make`
-- `./Google_Tests_run`
-
-For convenience, you can run the `build_and_run_tests.sh` shell script to run all the above.
-
+The existing Google Test suites remain under the C++ test directories. On Windows, use an x64 Visual Studio 2022 Developer Command Prompt and the repository's test scripts or configure/build the relevant test CMake target. On Linux, configure the test directory with CMake and run the produced test binary.

@@ -1,6 +1,6 @@
 {
     "name": "@xframes/common",
-    "version": "0.1.5",
+    "version": "0.1.7",
     "description": "Common components for xframes WASM and Node modules",
     "main": "dist/index.js",
     "files": [
@@ -15,8 +15,12 @@
     "scripts": {
         "convert-fa-yaml-to-json": "tsx ./scripts/convert-fa-yaml-to-json.ts",
         "extract-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts",
+        "check-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts --check",
+        "typecheck:fabric-tools": "tsc --noEmit --project ./scripts/tsconfig.json",
+        "test:fabric-host": "tsx ./scripts/test-rn-fabric-host.ts",
+        "verify:rn-fabric": "npm run check-rn-fabric-renderer && npm run typecheck:fabric-tools && npm run test:fabric-host",
         "tsup": "tsup --format cjs --external react,react-dom",
-        "build:library": "rimraf ./dist && npm run tsup",
+        "build:library": "npm run verify:rn-fabric && rimraf ./dist && npm run tsup",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
     },
     "tsup": {
@@ -47,7 +51,7 @@
         "whatwg-fetch": "^3.6.20"
     },
     "peerDependencies": {
-        "react": "^18.2.0"
+        "react": "^19.2.3"
     },
     "devDependencies": {
         "@babel/core": "^7.24.5",
@@ -67,8 +71,8 @@
         "@types/invariant": "^2",
         "@types/lodash.debounce": "4.0.9",
         "@types/node": "^20.11.1",
-        "@types/react": "^18.2.66",
-        "@types/react-dom": "^18.2.22",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
         "@types/scheduler": "^0.23.0",
         "@types/uuid": "^9",
         "@types/webpack": "^5.28.5",
@@ -76,7 +80,7 @@
         "@typescript-eslint/eslint-plugin": "^7.2.0",
         "@typescript-eslint/parser": "^7.2.0",
         "babel-loader": "^9.1.3",
-        "babel-plugin-syntax-hermes-parser": "0.21.0",
+        "babel-plugin-syntax-hermes-parser": "0.37.0",
         "clean-webpack-plugin": "^4.0.0",
         "cpy-cli": "^5.0.0",
         "css-loader": "^7.1.1",
@@ -87,11 +91,13 @@
         "html-webpack-plugin": "^5.6.0",
         "inline-source-map": "^0.6.3",
         "mini-css-extract-plugin": "^2.9.0",
-        "react-native": "^0.74.1",
+        "react": "19.2.3",
+        "react-native": "0.87.0",
         "rimraf": "^5.0.6",
         "ts-loader": "^9.5.1",
         "ts-node": "^10.9.2",
         "tsup": "^8.0.2",
+        "scheduler": "0.27.0",
         "tsx": "^4.19.1",
         "typescript": "^5.4.5",
         "url-loader": "^4.1.1",

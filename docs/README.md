@@ -8,6 +8,7 @@ The live [xframes.dev](https://xframes.dev) website is maintained in a separate 
 
 ## Architecture
 
+- [React Native Fabric Embedding](../packages/dear-imgui/npm/FABRIC_EMBEDDING.md) — implemented React Native 0.87 snapshot generation, host contract, workspace rules, upgrade procedure, Node/Wasm verification, and known gaps.
 - [Fabric-Compatible Runtime Hardening](architecture/fabric-runtime-hardening.md) — atomic Fabric commits, explicit destruction, lifecycle tests, recording/replay, invalidation-driven rendering, performance instrumentation, and automation.
 
 ## Existing design records

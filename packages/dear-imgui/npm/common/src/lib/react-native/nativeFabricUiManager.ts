@@ -7,6 +7,9 @@ type DispatchEventFn = (id: number, topLevelType: string, nativeEventParam: any)
 type Event = [number, string, any];
 
 export default class {
+    readonly unstable_DiscreteEventPriority = 1;
+    readonly unstable_ContinuousEventPriority = 2;
+    readonly unstable_IdleEventPriority = 3;
     wasmModule?: any;
     dispatchEventFn?: DispatchEventFn;
     cloningNode?: CloningNode;
@@ -65,6 +68,10 @@ export default class {
     dispatchEvent = (rootNodeID: number, topLevelType: string, nativeEventParam: any) => {
         this.eventSubject.next([rootNodeID, topLevelType, nativeEventParam]);
     };
+    unstable_getCurrentEventPriority = () => null;
+    dispatchCommand = () => {};
+    sendAccessibilityEvent = () => {};
+    setIsJSResponder = () => {};
     createNode = (
         generatedId: number,
         uiViewClassName: string,

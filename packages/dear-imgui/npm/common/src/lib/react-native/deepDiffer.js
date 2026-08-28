@@ -1,22 +1,31 @@
+/**
+ * GENERATED FILE - DO NOT EDIT.
+ * Source: react-native@0.87.0/Libraries/Utilities/differ/deepDiffer.js
+ * Source SHA-256: c409a6ee94932ffc56c3dcfd68420f73f2b5c45cb695417eabf39c038e226fa5
+ * Generator: scripts/extract-rn-fabric-renderer.ts
+ */
+
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of the React Native source tree.
+ */
+
+let logListeners;
 function unstable_setLogListeners(listeners) {
     logListeners = listeners;
 }
-
-/*
- * @returns {bool} true if different, false if equal
- */
-const deepDiffer = function (one, two, maxDepthOrOptions = -1, maybeOptions) {
+function deepDiffer(one, two, maxDepthOrOptions = -1, maybeOptions) {
     const options = typeof maxDepthOrOptions === "number" ? maybeOptions : maxDepthOrOptions;
     const maxDepth = typeof maxDepthOrOptions === "number" ? maxDepthOrOptions : -1;
     if (maxDepth === 0) {
         return true;
     }
     if (one === two) {
-        // Short circuit on identical object references instead of traversing them.
         return false;
     }
     if (typeof one === "function" && typeof two === "function") {
-        // We consider all functions equal unless explicitly configured otherwise
         let unsafelyIgnoreFunctions = options?.unsafelyIgnoreFunctions;
         if (unsafelyIgnoreFunctions == null) {
             if (
@@ -31,19 +40,15 @@ const deepDiffer = function (one, two, maxDepthOrOptions = -1, maybeOptions) {
         return !unsafelyIgnoreFunctions;
     }
     if (typeof one !== "object" || one === null) {
-        // Primitives can be directly compared
         return one !== two;
     }
     if (typeof two !== "object" || two === null) {
-        // We know they are different because the previous case would have triggered
-        // otherwise.
         return true;
     }
     if (one.constructor !== two.constructor) {
         return true;
     }
     if (Array.isArray(one)) {
-        // We know two is also an array because the constructors are equal
         const len = one.length;
         if (two.length !== len) {
             return true;
@@ -60,15 +65,12 @@ const deepDiffer = function (one, two, maxDepthOrOptions = -1, maybeOptions) {
             }
         }
         for (const twoKey in two) {
-            // The only case we haven't checked yet is keys that are in two but aren't
-            // in one, which means they are different.
             if (one[twoKey] === undefined && two[twoKey] !== undefined) {
                 return true;
             }
         }
     }
     return false;
-};
-
+}
 deepDiffer.unstable_setLogListeners = unstable_setLogListeners;
 export default deepDiffer;
