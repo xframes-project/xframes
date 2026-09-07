@@ -1,5 +1,7 @@
 # XFrames Roadmap
 
+Last reviewed against repository history and implementation: 7 September 2026.
+
 ## Vision
 
 Build [ubx-monitor](https://github.com/andreamancuso/ubx-monitor) as the flagship showcase for XFrames — proving that a React-driven, DOM-free, ImGui-based framework can replace Electron for real-time data-heavy desktop applications. The showcase is built on XFrames + [ubx-parser](https://www.npmjs.com/package/ubx-parser) for sub-millisecond UBX binary protocol parsing (315+ message types).
@@ -7,6 +9,14 @@ Build [ubx-monitor](https://github.com/andreamancuso/ubx-monitor) as the flagshi
 XFrames is focused on GPU-accelerated technical visualization rather than broad parity with conventional desktop or web UI frameworks. Plot, Table, Map, Canvas, streaming data, and cross-platform React integration are the primary product surface.
 
 The strategic basis for this focus is documented in [XFrames and GPUIX: Technical and Strategic Assessment](docs/strategy/gpuix-comparison-2026-08.md). The proposed runtime work is specified in [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
+
+## Next Milestone — Runtime Reliability & Measured Streaming Performance (planned)
+
+Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. Implementation of this milestone has not started.
+
+The GPUIX assessment identifies bridge correctness, lifecycle discipline, automation, and performance evidence as gaps to close while concentrating product work on Plot, Table, Map, and Canvas. The August Fabric upgrade and screenshot smokes provide foundations for this work. End-to-end performance advantages still require measurement.
+
+Use ubx-monitor as the application validation target, with its CNO quality-series panel and configurable UI update rates as bounded showcase work. Review the milestone against the acceptance criteria below before expanding into durable replay and comprehensive automation (Stages 5–6). General shell and rich-text work remain driven by demonstrated application needs; additional language bindings remain out of scope.
 
 ---
 
@@ -20,9 +30,10 @@ Table (sorting, filtering, typed cells, reordering, visibility, column flags, co
 
 Stages 1–10 complete: submodule plumbing, desktop activation, demo dashboard, tile-grid rendering, download pipeline, smooth panning, zoom, GPU texture eviction (512-tile LRU), prefetching, overlays (markers, polylines, accuracy circles), ubx-monitor integration with live GPS tracking.
 
-### Remaining
+### Tile Cache Tuning
 
-- [ ] `TileCache` tuning: increase `maxEntries` via `TileCache::configure()` at MapView init (default 256 is low for tile-grid); expose `configure()` via NAPI for runtime tuning from JS
+- [x] Increase the global `TileCache` to 1,024 entries on MapView's first imperative `render` operation via `TileCache::configure(1024, 3600000)`
+- [ ] Expose cache configuration via NAPI for runtime tuning from JS
 
 ---
 
@@ -46,11 +57,11 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 
 ### Signal Strength — Color Coding (in progress)
 
-Requires PlotBar multi-series support in XFrames (mirroring PlotLine's existing `series` architecture), then ubx-monitor panel rewrite.
+PlotBar multi-series support is implemented in XFrames (mirroring PlotLine's existing `series` architecture). The remaining work is the ubx-monitor panel rewrite.
 
-#### PlotBar Multi-Series (XFrames)
+#### PlotBar Multi-Series (XFrames, done)
 
-Add `PlotBarSeries` struct and `std::vector<PlotBarSeries> m_series` to PlotBar (same pattern as `PlotLineSeries` in `plot_line.h`). Backward compatible — constructor creates default series[0].
+PlotBar uses a `PlotBarSeries` struct and `std::vector<PlotBarSeries> m_series` (same pattern as `PlotLineSeries` in `plot_line.h`). Backward compatible — constructor creates default series[0].
 
 - [x] `plot_bar.h` — Add `PlotBarSeries` struct (label + xValues/yValues vectors), replace flat `m_xValues`/`m_yValues` with `m_series` vector, add `AppendSeriesData(seriesIndex, x, y)` and `SetSeriesData(json)`, parse `series` prop in `makeWidget`
 - [x] `plot_bar.cpp` — Loop `m_series` in `Render()` calling `ImPlot::PlotBars()` per series, add `"setSeriesData"` and `"appendSeriesData"` ops in `HandleInternalOp`, add `series` prop handling in `Patch()` (grow/shrink/relabel per PlotLine pattern)
@@ -82,9 +93,9 @@ Once fixed:
 
 ### Streaming Architecture
 
-- [ ] Efficient data pipeline: serial port → native parser → JS → XFrames render loop
+- [ ] Measure and improve the data pipeline: serial port → native parser → JS → XFrames render loop, using the Phase 12 baseline and instrumentation
 - [ ] Configurable update rates (throttle UI updates independently of message rate)
-- [ ] Benchmark harness: measure end-to-end latency from byte arrival to pixel
+- [ ] Validate ubx-monitor against repeatable telemetry input and the Phase 12 benchmark harness; distinguish measured data-to-frame latency from presentation timing where available
 
 ---
 
@@ -96,8 +107,10 @@ Once fixed:
 
 ### Performance Story
 
+Establish the internal baseline in Phase 12 Stage 0 and compare each runtime change against it; public comparisons follow reproducible measurements.
+
 - [ ] Publish benchmark: XFrames showcase vs Electron-based equivalent
-- [ ] Metrics: startup time, memory footprint, CPU usage at idle, frame rate under load
+- [ ] Metrics: startup time, memory footprint, CPU usage at idle, frame rate under load, and p50/p95/p99 data-to-frame latency
 - [ ] Include numbers in README and showcase repo
 
 ---
@@ -110,49 +123,76 @@ WASM build migrated to emsdk 5.0.2 + Dawn WebGPU. Three canvas widget engines �
 
 ## Phase 11 — Performance Optimization (mechanical optimizations done)
 
-Viewport culling, idle sleep (`glfwWaitEventsTimeout`), and scroll extent fixes are done. Stages 3–5 completed all mechanical optimizations (Table ColumnType enum, persistent filteredIndices, FormatNumberValue stack buffer, parseCSSColor bypass + color cache, canvas textureLookup moved to init, JsCanvas m_hasRenderFunc, PlotPieChart label pointer cache, StyledWidget single-traversal GetCustomColorsOrNull/GetCustomStyleVarsOrNull, Table cell data find()). Remaining items below are architectural changes — deferred until profiling shows they're the bottleneck.
+Viewport culling, periodic idle waiting (`glfwWaitEventsTimeout`), scroll extent fixes, and the mechanical optimizations below are implemented. Desktop still wakes at least every `1 / 30` second, and Wasm still requests a 30 Hz loop. Phase 12 replaces these policies and measures their effect. Further style/layout representation changes remain deferred until profiling justifies them.
 
-### Stage 1 — Render Thread Unblocking & Hot Path Deduplication (deferred)
+### Stage 1 — Render Thread Unblocking & Hot Path Deduplication (done)
 
-- [ ] Switch all 13 NAPI event callbacks from `BlockingCall` to `NonBlockingCall`
-- [ ] Cache `m_elements[id]` lookups in `RenderElementById`
-- [ ] Fix fall-through bugs in `HasStyle()`/`GetElementStyleParts()`
+- [x] Switch the 13 NAPI initialization/widget event callbacks from `BlockingCall` to `NonBlockingCall`; shutdown and screenshot callbacks also use nonblocking delivery
+- [x] Cache `m_elements[id]` lookups in `RenderElementById`
+- [x] Fix fall-through bugs in `HasStyle()`/`GetElementStyleParts()`
 
-### Stage 2 — Layout & Style Optimization (deferred)
+### Stage 2 — Layout & Style Optimization (partially done)
 
-- [ ] Guard `YGNodeCalculateLayout` with dirty check
-- [ ] Pre-parse `ElementStyleParts::styleDef` into typed C++ struct at init time
-- [ ] Cache `GetChildrenMaxBottom` result
-- [ ] Pass layout values (left/top/width/height) through `Render()`
+- [x] Guard `YGNodeCalculateLayout` with dirty and available-size checks
+- [x] Cache `GetChildrenMaxBottom` result with invalidation
+- [ ] Pre-parse `ElementStyleParts::styleDef` into typed C++ struct at init time (deferred pending profiling)
+- [ ] Pass layout values (left/top/width/height) through the render call chain (deferred pending profiling; `Element::Render()` already reads its values once into locals)
 
 ### Stages 3–5 — Widget & Style Micro-Optimizations (done)
 
 Table ColumnType enum, persistent filteredIndices with dirty flag, FormatNumberValue stack buffer, parseCSSColor JSON bypass + DrawContext color cache, canvas textureLookup moved to init, JsCanvas m_hasRenderFunc guard, canvas dimension update guards, PlotPieChart m_labelPtrs cache, ColorIndicator/Slider string-to-bool flags, Image single find(), GetCurrentWindow hoist, StyledWidget GetCustomColorsOrNull/GetCustomStyleVarsOrNull (single traversal replacing Has+Get), Table cell data find().
 
-### Stage 4 — Operation Queue & Bridge Efficiency (deferred)
+### Operation Queue & Bridge Efficiency (superseded by Phase 12)
 
-- [ ] Superseded by Phase 12 transaction work: introduce a versioned operation envelope before optimizing its encoding
-- [ ] Preserve JSON initially for trace readability; replace it only if post-batching profiles justify a typed/binary representation
-- [ ] Fold `setChildren` and `appendChild` into one committed Fabric transaction
-- [ ] Replace the fixed Wasm loop with the Phase 12 request-animation-frame invalidation policy
+Track the versioned operation envelope, batching of `setChildren`/`appendChild`, and Wasm scheduling in Phase 12. Preserve JSON initially for trace readability; replace it only if post-batching profiles justify a typed/binary representation.
 
 ---
 
-## Phase 12 — Fabric Runtime Hardening (proposed)
+## August 2026 — Fabric Embedding & Verification Foundations (done)
+
+Implementation and verification record: [React Native Fabric Embedding](packages/dear-imgui/npm/FABRIC_EMBEDDING.md), last verified 28 August 2026.
+
+- [x] Upgrade the embedded Fabric renderer to React Native 0.87.0 with React 19.2.3 and development/production renderer selection
+- [x] Generate deterministic renderer snapshots and matching upstream helpers with source hashes, AST contract checks, and non-mutating verification
+- [x] Add `fabric:verify` for snapshot checks, generator/tool typechecking, and host-contract tests
+- [x] Consolidate common, Node, and Wasm into one npm workspace with one authoritative lockfile and coordinated React/common dependency boundaries
+- [x] Add desktop PNG screenshot capture and screenshot-writer unit tests
+- [x] Add minimal screenshot and full-App Node smoke harnesses; verify the full App with development and production renderers
+- [x] Rebuild Wasm with Docker/Emscripten and add a headless WebGPU browser smoke harness with readiness, runtime-error checks, and screenshot output
+
+These checks cover embedding compatibility, initialization, and screenshot capture. The smoke harnesses still use fixed delays and lack comprehensive semantic widget assertions. Lifecycle stress tests, commit/frame synchronization, input automation, and application-code CI remain planned below.
+
+### Release & Build Follow-Through (planned)
+
+- [ ] Update `create-xframes-node-app` from its React 18.3.1/XFrames 0.1.0 template and validate a fresh application outside the workspace against the coordinated React 19 package set
+- [ ] Verify registry state and complete the coordinated common/Node/Wasm release as needed, preserving the common `^0.1.7` boundary and publishing common first
+- [ ] Consolidate shared C++ source lists into reusable CMake targets to prevent drift across desktop, Node, tests, and Wasm builds
+
+---
+
+## Phase 12 — Fabric Runtime Hardening (planned)
 
 Detailed design: [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
 
-This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlusPlus architecture. It introduces an XFrames-owned transaction boundary at Fabric's `completeRoot`, then uses that boundary for lifecycle correctness, render scheduling, observability, replay, and automation.
+This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlusPlus architecture. It introduces an XFrames-owned transaction boundary at Fabric's `completeRoot`, then uses that boundary for lifecycle correctness, render scheduling, observability, replay, and automation. Stages 0–4 form the next milestone; Stages 5–6 are follow-on work after the milestone review.
 
-### Stage 0 — Characterization and Lifecycle Tests
+### Stage 0 — Lifecycle Characterization, CI & Performance Baseline
+
+Start from the existing host-contract checks, native subtree-deletion tests, and smoke harnesses. Establish reproducible current behavior and measurements before changing runtime semantics.
 
 - [ ] Add JavaScript bridge tests with a fake native module
 - [ ] Add native element, hierarchy, registration, and subject count assertions
 - [ ] Cover mount, unmount, deep deletion, reorder, keyed replacement, and reparenting
 - [ ] Cover rapid commits, abandoned work where supported, and events racing with deletion
-- [ ] Capture current operation counts, serialized bytes, and commit-to-frame timing
+- [ ] Add application-code CI for `fabric:verify`, package builds, native tests, and Node/Wasm smokes on supported VS2022, Linux, and Docker/Wasm paths
+- [ ] Capture current operation counts, serialized bytes, and available commit/data-to-frame timings; document measurement limits until Stage 4 adds revision correlation
+- [ ] Build a repeatable benchmark harness for multi-series plots, a 100,000-row sortable/filterable table, map pan/zoom/tile completion/overlays, and telemetry canvas rendering
+- [ ] Record Windows native and browser baselines at 20 Hz, 60 Hz, and 120 Hz input rates: startup, resident memory, idle CPU/frame count, frame rate under load, and p50/p95/p99/maximum latency where measurable
+- [ ] Record hardware, build mode, GPU adapter, assets, and workload parameters; define target update rates and latency budgets before assessing improvements
 
 ### Stage 1 — Explicit Cross-Runtime Cleanup
+
+Initial cleanup can follow current native destruction. Final reparent-safe destruction depends on Stage 3's committed reachability calculation.
 
 - [ ] Add reverse native-ID/public-ID widget mappings
 - [ ] Drop and count events whose targets are no longer live
@@ -185,8 +225,22 @@ This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlu
 - [ ] Replace the 30 Hz Wasm policy with dirty/active `requestAnimationFrame` scheduling
 - [ ] Correlate data receipt, Fabric commit, native apply, frame construction, submission, and presentation where available
 - [ ] Report p50, p95, p99, maximum, live-object counts, idle frames avoided, and dropped-event counters
+- [ ] Re-run the Stage 0 workloads and ubx-monitor telemetry scenario, reporting baseline comparisons and whether the declared update-rate and latency targets are met
 
-### Stage 5 — Native Operation Recording and Replay
+### Milestone Review Gate — After Stages 0–4
+
+- [ ] One native structural call and one native revision per accepted Fabric commit
+- [ ] Repeated lifecycle tests return JavaScript mappings, widget registrations, native elements, hierarchy entries, and internal-operation subjects to their expected baseline
+- [ ] Reparenting preserves the moved node and its native widget state; abandoned React work never changes published native state
+- [ ] Idle rendering approaches zero while active interaction is not capped at 30 Hz, with no missed invalidation for asynchronous resources or animations
+- [ ] Every accepted transaction can be correlated with a frame containing its revision, including transactions coalesced into the same frame
+- [ ] VS2022, Linux, and Wasm application-code CI is consistently green
+- [ ] Reproducible benchmarks meet the declared streaming targets and report remaining bottlenecks and measurement limitations
+- [ ] ubx-monitor validates sustained real application use and demonstrates the delivery value of XFrames' Plot, Table, Map, and Canvas capabilities
+
+Review these results against the [strategic continuation gates](docs/strategy/gpuix-comparison-2026-08.md#reassessment-gates). If core correctness or performance targets remain unmet, prioritize the measured gaps and reassess scope before expanding the framework. Comparative workloads must reflect equivalent implemented functionality; use an application-composed timeline or grid where a GPUIX comparison is appropriate.
+
+### Stage 5 — Native Operation Recording and Replay (follow-on)
 
 - [ ] Persist versioned committed transactions and imperative widget commands
 - [ ] Record initial dimensions, scale, theme, fonts, assets, and logical time inputs
@@ -194,7 +248,7 @@ This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlu
 - [ ] Add periodic full-state snapshots for seeking and recovery
 - [ ] Use tolerant screenshot assertions plus semantic state and bounds
 
-### Stage 6 — Automation
+### Stage 6 — Automation (follow-on)
 
 - [ ] Query by test ID and inspect native type, props, state, bounds, visibility, and revision
 - [ ] Inject mouse, wheel, keyboard, text, focus, resize, and controlled-clock input
@@ -202,13 +256,10 @@ This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlu
 - [ ] Integrate screenshot capture with revision-aware test results
 - [ ] Run representative Node and Wasm functional tests in application-code CI
 
-### Phase 12 Exit Criteria
+### Additional Phase 12 Exit Criteria — After Stages 5–6
 
-- [ ] One native structural call and one native revision per accepted Fabric commit
-- [ ] Repeated lifecycle tests retain no stale JavaScript mappings or native elements
-- [ ] Reparenting preserves the moved node and its native widget state
-- [ ] Idle rendering approaches zero while active interaction is not capped at 30 Hz
-- [ ] Every committed transaction can be correlated with a rendered frame
+The Stages 0–4 milestone criteria continue to apply.
+
 - [ ] A recorded representative session recreates the same native tree and widget state
 - [ ] Automation can locate, interact with, wait for, and assert a rendered widget
 
