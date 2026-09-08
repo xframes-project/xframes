@@ -1,0 +1,188 @@
+name: Application verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run 1000 lifecycle cycles and the 100000-row baseline
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: application-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: packages/dear-imgui/npm
+
+jobs:
+  javascript:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+          cache-dependency-path: packages/dear-imgui/npm/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run fabric:verify
+      - run: npm run build:common
+      - run: npm run diagnostics:typecheck
+      - run: npm run test:lifecycle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: javascript-lifecycle
+          path: packages/dear-imgui/npm/build/diagnostics/
+
+  native:
+    name: Native unit tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.cache/vcpkg
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      VCPKG_MAX_CONCURRENCY: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+          cache-dependency-path: packages/dear-imgui/npm/package-lock.json
+      - shell: bash
+        run: mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE" build/diagnostics
+      - uses: actions/cache@v4
+        with:
+          path: .cache/vcpkg
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('packages/dear-imgui/**/vcpkg.json') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-vcpkg-
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build build-essential libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev autoconf automake autoconf-archive libtool nasm bison flex pkg-config xvfb mesa-utils
+      - run: npm ci --ignore-scripts
+      - run: npm run build:common
+      - name: VS2022 native unit build and all tests
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b 1
+          cmake -S ../cpp/tests -B ../cpp/tests/build -G Ninja -DCMAKE_BUILD_TYPE=Release > build/diagnostics/native-configure.log 2>&1
+          if errorlevel 1 exit /b 1
+          cmake --build ../cpp/tests/build --target Google_Tests_run --parallel 4 > build/diagnostics/native-build.log 2>&1
+          if errorlevel 1 exit /b 1
+          ..\cpp\tests\build\Google_Tests_run.exe --gtest_output=xml:build/diagnostics/native.xml > build/diagnostics/native-tests.log 2>&1
+      - name: Linux native unit build and all tests
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cmake -S ../cpp/tests -B ../cpp/tests/build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee build/diagnostics/native-configure.log
+          cmake --build ../cpp/tests/build --target Google_Tests_run --parallel 4 2>&1 | tee build/diagnostics/native-build.log
+          ../cpp/tests/build/Google_Tests_run --gtest_output=xml:build/diagnostics/native.xml 2>&1 | tee build/diagnostics/native-tests.log
+      - name: Compile current Node addon with VS2022
+        if: runner.os == 'Windows'
+        run: npm exec --workspace @xframes/node -- cmake-js compile --generator "Visual Studio 17 2022" --arch x64
+      - name: Compile current Node addon on Linux
+        if: runner.os == 'Linux'
+        run: npm exec --workspace @xframes/node -- cmake-js compile --generator Ninja
+      - run: npm run build:node
+      - run: npm run copy-artifacts-to-lib-folder --workspace @xframes/node
+      # Linux/Xvfb with Mesa is the CI rendering gate. Windows supplies VS2022
+      # compilation and native unit coverage; hosted Windows desktop GL varies.
+      - name: Node OpenGL semantic fixture and production baseline (Mesa)
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          XFRAMES_TOOLCHAIN: GCC / Ubuntu 24.04 (see build logs)
+        run: xvfb-run -a npm run diagnostics:node -- --baseline
+      - name: Preserve full-App Node smoke
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          NODE_ENV: production
+        run: xvfb-run -a npm run smoke:app --workspace @xframes/node
+      - name: Extended Node stress and table coverage
+        if: runner.os == 'Linux' && inputs.extended
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/node-stress xvfb-run -a npm run diagnostics:node -- --stress
+          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/node-extended xvfb-run -a npm run diagnostics:node -- --baseline --extended
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-${{ matrix.os }}
+          path: |
+            packages/dear-imgui/npm/build/diagnostics/
+            packages/dear-imgui/npm/node/build/*.png
+            packages/dear-imgui/npm/node/build/CMakeCache.txt
+            packages/dear-imgui/cpp/tests/build/CMakeCache.txt
+            packages/dear-imgui/cpp/tests/build/vcpkg-manifest-install.log
+
+  wasm:
+    name: Docker Wasm build and Chromium WebGPU fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+          cache-dependency-path: packages/dear-imgui/npm/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run build:common
+      - name: Rebuild optimized native Wasm from this checkout
+        shell: bash
+        run: |
+          mkdir -p build/diagnostics
+          bash ../cpp/wasm/build-wasm-docker.sh 2>&1 | tee build/diagnostics/wasm-build.log
+      - run: npm run build:wasm
+      - run: npm run diagnostics:typecheck
+      - name: Real Fabric semantic fixture and production baseline
+        env:
+          XFRAMES_BROWSER: /usr/bin/google-chrome
+          XFRAMES_WEBGPU_ADAPTER: swiftshader
+        run: npm run diagnostics:wasm -- --baseline
+      - name: Preserve full-App browser smoke
+        env:
+          XFRAMES_BROWSER: /usr/bin/google-chrome
+          XFRAMES_WEBGPU_ADAPTER: swiftshader
+          NODE_ENV: production
+        run: npm run smoke:browser --workspace @xframes/wasm
+      - name: Extended Wasm stress and table coverage
+        if: inputs.extended
+        env:
+          XFRAMES_BROWSER: /usr/bin/google-chrome
+          XFRAMES_WEBGPU_ADAPTER: swiftshader
+        run: |
+          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/wasm-stress npm run diagnostics:wasm -- --stress
+          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/wasm-extended npm run diagnostics:wasm -- --baseline --extended
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wasm-webgpu
+          path: |
+            packages/dear-imgui/npm/build/diagnostics/
+            packages/dear-imgui/npm/wasm/build/*.png
+            packages/dear-imgui/npm/wasm/build/*.log
+            packages/dear-imgui/npm/wasm/build/failure.json
+            packages/dear-imgui/cpp/wasm/build-wasm/CMakeCache.txt

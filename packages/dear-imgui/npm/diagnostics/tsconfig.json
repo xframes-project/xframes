@@ -1,0 +1,11 @@
+{
+  "extends": "../common/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": "../common",
+    "types": ["node", "react"],
+    "typeRoots": ["../common/node_modules/@types", "../node_modules/@types"]
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../common/src/global.d.ts"]
+}

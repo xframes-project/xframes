@@ -5,6 +5,7 @@
 #include <queue>
 #include <string>
 #include <mutex>
+#include <atomic>
 #include <rpp/rpp.hpp>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -60,6 +61,14 @@ class XFrames {
 
         bool m_debug;
 
+        std::atomic<bool> m_diagnosticsEnabled{false};
+        std::mutex m_diagnosticsMutex;
+        json m_diagnosticsFrame = {{"enabled", false}, {"frame", 0}};
+        json m_pendingDiagnosticsFrame;
+        uint64_t m_diagnosticsFrameCount = 0; // render-thread owned
+        std::unordered_map<int, double> m_diagnosticsLastInternalOpMs; // element-mutex owned
+        json BuildDiagnosticsStateUnlocked();
+
         void CreateElement(const json& elementDef);
 
         void PatchElement(const json& patchDef);
@@ -109,6 +118,13 @@ class XFrames {
         void Init(ImGuiRenderer* renderer);
 
         void SetDebug(bool debug);
+
+        // Observational test API. Frame snapshots are copied from the render thread.
+        void SetDiagnosticsEnabled(bool enabled);
+        json GetDiagnosticsFrame();
+        json GetDiagnosticsState(); // CPU-only snapshot for native tests
+        void CompleteDiagnosticsFrame();
+        static double DiagnosticsNowMs();
 
         void ShowDebugWindow();
 

@@ -151,6 +151,9 @@ class ImGuiRenderer {
         void SetWindowSize(int width, int height);
 
         json GetAvailableFonts();
+
+        // Render-thread-only, queried by opt-in frame diagnostics.
+        json GetDiagnosticsBackendInfo() const;
 };
 
 #endif

@@ -7,6 +7,11 @@
         "wasm"
     ],
     "scripts": {
+        "test:lifecycle": "node diagnostics/run.mjs bridge",
+        "diagnostics:node": "node diagnostics/run.mjs node",
+        "diagnostics:wasm": "node diagnostics/run.mjs wasm",
+        "diagnostics:typecheck": "npm run typecheck:diagnostics --workspace @xframes/common",
+        "diagnostics:report": "node diagnostics/report.mjs",
         "fabric:generate": "npm run extract-rn-fabric-renderer --workspace @xframes/common",
         "fabric:check": "npm run check-rn-fabric-renderer --workspace @xframes/common",
         "fabric:typecheck": "npm run typecheck:fabric-tools --workspace @xframes/common",

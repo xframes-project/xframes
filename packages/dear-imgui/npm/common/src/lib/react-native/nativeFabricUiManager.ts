@@ -61,6 +61,15 @@ export default class {
         this.eventSubjectSubscription.unsubscribe();
     }
 
+    // Opt-in inspection only: does not retain Fiber objects or alter their lifetime.
+    getDiagnostics() {
+        return {
+            fiberIds: [...this.fiberNodesMap.keys()].sort((a, b) => a - b),
+            fiberCount: this.fiberNodesMap.size,
+            subscriptionClosed: this.eventSubjectSubscription.closed,
+        };
+    }
+
     init(wasmModule: any, widgetRegistrationService: WidgetRegistrationService) {
         this.wasmModule = wasmModule;
         this.widgetRegistrationService = widgetRegistrationService;

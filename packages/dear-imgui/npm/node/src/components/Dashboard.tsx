@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { XFrames } from "../lib/XFrames";
+import { resolve } from "node:path";
 import {
   RWStyleSheet,
   TableImperativeHandle,
@@ -455,7 +456,7 @@ export const Dashboard = () => {
 
   // Canvas: texture demo — load an image and render it with drawImage
   useEffect(() => {
-    textureCanvasRef.current?.loadTexture("wood", "C:\\dev\\xframes\\texture-test.png");
+    textureCanvasRef.current?.loadTexture("wood", resolve(__dirname, "../../../../assets/bitcoin-btc-logo_gqud0f.png"));
     const timer = setTimeout(() => {
       textureCanvasRef.current?.setScriptFile("./src/scripts/texture-demo.js");
     }, 200);

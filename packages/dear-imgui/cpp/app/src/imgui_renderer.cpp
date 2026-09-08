@@ -419,6 +419,7 @@ void ImGuiRenderer::PerformRendering() {
     WGPUCommandBufferDescriptor cmd_buffer_desc = {};
     WGPUCommandBuffer cmd_buffer = wgpuCommandEncoderFinish(encoder, &cmd_buffer_desc);
     wgpuQueueSubmit(m_queue, 1, &cmd_buffer);
+    m_xframes->CompleteDiagnosticsFrame();
 
     // Release resources
     wgpuTextureViewRelease(texture_view);
@@ -435,6 +436,7 @@ void ImGuiRenderer::PerformRendering() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     RenderDrawData();
+    m_xframes->CompleteDiagnosticsFrame();
 }
 #endif
 
@@ -650,6 +652,20 @@ void ImGuiRenderer::BeginRenderLoop() {
 #endif
 
     CleanUp();
+}
+
+json ImGuiRenderer::GetDiagnosticsBackendInfo() const {
+    if (!m_glfwWindow) return {{"backend", "headless-unit-test"}};
+#ifdef __EMSCRIPTEN__
+    return {{"backend", "WebGPU"}};
+#else
+    const auto value = [](GLenum name) {
+        const auto* text = glGetString(name);
+        return text ? reinterpret_cast<const char*>(text) : "unavailable";
+    };
+    return {{"backend", "OpenGL"}, {"vendor", value(GL_VENDOR)},
+        {"renderer", value(GL_RENDERER)}, {"version", value(GL_VERSION)}};
+#endif
 }
 
 void ImGuiRenderer::SetWindowSize(int width, int height) {

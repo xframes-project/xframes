@@ -490,7 +490,7 @@ TEST_F(QuickJSDrawTest, OffsetAppliedToPolyline) {
 
 // --- Color parsing edge cases ---
 
-// rgba() format parses RGB correctly; alpha is discarded by HEXAtoIV4 (hardcoded to 1.0)
+// Canvas parsing uses CSSColorParser directly and preserves alpha.
 TEST_F(QuickJSDrawTest, ColorParsingRGBA) {
     JSValue r = eval("drawCircleFilled(0, 0, 10, 'rgba(255,0,0,0.5)')");
     ASSERT_FALSE(JS_IsException(r));
@@ -498,8 +498,8 @@ TEST_F(QuickJSDrawTest, ColorParsingRGBA) {
 
     ASSERT_EQ(dc.recorded.size(), 1u);
     ImU32 color = dc.recorded[0].color;
-    // HEXAtoIV4(string) passes a=1.0f to RGBAtoIV4, discarding the rgba alpha
-    ImU32 expected = IM_COL32(255, 0, 0, 255);
+    // 0.5 * 255 is truncated to the byte value 127 by parseCSSColor.
+    ImU32 expected = IM_COL32(255, 0, 0, 127);
     EXPECT_EQ(color, expected);
 }
 

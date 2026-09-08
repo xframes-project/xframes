@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import {
   existsSync,
@@ -15,10 +15,13 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDirectory, "..");
 const localRequire = createRequire(import.meta.url);
 const webpackCli = localRequire.resolve("webpack-cli/bin/cli.js");
-const serverUrl = "http://127.0.0.1:3000";
-const debuggingPort = 9333;
+const diagnostics = process.env.XFRAMES_DIAGNOSTICS === "1";
+const serverUrl = diagnostics ? "http://127.0.0.1:3011" : "http://127.0.0.1:3000";
+const debuggingPort = diagnostics ? 9344 : 9333;
 const protocolTimeoutMilliseconds = 10_000;
-const outputPath = path.join(packageRoot, "build", "browser-smoke.png");
+const outputPath = diagnostics
+  ? path.resolve(process.env.XFRAMES_DIAGNOSTICS_DIR ?? path.join(packageRoot, "../build/diagnostics/wasm"), "fixture.png")
+  : path.join(packageRoot, "build", "browser-smoke.png");
 const webGpuFlags =
   process.env.XFRAMES_WEBGPU_ADAPTER === "default"
     ? ["--enable-unsafe-webgpu", "--enable-webgpu-developer-features"]
@@ -38,6 +41,9 @@ const browserCandidates = [
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "/usr/bin/google-chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
 ].filter(Boolean);
 
 const browserPath = browserCandidates.find((candidate) =>
@@ -51,6 +57,14 @@ if (!browserPath) {
 
 const delay = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
+const withTimeout = async (promise, milliseconds, message) => {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), milliseconds);
+    })]);
+  } finally { clearTimeout(timer); }
+};
 
 const waitForJson = async (url, timeoutMilliseconds) => {
   const deadline = Date.now() + timeoutMilliseconds;
@@ -58,7 +72,7 @@ const waitForJson = async (url, timeoutMilliseconds) => {
 
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
       if (response.ok) {
         return response.json();
       }
@@ -75,7 +89,7 @@ const waitForHttp = async (url, timeoutMilliseconds) => {
   const deadline = Date.now() + timeoutMilliseconds;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
       if (response.ok) return;
     } catch {}
     await delay(250);
@@ -87,7 +101,7 @@ const createPageTarget = async () => {
   await waitForJson(`http://127.0.0.1:${debuggingPort}/json/version`, 30_000);
   const response = await fetch(
     `http://127.0.0.1:${debuggingPort}/json/new?${encodeURIComponent("about:blank")}`,
-    { method: "PUT" },
+    { method: "PUT", signal: AbortSignal.timeout(protocolTimeoutMilliseconds) },
   );
   if (!response.ok) {
     throw new Error(
@@ -123,15 +137,11 @@ const connectToPage = async () => {
   }
 
   const socket = new WebSocket(page.webSocketDebuggerUrl);
-  await Promise.race([
+  await withTimeout(
     new Promise((resolve, reject) => {
       socket.addEventListener("open", resolve, { once: true });
       socket.addEventListener("error", reject, { once: true });
-    }),
-    delay(protocolTimeoutMilliseconds).then(() => {
-      throw new Error("Timed out opening the Chromium DevTools WebSocket");
-    }),
-  ]);
+    }), protocolTimeoutMilliseconds, "Timed out opening the Chromium DevTools WebSocket");
 
   let nextId = 1;
   const pending = new Map();
@@ -173,7 +183,7 @@ const connectToPage = async () => {
       const timeout = setTimeout(() => {
         pending.delete(id);
         reject(new Error(`Timed out waiting for Chromium command ${method}`));
-      }, protocolTimeoutMilliseconds);
+      }, method === "Page.navigate" ? 60_000 : protocolTimeoutMilliseconds);
 
       pending.set(id, {
         method,
@@ -198,6 +208,9 @@ const runBrowser = async () => {
     path.join(tmpdir(), "xframes-wasm-smoke-"),
   );
   let browserDiagnostics = "";
+  let pageDiagnostics = "";
+  let connection;
+  mkdirSync(path.dirname(outputPath), { recursive: true });
   const browser = spawn(
     browserPath,
     [
@@ -218,7 +231,8 @@ const runBrowser = async () => {
   const browserExit = new Promise((resolve) => browser.once("exit", resolve));
 
   try {
-    const { command, listeners, socket } = await connectToPage();
+    connection = await connectToPage();
+    const { command, listeners, socket } = connection;
     const runtimeErrors = [];
     let markReady;
     const ready = new Promise((resolve) => {
@@ -250,6 +264,7 @@ const runBrowser = async () => {
           .map((argument) => argument.value ?? argument.description ?? "")
           .join(" ");
         console.log(`[browser:${message.params.type}] ${text}`);
+        pageDiagnostics = `${pageDiagnostics}[${message.params.type}] ${text}\n`.slice(-100_000);
         if (message.params.type === "error") runtimeErrors.push(text);
         if (text === "ready") markReady();
       }
@@ -260,34 +275,51 @@ const runBrowser = async () => {
       command("Runtime.enable"),
       command("Log.enable"),
     ]);
+    if (diagnostics) await command("Emulation.setDeviceMetricsOverride", { width: 900, height: 700, deviceScaleFactor: 1, mobile: false });
     const navigation = await command("Page.navigate", { url: serverUrl });
     if (navigation.errorText) {
       throw new Error(`Browser navigation failed: ${navigation.errorText}`);
     }
 
-    await Promise.race([
-      ready,
-      delay(60_000).then(() => {
-        throw new Error(
-          "Timed out waiting for the XFrames WASM onInit callback",
-        );
-      }),
-    ]);
-    await delay(3_000);
+    await withTimeout(ready, 60_000, "Timed out waiting for the XFrames WASM onInit callback");
+    mkdirSync(path.dirname(outputPath), { recursive: true });
+    if (diagnostics) {
+      const options = JSON.parse(process.env.XFRAMES_DIAGNOSTICS_OPTIONS ?? "{}");
+      const deadline = Date.now() + Math.max(60_000, (options.cycles ?? 3) * 2000 + (options.repetitions ?? 1) * 90_000);
+      let complete = false;
+      while (Date.now() < deadline) {
+        const response = await command("Runtime.evaluate", { expression: "globalThis.__xframesDiagnostics", returnByValue: true });
+        const state = response.result?.value;
+        if (state) writeFileSync(path.join(path.dirname(outputPath), "result.json"), JSON.stringify(state, null, 2));
+        if (state?.captureRequested && !state.captureDone) {
+          const screenshot = await command("Page.captureScreenshot", { format: "png" });
+          writeFileSync(outputPath, Buffer.from(screenshot.data, "base64"));
+          await command("Runtime.evaluate", { expression: "globalThis.__xframesDiagnostics.captureDone = true" });
+        }
+        if (state?.status === "failed") throw new Error(`Wasm diagnostics failed: ${state.error ?? state.report?.error}`);
+        if (runtimeErrors.length) throw new Error(`Browser runtime errors:\n${runtimeErrors.join("\n")}`);
+        if (state?.status === "complete") { complete = true; break; }
+        await delay(100);
+      }
+      if (!complete) throw new Error("Wasm diagnostics timed out; see last saved result.json");
+    } else {
+      await delay(3_000);
+    }
 
     if (runtimeErrors.length > 0) {
       throw new Error(`Browser runtime errors:\n${runtimeErrors.join("\n")}`);
     }
 
     mkdirSync(path.dirname(outputPath), { recursive: true });
-    const screenshot = await command("Page.captureScreenshot", {
-      format: "png",
-    });
-    writeFileSync(outputPath, Buffer.from(screenshot.data, "base64"));
+    if (!diagnostics) {
+      const screenshot = await command("Page.captureScreenshot", { format: "png" });
+      writeFileSync(outputPath, Buffer.from(screenshot.data, "base64"));
+    }
     await command("Browser.close");
     socket.close();
     console.log(`WASM browser smoke screenshot written to ${outputPath}`);
   } catch (error) {
+    writeFileSync(path.join(path.dirname(outputPath), "failure.json"), JSON.stringify({ error: String(error) }, null, 2));
     if (browserDiagnostics.trim()) {
       throw new Error(
         `${error.message}\nChromium stderr (last 20 KB):\n${browserDiagnostics.trim()}`,
@@ -296,7 +328,17 @@ const runBrowser = async () => {
     }
     throw error;
   } finally {
-    if (browser.exitCode === null && !browser.killed) browser.kill();
+    writeFileSync(path.join(path.dirname(outputPath), "browser.log"), browserDiagnostics);
+    writeFileSync(path.join(path.dirname(outputPath), "page.log"), pageDiagnostics);
+    if (browser.exitCode === null && connection?.socket.readyState === WebSocket.OPEN) {
+      try { await connection.command("Browser.close"); }
+      catch (error) { console.warn(`Browser close failed; terminating owned process: ${error.message}`); }
+    }
+    connection?.socket.close();
+    if (browser.exitCode === null && !browser.killed) {
+      if (process.platform === "win32") spawnSync("taskkill", ["/PID", String(browser.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      else browser.kill();
+    }
     await Promise.race([browserExit, delay(5_000)]);
     try {
       rmSync(profileDirectory, {
@@ -316,19 +358,30 @@ const runBrowser = async () => {
 };
 
 let server;
+let serverLog = "";
 try {
+  let existing = false;
   try {
-    await fetch(serverUrl);
-  } catch {
+    await fetch(serverUrl, { signal: AbortSignal.timeout(2000) });
+    existing = true;
+  } catch {}
+  if (diagnostics && existing) throw new Error(`Diagnostics require their own fresh bundle; port 3011 is already in use (${serverUrl})`);
+  if (!existing) {
     server = spawn(
       process.execPath,
       [webpackCli, "serve", "--config", "webpack.config.cjs", "--no-open"],
-      { cwd: packageRoot, stdio: "inherit", windowsHide: true },
+      { cwd: packageRoot, stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
     );
+    for (const pipe of [server.stdout, server.stderr]) pipe.on("data", chunk => {
+      serverLog = `${serverLog}${chunk}`.slice(-100_000);
+      process.stdout.write(chunk);
+    });
     await waitForHttp(serverUrl, 60_000);
   }
 
   await runBrowser();
 } finally {
   if (server && !server.killed) server.kill();
+  mkdirSync(path.dirname(outputPath), { recursive: true });
+  writeFileSync(path.join(path.dirname(outputPath), "webpack.log"), serverLog);
 }

@@ -588,6 +588,14 @@ class Runner {
             m_xframes->ShowDebugWindow();
         }
 
+        void setDiagnosticsEnabled(bool enabled) const {
+            if (m_xframes) m_xframes->SetDiagnosticsEnabled(enabled);
+        }
+
+        std::string getDiagnostics() const {
+            return m_xframes ? m_xframes->GetDiagnosticsFrame().dump() : "{\"enabled\":false,\"frame\":0}";
+        }
+
         void captureScreenshot(
             std::string path,
             std::function<void(std::optional<std::string>)> callback
@@ -853,6 +861,15 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
 }
 
 static Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports["setDiagnosticsEnabled"] = Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
+        if (info.Length() != 1 || !info[0].IsBoolean()) {
+            throw Napi::TypeError::New(info.Env(), "Expected a diagnostics enabled boolean");
+        }
+        Runner::getInstance()->setDiagnosticsEnabled(info[0].As<Napi::Boolean>().Value());
+    });
+    exports["getDiagnostics"] = Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
+        return Napi::String::New(info.Env(), Runner::getInstance()->getDiagnostics());
+    });
     exports["init"] = Napi::Function::New(env, init);
     exports["setElement"] = Napi::Function::New(env, setElement);
     exports["patchElement"] = Napi::Function::New(env, patchElement);

@@ -440,7 +440,7 @@ export const Dashboard = () => {
 
   // Canvas: texture demo — load an image and render it with drawImage
   useEffect(() => {
-    textureCanvasRef.current?.loadTexture("wood", "/assets/texture-test.png");
+    textureCanvasRef.current?.loadTexture("wood", "/assets/bitcoin-btc-logo_gqud0f.png");
     const timer = setTimeout(() => {
       textureCanvasRef.current?.setScriptFile("/assets/scripts/texture-demo.js");
     }, 200);

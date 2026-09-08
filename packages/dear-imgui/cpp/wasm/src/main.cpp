@@ -341,6 +341,14 @@ class WasmRunner {
         void showDebugWindow() const {
             m_xframes->ShowDebugWindow();
         }
+
+        void setDiagnosticsEnabled(bool enabled) const {
+            if (m_xframes) m_xframes->SetDiagnosticsEnabled(enabled);
+        }
+
+        std::string getDiagnostics() const {
+            return m_xframes ? m_xframes->GetDiagnosticsFrame().dump() : "{\"enabled\":false,\"frame\":0}";
+        }
 };
 
 static std::unique_ptr<WasmRunner> pRunner = std::make_unique<WasmRunner>();
@@ -419,6 +427,8 @@ void showDebugWindow() {
 }
 
 EMSCRIPTEN_BINDINGS(my_module) {
+    emscripten::function("setDiagnosticsEnabled", +[](bool enabled) { pRunner->setDiagnosticsEnabled(enabled); });
+    emscripten::function("getDiagnostics", +[]() { return pRunner->getDiagnostics(); });
     emscripten::function("exit", &_exit);
     emscripten::function("resizeWindow", &resizeWindow);
     emscripten::function("setElement", &setElement);

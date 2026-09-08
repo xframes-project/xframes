@@ -1,6 +1,6 @@
 # XFrames Roadmap
 
-Last reviewed against repository history and implementation: 7 September 2026.
+Last reviewed against repository history and implementation: 8 September 2026.
 
 ## Vision
 
@@ -10,9 +10,11 @@ XFrames is focused on GPU-accelerated technical visualization rather than broad 
 
 The strategic basis for this focus is documented in [XFrames and GPUIX: Technical and Strategic Assessment](docs/strategy/gpuix-comparison-2026-08.md). The proposed runtime work is specified in [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
 
-## Next Milestone — Runtime Reliability & Measured Streaming Performance (planned)
+## Next Milestone — Runtime Reliability & Measured Streaming Performance (in progress)
 
-Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. Implementation of this milestone has not started.
+Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice now supplies executing lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stages 1–4 remain planned; the full Stage 0 benchmark coverage is not complete.
+
+See the [baseline and known-defect record](docs/engineering/fabric-baseline-2026-09.md) and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). Cleanup is the next implementation slice: address retained container roots, Fiber mappings, widget registrations, and stale callbacks/imperative targets. Keep abandoned-work and reparenting failures as regression gates for later atomic staging and reachability work. Local verification and configured hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
 
 The GPUIX assessment identifies bridge correctness, lifecycle discipline, automation, and performance evidence as gaps to close while concentrating product work on Plot, Table, Map, and Canvas. The August Fabric upgrade and screenshot smokes provide foundations for this work. End-to-end performance advantages still require measurement.
 
@@ -170,7 +172,7 @@ These checks cover embedding compatibility, initialization, and screenshot captu
 
 ---
 
-## Phase 12 — Fabric Runtime Hardening (planned)
+## Phase 12 — Fabric Runtime Hardening (Stage 0 in progress)
 
 Detailed design: [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
 
@@ -178,17 +180,19 @@ This phase preserves the React Native Fabric reconciler and the RxJS/ReactivePlu
 
 ### Stage 0 — Lifecycle Characterization, CI & Performance Baseline
 
-Start from the existing host-contract checks, native subtree-deletion tests, and smoke harnesses. Establish reproducible current behavior and measurements before changing runtime semantics.
+Establish reproducible current behavior and measurements before changing runtime semantics. The first PlotBar/Table slice extends the host-contract checks and screenshot smokes with executing expected failures; confirmed defects are not treated as fixed.
 
-- [ ] Add JavaScript bridge tests with a fake native module
-- [ ] Add native element, hierarchy, registration, and subject count assertions
-- [ ] Cover mount, unmount, deep deletion, reorder, keyed replacement, and reparenting
-- [ ] Cover rapid commits, abandoned work where supported, and events racing with deletion
-- [ ] Add application-code CI for `fabric:verify`, package builds, native tests, and Node/Wasm smokes on supported VS2022, Linux, and Docker/Wasm paths
-- [ ] Capture current operation counts, serialized bytes, and available commit/data-to-frame timings; document measurement limits until Stage 4 adds revision correlation
-- [ ] Build a repeatable benchmark harness for multi-series plots, a 100,000-row sortable/filterable table, map pan/zoom/tile completion/overlays, and telemetry canvas rendering
-- [ ] Record Windows native and browser baselines at 20 Hz, 60 Hz, and 120 Hz input rates: startup, resident memory, idle CPU/frame count, frame rate under load, and p50/p95/p99/maximum latency where measurable
-- [ ] Record hardware, build mode, GPU adapter, assets, and workload parameters; define target update rates and latency budgets before assessing improvements
+- [x] Add real development/production Fabric lifecycle tests with a fake native module
+- [x] Add native element/hierarchy/Yoga/subject snapshots and JS Fiber/registration counts, with real native queue tests
+- [x] Cover mount, unmount, deep deletion, reorder, keyed replacement, and React cross-parent remount; characterize same-native-ID reparenting separately
+- [x] Cover rapid updates, abandoned Suspense work, Strict Mode, and event/imperative operations racing with deletion
+- [x] Add application-code CI configuration for `fabric:verify`, package builds, VS2022/Linux native tests, and real Node/Mesa and Docker/Wasm/Chromium fixtures, with failure artifacts
+- [x] Capture operation counts, UTF-8 bytes, `completeRoot` observations, and measurable data/native-state-to-frame intervals; document clock scope and coalescing without claiming presentation latency
+- [x] Build a shared multi-series PlotBar/typed Table fixture with populated screenshots, 100,000 initial rows, focused native sorting/filtering tests, and 1,000-cycle lifecycle characterization
+- [x] Record three-repeat production Windows Node/OpenGL and browser SwiftShader/WebGPU baselines at 20/60/120 Hz, including startup, idle behavior, available memory/CPU, frame counts, and p50/p95/p99/maximum observations
+- [x] Record build/hardware/adapter/assets/workload metadata, explicit unavailable metrics, and proposed update-rate/latency targets
+- [ ] Extend benchmark coverage to map pan/zoom/tile completion/overlays and telemetry canvas rendering
+- [ ] Add hardware WebGPU and ubx-monitor application baselines; compare equivalent Electron/GPUIX implementations before claiming an end-to-end advantage
 
 ### Stage 1 — Explicit Cross-Runtime Cleanup
 
@@ -197,8 +201,9 @@ Initial cleanup can follow current native destruction. Final reparent-safe destr
 - [ ] Add reverse native-ID/public-ID widget mappings
 - [ ] Drop and count events whose targets are no longer live
 - [ ] Return or emit destroyed IDs from native structural application
+- [ ] Include container-root destruction; current container-0 unmount leaves native roots unreachable
 - [ ] Remove destroyed IDs from `fiberNodesMap` and widget registrations idempotently
-- [ ] Add repeated lifecycle stress tests and bounded live-count assertions
+- [ ] Convert the Stage 0 stress characterizations into passing cleanup invariants with zero count growth after warm-up
 
 ### Stage 2 — Versioned Native Transaction API
 

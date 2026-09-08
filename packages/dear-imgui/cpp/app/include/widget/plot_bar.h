@@ -28,6 +28,17 @@ private:
     std::string m_legendLabel = "bar-plot";
 
 public:
+    json GetDiagnosticsState() const {
+        json series = json::array();
+        for (const auto& s : m_series) {
+            series.push_back({{"label", s.label}, {"count", s.xValues.size()},
+                {"firstX", s.xValues.empty() ? json(nullptr) : json(s.xValues.front())},
+                {"lastX", s.xValues.empty() ? json(nullptr) : json(s.xValues.back())},
+                {"lastY", s.yValues.empty() ? json(nullptr) : json(s.yValues.back())}});
+        }
+        return {{"series", series}, {"limit", m_dataPointsLimit}};
+    }
+
     static std::unique_ptr<PlotBar> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         bool axisAutoFit = false;

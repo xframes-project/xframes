@@ -1,81 +1,112 @@
 /goal
 
-Implement a first-class desktop screenshot capture API for XFrames, focused initially on the Node/OpenGL runtime used by @xframes/node.
+Implement the first Phase 12 Stage 0 vertical slice: a reproducible Fabric lifecycle and streaming baseline across Node/OpenGL and Wasm/WebGPU, backed by native diagnostics and application-code CI.
 
-Context:
-- XFrames renders React-style components through Dear ImGui, Yoga layout, GLFW, and OpenGL on the Node desktop path.
-- The current render loop lives in packages/dear-imgui/cpp/app/src/imgui_renderer.cpp.
-- On desktop, the frame is rendered by XFrames::Render(...), then ImGuiRenderer::PerformRendering(), then glfwSwapBuffers(...).
-- A correct framebuffer capture should happen after PerformRendering() and before glfwSwapBuffers(), while the OpenGL context is current on the render/UI thread.
-- Do not read pixels directly from a JS/N-API call, because those calls happen on the Node thread and the GL context belongs to the render thread.
+Primary outcome:
+A maintainer can run a documented command for either runtime that mounts a shared React fixture, updates and reorders its children, streams data into PlotBar and Table, removes the subtree, and reports what happened across the Fabric adapter, native retained tree, and rendered frames. The run produces semantic assertions, lifecycle counts, operation/byte counts, timing samples, and a screenshot of the populated fixture. CI runs the same checks and retains diagnostic artifacts.
 
-Primary objective:
-- Add an API that lets a Node/XFrames app capture the current rendered UI to a PNG file, for example:
+This is a bounded first slice of Stage 0, not the entire Phase 12 milestone. Establish the current behavior and performance baseline before implementing cleanup, atomic transactions, or a new render scheduler. Do not treat known lifecycle defects as already fixed.
 
-  await captureScreenshot("./screenshots/current.png");
+Read first:
+- ROADMAP.md, especially the next milestone, Phase 12 Stage 0, and the Stages 0-4 review gate.
+- docs/strategy/gpuix-comparison-2026-08.md, especially the engineering priorities, benchmark requirements, and continuation gates.
+- docs/architecture/fabric-runtime-hardening.md, especially the current architecture and lifecycle-test design.
+- packages/dear-imgui/npm/FABRIC_EMBEDDING.md for the implemented renderer embedding, workspace rules, supported toolchains, and verification commands.
 
-Recommended implementation:
-1. Add desktop-only screenshot request plumbing to ImGuiRenderer.
-   - Add a request type containing at least output path and completion callback.
-   - Add a mutex-protected queue of pending screenshot requests.
-   - Add RequestScreenshot(path, callback) that enqueues a request and wakes the render loop with glfwPostEmptyEvent().
-   - Add FlushScreenshotRequests() that runs on the render thread immediately after PerformRendering().
+Current foundation:
+- The generated React Native 0.87.0 Fabric development/production renderers and React 19.2.3 integration are implemented. Preserve these versions and the deterministic extraction checks.
+- fabric:verify checks generated snapshots, tool typechecking, and the private host contract. Its current tests do not exercise a complete React lifecycle.
+- nativeFabricUiManager currently publishes create/patch/child operations individually, sometimes before completeRoot, and fiberNodesMap has no deletion path.
+- Native SetChildren recursively destroys removed subtrees. Existing xframes_test.cpp cases bypass the reactive operation queue, leaving real delivery and cross-runtime behavior untested.
+- Node screenshot capture and Node/browser smoke harnesses exist. Their fixed delays and screenshot output provide limited semantic coverage.
+- Desktop still uses glfwWaitEventsTimeout(1.0 / 30.0); Wasm still requests a 30 Hz main loop. Measure these policies unchanged in this slice.
 
-2. Capture pixels on the render thread.
-   - Use glfwGetFramebufferSize(m_glfwWindow, &width, &height).
-   - Use glPixelStorei(GL_PACK_ALIGNMENT, 1).
-   - Use glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data()).
-   - Flip rows vertically before writing, because OpenGL framebuffer origin is bottom-left.
-   - Return useful errors for invalid paths, zero-sized framebuffer, GL failures, or PNG write failure.
+Deliverables:
 
-3. Encode PNG.
-   - The project already depends on vcpkg Stb and includes stb_image.h.
-   - Add stb_image_write support, preferably in a single implementation file to avoid duplicate STB implementation symbols:
+1. Exercise real Fabric with a fake native binding.
+   - Build an isolated fixture harness around the existing ReactFabricInitialiser and nativeFabricUiManager. Exercise both development and production renderers in isolated runs.
+   - Drive real React mounts, state/prop updates, and unmounts. Direct host-method tests may supplement these cases but must not replace them.
+   - Cover initial mount, deep subtree deletion, sibling insertion/removal/reorder, keyed replacement, rapid updates, and events delivered during/after deletion.
+   - Cover imperative widget operations racing with deletion. Exercise Strict Mode and abandoned Suspense/concurrent work where supported, documenting any scenario the embedding cannot express.
+   - Distinguish React cross-parent remount semantics from preserving the same native ID during an explicit host/native reparent operation. Characterize the latter separately; do not assume keys preserve React identity across parents.
+   - Record ordered native calls, their payloads, UTF-8 serialized byte counts, and completeRoot observations. Preserve visibility of pre-completeRoot calls; do not label speculative work as an accepted transaction.
+   - Capture JavaScript Fiber mapping and widget-registration counts. Reset test-owned subscriptions and singleton state between scenarios so tests cannot contaminate one another.
 
-     #define STB_IMAGE_WRITE_IMPLEMENTATION
-     #include "stb_image_write.h"
+2. Add minimal, opt-in native diagnostics through both bindings.
+   - Expose a test/debug snapshot sufficient to inspect element IDs/types, hierarchy and Yoga ownership, internal-operation subject counts, and the PlotBar/Table state needed by the fixture.
+   - Include frame count and monotonic timing observations sufficient to establish that expected native state was observed during a completed frame.
+   - Obtain consistent snapshots under the existing ownership/locking rules or on the render thread. Never read mutable native maps unsafely from JavaScript or invoke GPU operations on the Node thread.
+   - Keep diagnostics disabled by default and avoid unbounded trace retention, persistent copies of Fiber graphs, or benchmark allocations in the ordinary render path.
+   - Extend C++ tests through the real queue/subject delivery path as well as existing direct-state tests. Check native reachability, hierarchy consistency, Yoga ownership, and subject cleanup.
+   - Add diagnostic sources to every affected CMake target. Limit build changes to what this slice requires.
 
-   - Add the new source file to both relevant CMake targets:
-     - packages/dear-imgui/npm/node/CMakeLists.txt
-     - packages/dear-imgui/cpp/app/CMakeLists.txt
+3. Run one shared lifecycle/streaming fixture on Node and Wasm.
+   - Use local fonts/assets and deterministic synthetic data; the fixture must work without serial hardware, ubx-monitor, external map tiles, or network data feeds.
+   - Include a small keyed subtree with registered widgets, a multi-series PlotBar using imperative data APIs, and a typed Table. Exercise table sorting/filtering in focused native tests through the actual implementation.
+   - Run mount -> update/reorder -> stream -> remove subtree -> unmount, checking expected native content and recording JavaScript/native live counts at each stage.
+   - Add a bounded stress mode of at least 1,000 mount/update/unmount cycles, preserving the same runtime long enough to expose accumulation. Report count deltas after warm-up instead of relying only on RSS.
+   - Use explicit React completion and observable native/frame conditions with timeouts. A fixed sleep or PNG file existence alone is not a successful semantic assertion.
+   - Reuse Node framebuffer capture and the browser screenshot harness to save a populated-frame artifact. Preserve the existing full-App smokes as regression checks.
+   - Terminate cleanly on success, assertion failure, native crash, and timeout; retain the last available trace and diagnostics. Run crash-prone known cases in isolated processes.
 
-4. Expose through the Node addon.
-   - Modify packages/dear-imgui/npm/node/src/xframes-node.cpp.
-   - Add Runner::captureScreenshot(path, callback) or equivalent.
-   - Use Napi::ThreadSafeFunction to resolve/reject back on the JS thread from the render thread.
-   - Export a native captureScreenshot function alongside init, patchStyle, showDebugWindow, etc.
+4. Establish a repeatable streaming baseline.
+   - Parameterize input rate at 20, 60, and 120 Hz, duration, warm-up, retained plot points, and table size. Include an extended 100,000-row table case; use a smaller bounded case for routine CI.
+   - Record requested and achieved input/update rates, operation counts by type, serialized bytes, frame counts, startup milestones, and idle behavior.
+   - Collect resident memory and idle CPU where the platform exposes meaningful measurements. Mark unavailable metrics explicitly; browser JavaScript heap is not total browser/native memory.
+   - Report sample counts and p50/p95/p99/maximum for measurable timing intervals. Define each interval and clock source. Keep JS/native clocks comparable before subtracting timestamps.
+   - Distinguish data receipt, native application, and frame observation. Record coalesced, superseded, or timed-out updates; do not invent one rendered frame per input sample or claim byte-to-pixel/presentation latency without observing it.
+   - Use production React and optimized native builds for the performance baseline. Run at least three measured repetitions after warm-up. Identify debug/fast-build smoke results separately.
+   - Keep hardware-specific timing results informational in shared CI; fail CI on correctness violations, crashes, hangs, or invalid/missing required measurements.
+   - Emit machine-readable results plus a concise baseline report containing source revision, OS, toolchain, build mode, GPU/adapter, fixture parameters, measurement limits, and observed bottlenecks. Keep raw traces and screenshots in ignored artifact directories or CI artifacts.
+   - Declare proposed update-rate and latency targets separately from observed results so later stages can be assessed against explicit expectations.
 
-5. Add a TypeScript-facing API.
-   - Modify packages/dear-imgui/npm/node/src/lib/index.ts and/or render.tsx.
-   - Low-churn acceptable API:
+5. Make the slice reproducible in application-code CI.
+   - Add documented npm workspace commands for bridge lifecycle tests, Node/Wasm fixture runs, and baseline collection. Provide a bounded default and explicit extended/stress options.
+   - Add workflows for JavaScript verification/package builds, VS2022 and Linux native tests, and Docker-built Wasm with headless Chromium WebGPU verification.
+   - Run the real Node fixture on a validated native runner and the real Wasm fixture on a browser runner. Clearly identify which jobs provide compilation, native unit, and GPU integration coverage.
+   - Rebuild native artifacts from the checked-out source for integration runs; do not silently test stale local binaries. Cache dependencies without masking source changes.
+   - Upload logs, semantic results, lifecycle counts, baseline JSON, and screenshots even when a test fails. Use bounded execution time and clean up spawned processes.
+   - Retain existing fabric:verify and package build gates. A runner that lacks required graphics capability must be reported explicitly, not counted as a passing rendering test.
 
-     export const captureScreenshot = (path: string): Promise<void>;
+Known-defect policy:
+- Stage 0 succeeds by making current behavior reproducible. It does not require implementing the zero-leak/atomic-publication guarantees assigned to later stages.
+- Assert the intended lifecycle invariant. For a defect confirmed in current code, keep an executing, narrowly identified expected-failure case with its observed signature and a linked explanation of the follow-up stage. Do not assert that leaking mappings or publishing speculative nodes is correct behavior.
+- An unexpected failure, changed failure signature, or unexpected pass must require review of that case. Avoid broad skips, catch-all error suppression, and continue-on-error for test jobs.
+- Unsupported renderer scenarios and infrastructure limitations must be reported separately from confirmed runtime defects.
 
-   - Longer-term preferred API, if practical without broad refactor:
+Scope and constraints:
+- Preserve Fabric, RxJS, ReactivePlusPlus, Yoga, Dear ImGui, and the existing public widget APIs. Modify the host/debug seams rather than generated renderer snapshots.
+- Keep runtime changes observational. Explicit destruction notifications, stale-event dropping, reverse mappings, ApplyCommit, commit batching/revisions, and invalidation scheduling belong to subsequent slices.
+- Do not implement durable replay, general locator/input automation, macOS support, new widgets/languages, package publishing, or a broad build-system refactor here.
+- Full map/canvas benchmarking, Electron/GPUIX comparative implementations, and ubx-monitor integration remain follow-up Stage 0/milestone coverage. Do not mark all of Stage 0 complete when only this PlotBar/Table slice is delivered.
+- Work from packages/dear-imgui/npm with its authoritative workspace lockfile and one React instance. Preserve the documented common peer boundary.
+- Use Visual Studio 2022 for Windows native builds and the documented Docker/Emscripten path for Wasm. Record separate results for software WebGPU adapters and hardware GPUs.
 
-     const app = render(App, assetsBasePath, fontDefs, theme);
-     await app.captureScreenshot(path);
+Relevant implementation locations:
+- packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts
+- packages/dear-imgui/npm/common/src/lib/widgetRegistrationService.ts
+- packages/dear-imgui/npm/common/scripts/test-rn-fabric-host.ts
+- packages/dear-imgui/npm/node/src/lib/render.tsx
+- packages/dear-imgui/npm/node/src/xframes-node.cpp
+- packages/dear-imgui/npm/wasm/src/lib/ReactNativeWrapper.tsx
+- packages/dear-imgui/npm/wasm/scripts/browser-smoke.mjs
+- packages/dear-imgui/cpp/wasm/src/main.cpp
+- packages/dear-imgui/cpp/app/include/xframes.h
+- packages/dear-imgui/cpp/app/src/xframes.cpp
+- packages/dear-imgui/cpp/app/src/imgui_renderer.cpp
+- packages/dear-imgui/cpp/tests/xframes_test.cpp
+- packages/dear-imgui/npm/package.json
+- .github/workflows/ (create application-code workflows)
 
-   - Prefer the low-churn singleton API for the first implementation if the controller-style render return would require unrelated architecture changes.
+Validation and acceptance:
+- npm run fabric:verify, npm run build:common, npm run build:node, and npm run build:wasm pass from the npm workspace with the required native artifacts built first.
+- Development and production Fabric lifecycle scenarios run deterministically against the fake binding, with isolated state and actionable diagnostics.
+- Native tests exercise actual operation delivery and prove the diagnostic snapshots describe real state.
+- The same PlotBar/Table fixture runs through real Fabric and current-source native bindings on Node and Wasm, asserts populated/updated content, and captures rendered output.
+- The stress run reports bounded expected counts or precisely identified existing failures; known mapping accumulation is reproducible rather than hidden by resetting the runtime between cycles.
+- Baseline reports contain actual measured results, timing definitions, hardware/build metadata, and explicit limitations. Snapshot/screenshot presence is never the sole assertion.
+- CI configurations and local reproduction commands are included. Report which commands and platforms actually passed; workflow configuration alone is not evidence of a successful hosted run.
+- Update ROADMAP.md only for delivered subitems, and add a concise engineering record of results and known defects. Leave Stage 1 onward and remaining Stage 0 coverage planned.
 
-Constraints:
-- Keep the first version desktop/OpenGL-only. Guard with #ifndef __EMSCRIPTEN__ as needed.
-- Do not attempt WebGPU/WASM capture in this goal. WebGPU requires a separate texture-copy/readback path.
-- Do not add OS-level screenshot capture. Capture the rendered framebuffer, not the window manager surface.
-- Avoid blocking the render loop on slow filesystem work more than necessary. A simple synchronous PNG write is acceptable for the initial version, but isolate it so it can be moved off-thread later.
-- Preserve existing init/render behavior and onBeforeExit behavior.
-- Keep changes scoped to screenshot support; do not refactor the renderer or N-API singleton architecture unless required.
-
-Validation:
-- Build @xframes/node after the native changes.
-- Launch the existing node example.
-- Call captureScreenshot("./screenshots/test.png") after the first frame has rendered.
-- Verify the PNG exists, has the expected window dimensions, is not vertically flipped, and contains the rendered XFrames UI rather than a blank/cleared frame.
-- Verify multiple successive screenshot requests work.
-- Verify a bad output path rejects/reports an error rather than crashing.
-
-Future follow-up:
-- Add a controller object returned by render() for app-level operations such as captureScreenshot, resizeWindow, showDebugWindow, and patchStyle.
-- Add screenshot capture to the WASM/WebGPU path using texture copy to a CPU-readable buffer.
-- Add automated visual regression helpers once screenshots are reliable.
-- Expose screenshot capture as an MCP tool in ubx-monitor, so an agent can collect a UI snapshot alongside receiver diagnostics.
+Completion handoff:
+Summarize the observed lifecycle defects, baseline bottlenecks, and remaining coverage. Recommend the next cleanup slice using this evidence, identifying which failures additionally require atomic commit/reachability work. Preserve the new harness as the regression gate for that implementation.

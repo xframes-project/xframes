@@ -13,6 +13,7 @@
         "url": "https://github.com/andreamancuso"
     },
     "scripts": {
+        "typecheck:diagnostics": "tsc --noEmit --project ../diagnostics/tsconfig.json",
         "convert-fa-yaml-to-json": "tsx ./scripts/convert-fa-yaml-to-json.ts",
         "extract-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts",
         "check-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts --check",

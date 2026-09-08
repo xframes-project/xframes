@@ -51,6 +51,8 @@ target_compile_definitions(janet_boot PRIVATE JANET_BOOTSTRAP ${JANET_NO_FLAGS})
 if(WIN32)
     target_compile_definitions(janet_boot PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_link_libraries(janet_boot PRIVATE ws2_32)
+elseif(UNIX)
+    target_link_libraries(janet_boot PRIVATE m)
 endif()
 
 # Stage 2: generate core image
@@ -70,6 +72,8 @@ target_compile_definitions(janet_core PRIVATE ${JANET_NO_FLAGS} JANET_SINGLE_THR
 if(WIN32)
     target_compile_definitions(janet_core PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_link_libraries(janet_core PRIVATE ws2_32)
+elseif(UNIX)
+    target_link_libraries(janet_core PUBLIC m)
 endif()
 
 # Auto-copy core image for WASM builds

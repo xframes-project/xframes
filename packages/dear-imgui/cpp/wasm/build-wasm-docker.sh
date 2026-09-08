@@ -13,7 +13,7 @@ if command -v cygpath &>/dev/null; then
 fi
 
 IMAGE_NAME="xframes-emsdk"
-CMAKE_EXTRA=""
+CMAKE_EXTRA="-DXFRAMES_FAST_BUILD=OFF"
 
 if [ "${1:-}" = "--fast" ]; then
   CMAKE_EXTRA="-DXFRAMES_FAST_BUILD=ON"

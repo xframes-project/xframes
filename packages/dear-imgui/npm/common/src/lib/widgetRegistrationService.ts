@@ -26,6 +26,19 @@ export class WidgetRegistrationService {
         return this.fonts;
     }
 
+    // Copies scalar registration data on demand; no reverse mapping or cleanup policy.
+    getDiagnostics() {
+        return {
+            mappings: [...this.fabricWidgetsMapping.entries()].map(([publicId, nativeId]) => ({
+                publicId,
+                nativeId,
+            })),
+            mappingCount: this.fabricWidgetsMapping.size,
+            tableCount: this.tables.size,
+            mapCount: this.maps.size,
+        };
+    }
+
     getStyle(): XFramesStyle {
         return JSON.parse(this.wasmModule.getStyle());
     }

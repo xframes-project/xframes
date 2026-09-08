@@ -4,6 +4,8 @@
 #include <sstream>
 #include <unordered_set>
 #include <utility>
+#include <chrono>
+#include <algorithm>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -117,6 +119,96 @@ void XFrames::SetDebug(bool debug) {
 void XFrames::ShowDebugWindow() {
     ImGui::SetWindowFocus("debug");
 };
+
+double XFrames::DiagnosticsNowMs() {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+void XFrames::SetDiagnosticsEnabled(bool enabled) {
+    m_diagnosticsEnabled.store(enabled, std::memory_order_relaxed);
+}
+
+json XFrames::GetDiagnosticsFrame() {
+    const std::lock_guard<std::mutex> lock(m_diagnosticsMutex);
+    auto result = m_diagnosticsFrame;
+    result["enabled"] = m_diagnosticsEnabled.load(std::memory_order_relaxed);
+    result["sampledAtMs"] = DiagnosticsNowMs();
+    return result;
+}
+
+json XFrames::GetDiagnosticsState() {
+    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
+    return BuildDiagnosticsStateUnlocked();
+}
+
+json XFrames::BuildDiagnosticsStateUnlocked() {
+    std::vector<int> ids;
+    std::unordered_map<YGNodeConstRef, int> yogaIds;
+    for (const auto& [id, element] : m_elements) {
+        ids.push_back(id);
+        if (element && element->m_layoutNode) yogaIds[element->m_layoutNode->m_node] = id;
+    }
+    std::sort(ids.begin(), ids.end());
+    std::unordered_set<int> reachable;
+    std::vector<int> pending{0};
+    while (!pending.empty()) {
+        const auto id = pending.back();
+        pending.pop_back();
+        if (!reachable.insert(id).second) continue;
+        const auto it = m_hierarchy.find(id);
+        if (it != m_hierarchy.end()) pending.insert(pending.end(), it->second.begin(), it->second.end());
+    }
+    json elements = json::array();
+    size_t unreachableCount = 0;
+    for (int id : ids) {
+        if (!reachable.contains(id)) ++unreachableCount;
+        if (elements.size() >= 4096) continue;
+        const auto& element = m_elements.at(id);
+        if (!element) { elements.push_back({{"id", id}, {"invalid", true}}); continue; }
+        const auto node = element->m_layoutNode->m_node;
+        const auto owner = YGNodeGetOwner(node);
+        json yogaChildren = json::array();
+        for (uint32_t i = 0; i < YGNodeGetChildCount(node); ++i) {
+            const auto it = yogaIds.find(YGNodeGetChild(node, i));
+            yogaChildren.push_back(it == yogaIds.end() ? json(nullptr) : json(it->second));
+        }
+        const auto parentIt = yogaIds.find(owner);
+        const auto hierarchyIt = m_hierarchy.find(id);
+        json record = {{"id", id}, {"type", element->m_type}, {"reachable", reachable.contains(id)},
+            {"children", hierarchyIt == m_hierarchy.end() ? std::vector<int>{} : hierarchyIt->second},
+            {"yogaParent", parentIt == yogaIds.end() ? json(nullptr) : json(parentIt->second)},
+            {"yogaChildren", yogaChildren},
+            {"bounds", {YGNodeLayoutGetLeft(node), YGNodeLayoutGetTop(node), YGNodeLayoutGetWidth(node), YGNodeLayoutGetHeight(node)}}};
+        const auto opIt = m_diagnosticsLastInternalOpMs.find(id);
+        record["lastInternalOpMs"] = opIt == m_diagnosticsLastInternalOpMs.end() ? json(nullptr) : json(opIt->second);
+        if (auto* plot = dynamic_cast<PlotBar*>(element.get())) record["state"] = plot->GetDiagnosticsState();
+        if (auto* table = dynamic_cast<Table*>(element.get())) {
+            record["state"] = {{"rowCount", table->m_data.size()}, {"columnCount", table->m_columns.size()},
+                {"filterDirty", table->m_filterDirty}, {"filteredCount", table->m_filteredIndices.size()},
+                {"firstRow", table->m_data.empty() ? json(nullptr) : json(table->m_data.front())},
+                {"lastRow", table->m_data.empty() ? json(nullptr) : json(table->m_data.back())}};
+        }
+        elements.push_back(std::move(record));
+    }
+    return {{"elementCount", m_elements.size()}, {"hierarchyCount", m_hierarchy.size()},
+        {"internalSubjectCount", m_elementInternalOpsSubject.size()}, {"unreachableCount", unreachableCount},
+        {"truncatedElements", ids.size() > 4096}, {"elements", elements},
+        {"rootChildren", m_hierarchy.contains(0) ? m_hierarchy.at(0) : std::vector<int>{}}};
+}
+
+void XFrames::CompleteDiagnosticsFrame() {
+    // The pending state was captured while constructing draw data under the tree locks.
+    // Publication after submission does not inspect a potentially newer live tree.
+    if (m_pendingDiagnosticsFrame.is_null()) return;
+    m_pendingDiagnosticsFrame["frame"] = ++m_diagnosticsFrameCount;
+    m_pendingDiagnosticsFrame["submittedAtMs"] = DiagnosticsNowMs();
+    m_pendingDiagnosticsFrame["backend"] = m_renderer->GetDiagnosticsBackendInfo();
+    const std::lock_guard<std::mutex> lock(m_diagnosticsMutex);
+    m_diagnosticsFrame = std::move(m_pendingDiagnosticsFrame);
+    m_pendingDiagnosticsFrame = nullptr;
+}
 
 void XFrames::SetUpSubjects() {
     auto handler = [this](const ElementOpDef& elementOpDef) {
@@ -267,6 +359,9 @@ void XFrames::CreateElement(const json& elementDef) {
                                 const std::lock_guard<std::mutex> lock(m_elements_mutex);
                                 if (m_elements.contains(id)) {
                                     m_elements[id]->HandleInternalOp(opDef);
+                                    if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
+                                        m_diagnosticsLastInternalOpMs[id] = DiagnosticsNowMs();
+                                    }
                                 }
                             };
                             m_elementInternalOpsSubject[id].get_observable() | rpp::ops::subscribe(handler);
@@ -497,6 +592,14 @@ void XFrames::Render(const int window_width, const int window_height) {
 
     ImGui::End();
     ImGui::Render();
+    if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
+        m_pendingDiagnosticsFrame = BuildDiagnosticsStateUnlocked();
+        m_pendingDiagnosticsFrame["constructedAtMs"] = DiagnosticsNowMs();
+        m_pendingDiagnosticsFrame["vertices"] = ImGui::GetDrawData()->TotalVtxCount;
+    } else if (!m_pendingDiagnosticsFrame.is_null()) {
+        // Discard a frame whose backend could not submit before diagnostics stopped.
+        m_pendingDiagnosticsFrame = nullptr;
+    }
 };
 
 void XFrames::RenderDebugWindow() {
@@ -738,6 +841,7 @@ void XFrames::RemoveElement(const int id) {
 
     // Clean up per-widget reactive subject
     m_elementInternalOpsSubject.erase(id);
+    m_diagnosticsLastInternalOpMs.erase(id);
 
     // Clean up Image texture registry (desktop only)
 #ifndef __EMSCRIPTEN__
