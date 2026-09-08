@@ -47,6 +47,7 @@ import { attachSubComponents } from "./attachSubComponents";
 import ReactFabricDevInitialiser from "./react-native/ReactFabric-dev";
 import ReactFabricProdInitialiser from "./react-native/ReactFabric-prod";
 import ReactNativePrivateInterface from "./react-native/ReactNativePrivateInterface";
+export { createReactNativeHost } from "./react-native/createReactNativeHost";
 import { TreeViewItem } from "./components/XFrames/TreeView";
 import { JsCanvasImperativeHandle } from "./components/XFrames/JsCanvas";
 import { LuaCanvasImperativeHandle } from "./components/XFrames/LuaCanvas";

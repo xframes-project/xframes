@@ -242,8 +242,12 @@ class WasmRunner {
             m_xframes->QueueElementInternalOp(id, elementJsonAsString);
         }
 
-        void setChildren(const int id, const std::vector<int>& childrenIds) const {
-            m_xframes->QueueSetChildren(id, childrenIds);
+        std::vector<int> setChildren(const int id, const std::vector<int>& childrenIds) const {
+            return m_xframes->QueueSetChildren(id, childrenIds);
+        }
+
+        bool isElementAlive(const int id) const {
+            return m_xframes->IsElementAlive(id);
         }
 
         void appendChild(const int parentId, const int childId) const {
@@ -392,8 +396,12 @@ void elementInternalOp(const int id, std::string elementJson) {
 }
 
 // emscripten::bind cannot receive `childrenIds` by reference
-void setChildren(const int id, std::string childrenIds) {
-    pRunner->setChildren(id, JsonToVector<int>(childrenIds));
+std::string setChildren(const int id, std::string childrenIds) {
+    return json(pRunner->setChildren(id, JsonToVector<int>(childrenIds))).dump();
+}
+
+bool isElementAlive(const int id) {
+    return pRunner->isElementAlive(id);
 }
 
 void appendChild(const int parentId, const int childId) {
@@ -435,6 +443,7 @@ EMSCRIPTEN_BINDINGS(my_module) {
     emscripten::function("patchElement", &patchElement);
     emscripten::function("elementInternalOp", &elementInternalOp);
     emscripten::function("setChildren", &setChildren);
+    emscripten::function("isElementAlive", &isElementAlive);
     emscripten::function("appendChild", &appendChild);
     emscripten::function("getChildren", &getChildren);
     emscripten::function("appendTextToClippedMultiLineTextRenderer", &appendTextToClippedMultiLineTextRenderer);

@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotBarImperativeHandle = {
@@ -30,36 +31,33 @@ export const PlotBar = forwardRef<PlotBarImperativeHandle, WidgetPropsMap["PlotB
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setData: (data: { x: number; y: number }[], tickLabels?: string[]) => {
-                        widgetRegistratonService.setPlotBarData(idRef.current, data, tickLabels);
+                        widgetRegistratonService.setPlotBarData(target, data, tickLabels);
                     },
                     appendData: (x: number, y: number) => {
-                        widgetRegistratonService.appendDataToPlotLine(idRef.current, x, y);
+                        widgetRegistratonService.appendDataToPlotLine(target, x, y);
                     },
                     setSeriesData: (seriesData: { data: { x: number; y: number }[]; tickLabels?: string[] }[]) => {
-                        widgetRegistratonService.setPlotBarSeriesData(idRef.current, seriesData);
+                        widgetRegistratonService.setPlotBarSeriesData(target, seriesData);
                     },
                     appendSeriesData: (seriesIndex: number, x: number, y: number) => {
-                        widgetRegistratonService.appendPlotBarSeriesData(idRef.current, seriesIndex, x, y);
+                        widgetRegistratonService.appendPlotBarSeriesData(target, seriesIndex, x, y);
                     },
                     setAxesAutoFit: (enabled: boolean) => {
                         widgetRegistratonService.setPlotLineAutoAxisFitEnabled(
-                            idRef.current,
+                            target,
                             enabled,
                         );
                     },
                     resetData: () => {
-                        widgetRegistratonService.resetPlotData(idRef.current);
+                        widgetRegistratonService.resetPlotData(target);
                     },
                 };
             },

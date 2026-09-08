@@ -1,6 +1,6 @@
 import React from "react";
 import { createBridge, type NativeBinding } from "./bridge";
-import { check, knownFailure, waitFor } from "./assertions";
+import { check, waitFor } from "./assertions";
 import { Fixture, makeHandles, makeRows } from "./fixture";
 
 export type NativeFrame = { enabled: boolean; frame: number; sampledAtMs: number; constructedAtMs: number; submittedAtMs: number;
@@ -37,7 +37,7 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
     const bridge = createBridge(binding);
     const read = () => JSON.parse(binding.getDiagnostics()) as NativeFrame;
     let lastFrame: NativeFrame | undefined;
-    let expectedOrphans = 0;
+    const expectedOrphans = 0;
     const publish = () => { report.bridge = bridge.snapshot(); report.lastFrame = lastFrame; hooks.report(report); };
     const observe = async (predicate: (frame: NativeFrame) => boolean, label: string, after = lastFrame?.frame ?? -1) => {
         lastFrame = await waitFor(read, frame => frame.enabled && frame.frame > after && predicate(frame)
@@ -62,9 +62,11 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
         await observe(frame => frame.elementCount === 0, "empty native runtime");
         stage("initial");
         let handles = makeHandles();
+        let clicks = 0;
+        const onStationClick = () => { clicks++; };
         const mount = async () => {
             handles = makeHandles();
-            await bridge.render(React.createElement(Fixture, { handles, points: options.points }));
+            await bridge.render(React.createElement(Fixture, { handles, points: options.points, onStationClick }));
             await waitFor(() => handles.plot.current !== null && handles.table.current !== null, Boolean, "imperative refs");
             handles.table.current!.setTableData(makeRows(options.rows));
             handles.plot.current!.setSeriesData([30, 35].map(y => ({ data: Array.from({ length: Math.min(options.points, 8) }, (_, i) => ({ x: i - Math.min(options.points, 8) + 1, y: y - (Math.min(options.points, 8) - i - 1) % 4 })) })));
@@ -72,6 +74,16 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
                 && node.state.columnCount === 3 && Number(node.state.firstRow.sequence) === 0
                 && Number(node.state.firstRow.signal) === 20 && node.state.firstRow.used === "true")
                 && frame.elements.some(node => node.type === "plot-bar" && node.state.series[1].lastY === 35), "populated plot and table");
+            const live = bridge.snapshot();
+            check(lastFrame!.elementCount === 8 && lastFrame!.hierarchyCount === 9 && lastFrame!.internalSubjectCount === 2,
+                "Mounted native counts must match the populated fixture");
+            await waitFor(() => bridge.registrations.getDiagnostics().registrationCount, count => count === 2, "mounted effect registrations");
+            check(live.bridge.fiberCount === 8 && live.registrations.mappingCount === 7 && live.registrations.reverseMappingCount === 7,
+                "Mounted JS counts must match every host node/public ID");
+            const station = bridge.registrations.captureWidget("station-A")!;
+            const before = clicks;
+            bridge.manager.dispatchEvent(station.nativeId, "onClick", { value: "fixture" });
+            check(clicks === before + 1, "Mounted station event must reach its React callback");
         };
         await mount();
         stage("mounted");
@@ -179,41 +191,82 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
         await observe(frame => frame.internalSubjectCount === 0 && !frame.elements.some(node => node.type === "di-table"), "subtree destruction");
         stage("subtree-removed");
         await bridge.render(null);
-        expectedOrphans += 2; // XF-LIFE-010: container 0 has no element, so its root/title survive.
-        await observe(frame => frame.elementCount === expectedOrphans && frame.internalSubjectCount === 0, "root unmount characterization");
+        await observe(frame => frame.elementCount === 0 && frame.internalSubjectCount === 0, "root unmount cleanup");
         stage("unmounted");
-        const stressBaseline = { elements: lastFrame!.elementCount, subjects: lastFrame!.internalSubjectCount,
-            fibers: bridge.manager.getDiagnostics().fiberCount, registrations: bridge.registrations.getDiagnostics().tableCount };
+        const counts = () => {
+            const js = bridge.snapshot();
+            return { elements: lastFrame!.elementCount, hierarchy: lastFrame!.hierarchyCount,
+                subjects: lastFrame!.internalSubjectCount, fibers: js.bridge.fiberCount,
+                mappings: js.registrations.mappingCount, reverseMappings: js.registrations.reverseMappingCount,
+                nativeTargets: js.registrations.nativeCount, registrations: js.registrations.registrationCount,
+                tables: js.registrations.tableCount, maps: js.registrations.mapCount };
+        };
+        const requireEmpty = () => {
+            for (const [key, value] of Object.entries(counts()))
+                check(value === (key === "hierarchy" ? 1 : 0), `Unmount retained ${key}: ${value}`);
+        };
+        requireEmpty();
+        const stressBaseline = counts();
+        report.emptyContainerMetadata = { hierarchyEntries: 1, elementCount: 0, containerId: 0 };
         for (let cycle = 0; cycle < options.cycles; cycle++) {
             await mount();
-            await bridge.render(React.createElement(Fixture, { handles, points: options.points, reversed: true }));
-            await bridge.render(React.createElement(Fixture, { handles, points: options.points, visible: false }));
-            await observe(frame => frame.internalSubjectCount === 0, `stress subtree removal ${cycle}`);
-            await bridge.render(null);
-            expectedOrphans += 2;
-            await observe(frame => frame.elementCount === expectedOrphans && frame.internalSubjectCount === 0, `stress cycle ${cycle}`);
+            const saved = handles.plot.current!;
+            const station = bridge.registrations.captureWidget("station-A")!;
+            await bridge.render(React.createElement(Fixture, { handles, points: options.points, reversed: true, onStationClick }));
+            if (cycle % 2 === 0) {
+                await bridge.render(React.createElement(Fixture, { handles, points: options.points, visible: false }));
+                await observe(frame => frame.internalSubjectCount === 0, `stress subtree removal ${cycle}`);
+            } else {
+                const oldPlot = lastFrame!.elements.find(node => node.type === "plot-bar")!.id;
+                await bridge.render(React.createElement(Fixture, { handles, points: options.points, replacement: true, onStationClick }));
+                handles.plot.current!.appendSeriesData(0, cycle, 41);
+                await observe(frame => frame.elementCount === 8 && frame.elements.some(node => node.type === "plot-bar"
+                    && node.id !== oldPlot && node.state.series[0].lastX === cycle), `keyed plot replacement ${cycle}`);
+            }
+            await bridge.render(null); // odd cycles unmount both populated widgets directly
+            await observe(frame => frame.elementCount === 0 && frame.internalSubjectCount === 0, `stress cycle ${cycle}`);
+            requireEmpty();
+            const calls = bridge.observer.snapshot().counts.elementInternalOp;
+            const beforeClicks = clicks;
+            saved.appendData(-1, -1);
+            bridge.manager.dispatchEvent(station.nativeId, "onClick", { value: "late" });
+            check(bridge.observer.snapshot().counts.elementInternalOp === calls && clicks === beforeClicks,
+                "Deleted widget accepted an imperative call or event");
             if ((cycle + 1) % 100 === 0 || cycle + 1 === options.cycles) {
-                report.stress = { completedCycles: cycle + 1, native: { elements: lastFrame!.elementCount, subjects: lastFrame!.internalSubjectCount },
-                    js: bridge.manager.getDiagnostics(), registrations: bridge.registrations.getDiagnostics(), resources: hooks.resources() };
-                report.stress.baseline = stressBaseline;
-                report.stress.deltas = { elements: lastFrame!.elementCount - stressBaseline.elements,
-                    subjects: lastFrame!.internalSubjectCount - stressBaseline.subjects,
-                    fibers: report.stress.js.fiberCount - stressBaseline.fibers,
-                    registrations: report.stress.registrations.tableCount - stressBaseline.registrations };
-                console.log(`Lifecycle stress: ${cycle + 1}/${options.cycles}; native=${lastFrame!.elementCount}, subjects=${lastFrame!.internalSubjectCount}`);
+                const current = counts();
+                report.stress = { completedCycles: cycle + 1, native: { elements: current.elements, subjects: current.subjects },
+                    js: bridge.manager.getDiagnostics(), registrations: bridge.registrations.getDiagnostics(), resources: hooks.resources(),
+                    baseline: stressBaseline, deltas: Object.fromEntries(Object.entries(current).map(([key, value]) =>
+                        [key, value - stressBaseline[key as keyof typeof stressBaseline]])) };
+                console.log(`Lifecycle stress: ${cycle + 1}/${options.cycles}; native=${current.elements}, subjects=${current.subjects}`);
                 publish();
             }
         }
-        const final = bridge.snapshot();
-        report.knownFailures.push(knownFailure("container unmount destroys native roots", lastFrame!.elementCount === 0, "XF-LIFE-010",
-            lastFrame!.elementCount === 2 * (options.cycles + 1) && lastFrame!.unreachableCount === lastFrame!.elementCount && lastFrame!.internalSubjectCount === 0,
-            { retainedRootsAndTitles: lastFrame!.elementCount, completedUnmounts: options.cycles + 1 }));
-        report.knownFailures.push(knownFailure("unmount releases Fiber mappings", final.bridge.fiberCount === 0, "XF-LIFE-001",
-            final.bridge.fiberCount === final.operations.counts.setElement && final.bridge.fiberCount > 0,
-            { retained: final.bridge.fiberCount, created: final.operations.counts.setElement }));
-        report.knownFailures.push(knownFailure("unmount releases widget registrations", final.registrations.tableCount === 0, "XF-LIFE-002",
-            final.registrations.tableCount === 2 * (options.cycles + 1), { tableRegistrations: final.registrations.tableCount }));
-        report.status = "passed-with-known-defects";
+        // Exercise the ordinary lifetime contract without diagnostic snapshots.
+        binding.setDiagnosticsEnabled(false);
+        handles = makeHandles();
+        await bridge.render(React.createElement(Fixture, { handles, onStationClick }));
+        const offStation = bridge.registrations.captureWidget("station-A")!;
+        check(binding.isElementAlive(offStation.nativeId), "Diagnostics-disabled native creation failed");
+        const beforeClicks = clicks;
+        bridge.manager.dispatchEvent(offStation.nativeId, "onClick", {});
+        check(clicks === beforeClicks + 1, "Diagnostics-disabled event failed");
+        handles.table.current!.setTableData(makeRows(3));
+        const saved = handles.table.current!;
+        binding.setDiagnosticsEnabled(true);
+        await observe(frame => frame.elements.some(node => node.type === "di-table" && node.state.rowCount === 3),
+            "data applied with diagnostics disabled");
+        binding.setDiagnosticsEnabled(false);
+        await bridge.render(null);
+        check(!binding.isElementAlive(offStation.nativeId), "Diagnostics-disabled native destruction failed");
+        check(bridge.manager.getDiagnostics().fiberCount === 0 && bridge.registrations.getDiagnostics().nativeCount === 0,
+            "Diagnostics-disabled JS cleanup failed");
+        saved.setTableData(makeRows(1));
+        binding.setDiagnosticsEnabled(true);
+        await observe(frame => frame.elementCount === 0 && frame.internalSubjectCount === 0, "diagnostics-disabled cleanup verification");
+        requireEmpty();
+        report.diagnosticsDisabled = "passed";
+        report.status = "passed";
     } catch (error) {
         report.status = "failed";
         report.error = String(error);

@@ -9,7 +9,7 @@ type FabricRenderer = {
     stopSurface(container: number): void;
 };
 export type CallRecord = { index: number; atMs: number; method: string; args: unknown[]; bytes: number };
-const nativeMethods = ["setElement", "patchElement", "setChildren", "appendChild", "elementInternalOp"];
+const nativeMethods = ["setElement", "patchElement", "setChildren", "appendChild", "elementInternalOp", "isElementAlive"];
 
 /** Observes actual calls, including calls before completeRoot. This is not a commit log. */
 export function observeBinding(binding: NativeBinding, capacity = 256) {
@@ -30,6 +30,7 @@ export function observeBinding(binding: NativeBinding, capacity = 256) {
     };
     const observed = Object.create(binding) as NativeBinding;
     for (const method of nativeMethods) {
+        if (typeof binding[method] !== "function") continue;
         observed[method] = (...args: unknown[]) => {
             record(method, args);
             return binding[method](...args);
@@ -79,9 +80,11 @@ export function createFakeBinding() {
     const nodes = new Map<number, Record<string, any>>([[0, { id: 0, type: "container" }]]);
     const children = new Map<number, number[]>([[0, []]]);
     const internalOps: { id: number; live: boolean; op: any }[] = [];
-    const remove = (id: number) => {
-        for (const child of children.get(id) ?? []) remove(child);
-        nodes.delete(id);
+    const pendingDestructions: number[][] = [];
+    const delivery = { delayed: false };
+    const remove = (id: number, destroyedIds: number[]) => {
+        for (const child of children.get(id) ?? []) remove(child, destroyedIds);
+        if (nodes.delete(id)) destroyedIds.push(id);
         children.delete(id);
     };
     const binding: NativeBinding = {
@@ -89,9 +92,16 @@ export function createFakeBinding() {
         patchElement: (id: number, payload: string) => { if (nodes.has(id)) nodes.set(id, { ...nodes.get(id), ...JSON.parse(payload) }); },
         setChildren: (id: number, payload: string) => {
             const next: number[] = JSON.parse(payload);
-            for (const old of children.get(id) ?? []) if (!next.includes(old)) remove(old);
+            const destroyedIds: number[] = [];
+            for (const old of children.get(id) ?? []) if (!next.includes(old)) remove(old, destroyedIds);
             children.set(id, next);
+            if (delivery.delayed) {
+                if (destroyedIds.length) pendingDestructions.push(destroyedIds);
+                return "[]";
+            }
+            return JSON.stringify(destroyedIds);
         },
+        isElementAlive: (id: number) => id !== 0 && nodes.has(id),
         appendChild: (parent: number, child: number) => {
             const siblings = children.get(parent);
             if (siblings && !siblings.includes(child)) siblings.push(child);
@@ -101,5 +111,5 @@ export function createFakeBinding() {
             if (internalOps.length > 256) internalOps.shift();
         },
     };
-    return { binding, nodes, children, internalOps };
+    return { binding, nodes, children, internalOps, delivery, pendingDestructions };
 }

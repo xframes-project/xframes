@@ -10,7 +10,8 @@ const range = values => {
 for (const path of paths) {
     const input = JSON.parse(readFileSync(path, "utf8"));
     const report = input.report ?? input;
-    if (report.status !== "passed-with-known-defects" || !report.streams?.length) throw new Error(`Incomplete diagnostic run: ${path}`);
+    if (input.report && input.status !== "complete") throw new Error(`Incomplete browser run: ${path}`);
+    if (!["passed", "passed-with-known-defects"].includes(report.status) || !report.streams?.length) throw new Error(`Incomplete diagnostic run: ${path}`);
     for (const run of report.streams) {
         if (run.timedOutUpdates !== 0 || run.observedUpdates + run.coalescedUpdates !== run.produced
             || !run.dataToObservedFrameMs.samples || !run.applyToConstructedMs.samples)

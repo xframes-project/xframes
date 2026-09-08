@@ -488,8 +488,12 @@ class Runner {
             m_xframes->QueueElementInternalOp(id, elementJsonAsString);
         }
 
-        void setChildren(const int id, const std::vector<int>& childrenIds) const {
-            m_xframes->QueueSetChildren(id, childrenIds);
+        std::vector<int> setChildren(const int id, const std::vector<int>& childrenIds) const {
+            return m_xframes->QueueSetChildren(id, childrenIds);
+        }
+
+        bool isElementAlive(const int id) const {
+            return m_xframes->IsElementAlive(id);
         }
 
         void appendChild(const int parentId, const int childId) const {
@@ -667,7 +671,7 @@ void elementInternalOp(const Napi::CallbackInfo& info) {
     pRunner->elementInternalOp(id, elementJson);
 }
 
-void setChildren(const Napi::CallbackInfo& info) {
+Napi::Value setChildren(const Napi::CallbackInfo& info) {
     auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
@@ -683,7 +687,8 @@ void setChildren(const Napi::CallbackInfo& info) {
     auto childrenIds = info[1].As<Napi::String>().Utf8Value();
 
     // todo: use array of numbers instead of parsing JSON
-    pRunner->setChildren((int)id, JsonToVector<int>(childrenIds));
+    const auto destroyedIds = pRunner->setChildren((int)id, JsonToVector<int>(childrenIds));
+    return Napi::String::New(env, json(destroyedIds).dump());
 }
 
 void appendChild(const Napi::CallbackInfo& info) {
@@ -861,6 +866,12 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
 }
 
 static Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports["isElementAlive"] = Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
+        if (info.Length() < 1 || !info[0].IsNumber()) {
+            throw Napi::TypeError::New(info.Env(), "Expected a numeric native ID");
+        }
+        return Napi::Boolean::New(info.Env(), Runner::getInstance()->isElementAlive(info[0].As<Napi::Number>().Int32Value()));
+    });
     exports["setDiagnosticsEnabled"] = Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
         if (info.Length() != 1 || !info[0].IsBoolean()) {
             throw Napi::TypeError::New(info.Env(), "Expected a diagnostics enabled boolean");

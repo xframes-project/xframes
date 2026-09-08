@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotHistogramImperativeHandle = {
@@ -28,30 +29,27 @@ export const PlotHistogram = forwardRef<PlotHistogramImperativeHandle, WidgetPro
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setData: (values: number[]) => {
-                        widgetRegistratonService.setPlotHistogramData(idRef.current, values);
+                        widgetRegistratonService.setPlotHistogramData(target, values);
                     },
                     appendData: (value: number) => {
-                        widgetRegistratonService.appendDataToPlotHistogram(idRef.current, value);
+                        widgetRegistratonService.appendDataToPlotHistogram(target, value);
                     },
                     setAxesAutoFit: (enabled: boolean) => {
                         widgetRegistratonService.setPlotLineAutoAxisFitEnabled(
-                            idRef.current,
+                            target,
                             enabled,
                         );
                     },
                     resetData: () => {
-                        widgetRegistratonService.resetPlotData(idRef.current);
+                        widgetRegistratonService.resetPlotData(target);
                     },
                 };
             },

@@ -7,7 +7,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onChange";
         const nativeEventParam = { value };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -19,7 +19,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onChange";
         const nativeEventParam = { value };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -31,7 +31,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onChange";
         const nativeEventParam = { value };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -43,7 +43,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onChange";
         const nativeEventParam = { values };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -55,7 +55,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onChange";
         const nativeEventParam = { value };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -66,7 +66,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const rootNodeID = id;
         const topLevelType = "onClick";
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(rootNodeID, topLevelType, {
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(rootNodeID, topLevelType, {
             value: "clicked",
         });
     }, []);
@@ -76,7 +76,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onSort";
         const nativeEventParam = { columnIndex, sortDirection };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -88,7 +88,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onFilter";
         const nativeEventParam = { columnIndex, filterText };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -100,7 +100,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onRowClick";
         const nativeEventParam = { rowIndex };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -112,7 +112,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
         const topLevelType = "onItemAction";
         const nativeEventParam = { rowIndex, actionId };
 
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             rootNodeID,
             topLevelType,
             nativeEventParam,
@@ -120,7 +120,7 @@ export const useXFramesWasm = (ReactNativePrivateInterface: any): WasmDeps => {
     }, []);
 
     const onScriptError = useCallback((id: number, errorMessage: string) => {
-        ReactNativePrivateInterface.nativeFabricUIManager.dispatchEvent(
+        ReactNativePrivateInterface.nativeFabricUIManager.enqueueEvent(
             id,
             "onScriptError",
             { errorMessage },

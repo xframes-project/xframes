@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { PlotCandlestickDataItem, WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotCandlestickImperativeHandle = {
@@ -31,27 +32,24 @@ export const PlotCandlestick = forwardRef<
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setData: (data: PlotCandlestickDataItem[]) => {
-                        widgetRegistratonService.setPlotCandlestickData(idRef.current, data);
+                        widgetRegistratonService.setPlotCandlestickData(target, data);
                     },
                     setAxesAutoFit: (enabled: boolean) => {
                         widgetRegistratonService.setPlotCandlestickAutoAxisFitEnabled(
-                            idRef.current,
+                            target,
                             enabled,
                         );
                     },
                     resetData: () => {
-                        widgetRegistratonService.resetPlotData(idRef.current);
+                        widgetRegistratonService.resetPlotData(target);
                     },
                 };
             },

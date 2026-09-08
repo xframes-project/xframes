@@ -61,6 +61,10 @@ target_compile_definitions(janet_core PRIVATE
 )
 
 file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
+# wasm32 is little-endian. A clean Wasm-only checkout must not depend on the
+# desktop build having generated this Leptonica header in the dependency tree.
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/endianness.h" CONTENT "#define L_LITTLE_ENDIAN\n")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 set(OSM_STATIC_MAP_GENERATOR_SRC
     ${DEPS}/osm-static-map-generator/cpp/shared.cpp

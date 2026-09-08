@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type ClippedMultiLineTextRendererImperativeHandle = {
@@ -20,19 +21,16 @@ export const ClippedMultiLineTextRenderer = forwardRef<
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     appendTextToClippedMultiLineTextRenderer(data: string) {
                         widgetRegistratonService.appendTextToClippedMultiLineTextRenderer(
-                            idRef.current,
+                            target,
                             data,
                         );
                     },

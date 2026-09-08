@@ -222,7 +222,8 @@ void XFrames::SetUpSubjects() {
                 break;
             }
             case OpSetChildren: {
-                SetChildren(elementOpDef.data);
+                auto destroyed = SetChildren(elementOpDef.data);
+                if (auto result = elementOpDef.destroyedIds.lock()) *result = std::move(destroyed);
                 break;
             }
             case OpAppendChild: {
@@ -355,9 +356,12 @@ void XFrames::CreateElement(const json& elementDef) {
 
                         if (m_elements[id]->HasInternalOps()) {
                             m_elementInternalOpsSubject[id] = rpp::subjects::serialized_replay_subject<json>{10};
-                            auto handler = [this, id](const json& opDef) {
+                            const auto owner = m_elementInternalOpsSubject.at(id).get_disposable().as_weak();
+                            auto handler = [this, id, owner](const json& opDef) {
                                 const std::lock_guard<std::mutex> lock(m_elements_mutex);
-                                if (m_elements.contains(id)) {
+                                const auto current = m_elementInternalOpsSubject.find(id);
+                                if (m_elements.contains(id) && current != m_elementInternalOpsSubject.end()
+                                    && current->second.get_disposable() == owner) {
                                     m_elements[id]->HandleInternalOp(opDef);
                                     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
                                         m_diagnosticsLastInternalOpMs[id] = DiagnosticsNowMs();
@@ -776,12 +780,13 @@ void XFrames::QueueAppendChild(int parentId, int childId) {
     }
 };
 
-void XFrames::QueueSetChildren(const int parentId, const std::vector<int>& childrenIds) {
+std::vector<int> XFrames::QueueSetChildren(const int parentId, const std::vector<int>& childrenIds) {
+    auto destroyedIds = std::make_shared<std::vector<int>>();
     try {
         json opDef;
         opDef["parentId"] = parentId;
         opDef["childrenIds"] = childrenIds;
-        ElementOpDef elementOp{OpSetChildren,opDef};
+        ElementOpDef elementOp{OpSetChildren,opDef,destroyedIds};
         m_elementOpSubject.get_observer().on_next(elementOp);
 #ifndef __EMSCRIPTEN__
         glfwPostEmptyEvent();
@@ -789,14 +794,23 @@ void XFrames::QueueSetChildren(const int parentId, const std::vector<int>& child
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueueSetChildren, parse error: %s\n", parseError.what());
     }
+    return std::move(*destroyedIds);
 };
 
 void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
     try {
         const json opDef = json::parse(widgetOpDef);
 
-        if (m_elementInternalOpsSubject.contains(id)) {
-            m_elementInternalOpsSubject[id].get_observer().on_next(opDef);
+        // Copy ownership under the element lock, then release it before delivery:
+        // the subject handler takes that lock and verifies its lifetime owner.
+        std::optional<rpp::subjects::serialized_replay_subject<json>> subject;
+        {
+            const std::lock_guard<std::mutex> lock(m_elements_mutex);
+            const auto it = m_elementInternalOpsSubject.find(id);
+            if (it != m_elementInternalOpsSubject.end()) subject = it->second;
+        }
+        if (subject) {
+            subject->get_observer().on_next(opDef);
 #ifndef __EMSCRIPTEN__
             glfwPostEmptyEvent();
 #endif
@@ -828,13 +842,18 @@ void XFrames::PatchElement(const json& patchDef) {
     }
 }
 
-void XFrames::RemoveElement(const int id) {
+bool XFrames::IsElementAlive(const int id) {
+    const std::lock_guard<std::mutex> lock(m_elements_mutex);
+    return m_elements.contains(id);
+}
+
+void XFrames::RemoveElement(const int id, std::vector<int>* destroyedIds) {
     // Recurse into children first (depth-first)
     if (m_hierarchy.contains(id)) {
         // Copy the vector since we modify m_hierarchy during recursion
         const auto children = m_hierarchy[id];
         for (const int childId : children) {
-            RemoveElement(childId);
+            RemoveElement(childId, destroyedIds);
         }
         m_hierarchy.erase(id);
     }
@@ -852,31 +871,34 @@ void XFrames::RemoveElement(const int id) {
     // LayoutNode::~LayoutNode frees YGNode,
     // MapView::~MapView frees GPU tile textures,
     // Image::~Image frees GPU texture
-    m_elements.erase(id);
+    if (m_elements.erase(id) && destroyedIds) destroyedIds->push_back(id);
 }
 
-void XFrames::SetChildren(const json& opDef) {
+std::vector<int> XFrames::SetChildren(const json& opDef) {
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
     const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
 
     const auto parentId = opDef["parentId"].template get<int>();
     const auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
+    std::vector<int> destroyedIds;
 
     auto parentIt = m_elements.find(parentId);
-    if (parentIt != m_elements.end()) {
-        auto* parentEl = parentIt->second.get();
-
-        // Identify and remove orphaned children (in old list but not in new list)
-        auto hIt = m_hierarchy.find(parentId);
-        if (hIt != m_hierarchy.end()) {
-            const std::unordered_set<int> newSet(childrenIds.begin(), childrenIds.end());
-            for (const int oldChildId : hIt->second) {
-                if (!newSet.contains(oldChildId)) {
-                    RemoveElement(oldChildId);
-                }
+    // Container 0 has hierarchy ownership even though it has no Element/Yoga node.
+    // Ignore stale parent operations rather than recreating hierarchy metadata.
+    if (parentId != 0 && parentIt == m_elements.end()) return destroyedIds;
+    auto hIt = m_hierarchy.find(parentId);
+    if (hIt != m_hierarchy.end()) {
+        const auto oldChildren = hIt->second;
+        const std::unordered_set<int> newSet(childrenIds.begin(), childrenIds.end());
+        for (const int oldChildId : oldChildren) {
+            if (!newSet.contains(oldChildId)) {
+                RemoveElement(oldChildId, &destroyedIds);
             }
         }
+    }
 
+    if (parentIt != m_elements.end()) {
+        auto* parentEl = parentIt->second.get();
         YGNodeRemoveAllChildren(parentEl->m_layoutNode->m_node);
 
         const auto size = childrenIds.size();
@@ -896,6 +918,7 @@ void XFrames::SetChildren(const json& opDef) {
     if (parentIt != m_elements.end()) {
         parentIt->second->m_maxBottomDirty = true;
     }
+    return destroyedIds;
 }
 
 void XFrames::AppendChild(const json& opDef) {
@@ -937,7 +960,8 @@ void XFrames::AppendChild(const json& opDef) {
 
 std::vector<int> XFrames::GetChildren(int id) {
     const std::lock_guard<std::mutex> lock(m_hierarchy_mutex);
-    return m_hierarchy[id];
+    const auto it = m_hierarchy.find(id);
+    return it == m_hierarchy.end() ? std::vector<int>{} : it->second;
 };
 
 float XFrames::GetChildrenMaxBottom(int parentId) const {

@@ -38,6 +38,9 @@ enum ElementOp {
 struct ElementOpDef {
     ElementOp op;
     json data;
+    // QueueSetChildren owns the result until synchronous subject delivery returns.
+    // Replay records retain only a weak reference, never an acknowledgment payload.
+    std::weak_ptr<std::vector<int>> destroyedIds;
 };
 
 class XFrames {
@@ -73,11 +76,11 @@ class XFrames {
 
         void PatchElement(const json& patchDef);
 
-        void SetChildren(const json& opDef);
+        std::vector<int> SetChildren(const json& opDef);
 
         void AppendChild(const json& opDef);
 
-        void RemoveElement(int id);
+        void RemoveElement(int id, std::vector<int>* destroyedIds = nullptr);
         
         void SetUpFloatFormatChars();
 
@@ -166,7 +169,11 @@ class XFrames {
 
         void QueuePatchElement(int id, std::string& elementJsonAsString);
 
-        void QueueSetChildren(int id, const std::vector<int>& childIds);
+        // Returns actual recursive destruction after application and tree-lock release.
+        // Existing callers may continue to ignore the result.
+        std::vector<int> QueueSetChildren(int id, const std::vector<int>& childIds);
+
+        bool IsElementAlive(int id);
 
         void QueueAppendChild(int parentId, int childId);
 

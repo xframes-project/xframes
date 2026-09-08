@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotPieChartImperativeHandle = {
@@ -23,21 +24,18 @@ export const PlotPieChart = forwardRef<PlotPieChartImperativeHandle, WidgetProps
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setData: (data: { label: string; value: number }[]) => {
-                        widgetRegistratonService.setPlotPieChartData(idRef.current, data);
+                        widgetRegistratonService.setPlotPieChartData(target, data);
                     },
                     resetData: () => {
-                        widgetRegistratonService.resetPlotData(idRef.current);
+                        widgetRegistratonService.resetPlotData(target);
                     },
                 };
             },

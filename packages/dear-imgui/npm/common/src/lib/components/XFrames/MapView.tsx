@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 /**
@@ -52,42 +53,39 @@ export const MapView = forwardRef<MapImperativeHandle, WidgetPropsMap["MapView"]
     ({ style, hoverStyle, activeStyle, disabledStyle, onChange, onPrefetchProgress,
        tileUrlTemplate, tileRequestHeaders, attribution, minZoom, maxZoom, cachePath }: WidgetPropsMap["MapView"], ref) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerMap(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "map");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     render(centerX: number, centerY: number, zoom: number) {
-                        widgetRegistratonService.renderMap(idRef.current, centerX, centerY, zoom);
+                        widgetRegistratonService.renderMap(target, centerX, centerY, zoom);
                     },
                     prefetchTiles(minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) {
-                        widgetRegistratonService.prefetchMapTiles(idRef.current, minLon, minLat, maxLon, maxLat, minZoom, maxZoom);
+                        widgetRegistratonService.prefetchMapTiles(target, minLon, minLat, maxLon, maxLat, minZoom, maxZoom);
                     },
                     setMarkers(markers: MapMarker[]) {
-                        widgetRegistratonService.setMapMarkers(idRef.current, markers);
+                        widgetRegistratonService.setMapMarkers(target, markers);
                     },
                     clearMarkers() {
-                        widgetRegistratonService.clearMapMarkers(idRef.current);
+                        widgetRegistratonService.clearMapMarkers(target);
                     },
                     setPolylines(polylines: MapPolyline[]) {
-                        widgetRegistratonService.setMapPolylines(idRef.current, polylines);
+                        widgetRegistratonService.setMapPolylines(target, polylines);
                     },
                     clearPolylines() {
-                        widgetRegistratonService.clearMapPolylines(idRef.current);
+                        widgetRegistratonService.clearMapPolylines(target);
                     },
                     appendPolylinePoint(polylineIndex: number, lat: number, lon: number) {
-                        widgetRegistratonService.appendMapPolylinePoint(idRef.current, polylineIndex, lat, lon);
+                        widgetRegistratonService.appendMapPolylinePoint(target, polylineIndex, lat, lon);
                     },
                     setOverlays(overlays: MapOverlay[]) {
-                        widgetRegistratonService.setMapOverlays(idRef.current, overlays);
+                        widgetRegistratonService.setMapOverlays(target, overlays);
                     },
                     clearOverlays() {
-                        widgetRegistratonService.clearMapOverlays(idRef.current);
+                        widgetRegistratonService.clearMapOverlays(target);
                     },
                 };
             },

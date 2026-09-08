@@ -1,112 +1,96 @@
 /goal
 
-Implement the first Phase 12 Stage 0 vertical slice: a reproducible Fabric lifecycle and streaming baseline across Node/OpenGL and Wasm/WebGPU, backed by native diagnostics and application-code CI.
+Implement the next Phase 12 vertical slice: Stage 1 explicit cross-runtime destruction and lifetime cleanup across Node/OpenGL and Wasm/WebGPU.
 
 Primary outcome:
-A maintainer can run a documented command for either runtime that mounts a shared React fixture, updates and reorders its children, streams data into PlotBar and Table, removes the subtree, and reports what happened across the Fabric adapter, native retained tree, and rendered frames. The run produces semantic assertions, lifecycle counts, operation/byte counts, timing samples, and a screenshot of the populated fixture. CI runs the same checks and retains diagnostic artifacts.
+A React application can repeatedly mount, update, reorder, replace, remove, and unmount registered widgets without accumulating native elements, Fiber mappings, public/native ID mappings, widget registrations, or internal-operation subjects. Destroyed targets cannot receive callbacks or imperative updates, and stale handles cannot mutate a replacement widget. Prove this across at least 1,000 cycles in each real runtime using the existing harness.
 
-This is a bounded first slice of Stage 0, not the entire Phase 12 milestone. Establish the current behavior and performance baseline before implementing cleanup, atomic transactions, or a new render scheduler. Do not treat known lifecycle defects as already fixed.
+This slice implements cleanup around the current native destruction path. Atomic publication, speculative-work isolation, and reparent-safe final reachability remain Stages 2-3; render scheduling remains Stage 4.
 
 Read first:
-- ROADMAP.md, especially the next milestone, Phase 12 Stage 0, and the Stages 0-4 review gate.
-- docs/strategy/gpuix-comparison-2026-08.md, especially the engineering priorities, benchmark requirements, and continuation gates.
-- docs/architecture/fabric-runtime-hardening.md, especially the current architecture and lifecycle-test design.
-- packages/dear-imgui/npm/FABRIC_EMBEDDING.md for the implemented renderer embedding, workspace rules, supported toolchains, and verification commands.
+- ROADMAP.md, especially Phase 12 Stage 1 and the milestone review gate.
+- docs/engineering/fabric-baseline-2026-09.md for measured accumulation, defect IDs, and the recommended cleanup slice.
+- docs/architecture/fabric-runtime-hardening.md, especially explicit destruction, mapping cleanup, event races, and the incremental delivery plan.
+- docs/strategy/gpuix-comparison-2026-08.md for the strategic priority of lifecycle correctness.
+- packages/dear-imgui/npm/diagnostics/README.md and packages/dear-imgui/npm/FABRIC_EMBEDDING.md for reproduction commands, instrumentation limits, workspace rules, and toolchains.
 
-Current foundation:
-- The generated React Native 0.87.0 Fabric development/production renderers and React 19.2.3 integration are implemented. Preserve these versions and the deterministic extraction checks.
-- fabric:verify checks generated snapshots, tool typechecking, and the private host contract. Its current tests do not exercise a complete React lifecycle.
-- nativeFabricUiManager currently publishes create/patch/child operations individually, sometimes before completeRoot, and fiberNodesMap has no deletion path.
-- Native SetChildren recursively destroys removed subtrees. Existing xframes_test.cpp cases bypass the reactive operation queue, leaving real delivery and cross-runtime behavior untested.
-- Node screenshot capture and Node/browser smoke harnesses exist. Their fixed delays and screenshot output provide limited semantic coverage.
-- Desktop still uses glfwWaitEventsTimeout(1.0 / 30.0); Wasm still requests a 30 Hz main loop. Measure these policies unchanged in this slice.
+Starting evidence:
+- Commit 4256d19 delivered the first Stage 0 slice: real development/production Fabric lifecycle tests, native queue tests, opt-in diagnostics, shared PlotBar/Table fixtures, production baselines, and application-code CI configuration.
+- Each 1,000-cycle real-runtime stress run accumulated 2,000 native elements, 8,000 Fiber mappings, and 2,000 widget registrations after warm-up. Internal subjects returned to zero because the fixture removed its expensive subtree before root unmount.
+- XF-LIFE-001/002/003/006/010 identify retained Fiber mappings, retained registrations, forwarded stale imperative calls, late event callbacks, and missing container-root destruction.
+- XF-LIFE-007 shows that removing a public string ID can overwrite native numeric identity with null during cloning. Fix this identity boundary as part of reliable lifetime bookkeeping.
+- XF-LIFE-004/005/008/009 cover pre-completeRoot publication, same-native-ID reparent destruction, incomplete cross-parent clone staging, and abandoned Suspense work. Keep these as executing characterizations for later atomic staging/reachability work.
+- Local Windows/Linux native tests and real Node/Wasm fixtures passed with documented expected failures. Hosted CI was configured but had not run in the baseline session; verify its actual status separately when available.
 
 Deliverables:
 
-1. Exercise real Fabric with a fake native binding.
-   - Build an isolated fixture harness around the existing ReactFabricInitialiser and nativeFabricUiManager. Exercise both development and production renderers in isolated runs.
-   - Drive real React mounts, state/prop updates, and unmounts. Direct host-method tests may supplement these cases but must not replace them.
-   - Cover initial mount, deep subtree deletion, sibling insertion/removal/reorder, keyed replacement, rapid updates, and events delivered during/after deletion.
-   - Cover imperative widget operations racing with deletion. Exercise Strict Mode and abandoned Suspense/concurrent work where supported, documenting any scenario the embedding cannot express.
-   - Distinguish React cross-parent remount semantics from preserving the same native ID during an explicit host/native reparent operation. Characterize the latter separately; do not assume keys preserve React identity across parents.
-   - Record ordered native calls, their payloads, UTF-8 serialized byte counts, and completeRoot observations. Preserve visibility of pre-completeRoot calls; do not label speculative work as an accepted transaction.
-   - Capture JavaScript Fiber mapping and widget-registration counts. Reset test-owned subscriptions and singleton state between scenarios so tests cannot contaminate one another.
+1. Make native destruction explicit, including virtual container roots.
+   - Correct SetChildren(0, ...) so removing or replacing roots recursively destroys detached subtrees even though container 0 is not an Element. Cover direct populated-root unmount, multiple root children, partial removal, and repeated empty unmount.
+   - Preserve cleanup of hierarchy entries, Yoga ownership, internal-op subjects, diagnostic per-element state, and widget-owned resources. Surviving siblings and ordinary reorders must retain identity and state.
+   - Collect actual destroyed IDs and expose them through one shared cleanup contract in Node and Wasm. A synchronous result or ordered notification is acceptable; document its ordering and completion boundary.
+   - Include all descendants, report each actual destruction once per operation, and make duplicate cleanup delivery harmless. Native ownership is authoritative; do not infer successful destruction solely from JS prop diffs or diagnostic snapshots.
+   - Respect hierarchy/element locks. Do not call JavaScript while holding native tree locks or introduce blocking cross-thread callbacks. Give new notification payloads, queues, and subscriptions explicit ownership and teardown.
 
-2. Add minimal, opt-in native diagnostics through both bindings.
-   - Expose a test/debug snapshot sufficient to inspect element IDs/types, hierarchy and Yoga ownership, internal-operation subject counts, and the PlotBar/Table state needed by the fixture.
-   - Include frame count and monotonic timing observations sufficient to establish that expected native state was observed during a completed frame.
-   - Obtain consistent snapshots under the existing ownership/locking rules or on the render thread. Never read mutable native maps unsafely from JavaScript or invoke GPU operations on the Node thread.
-   - Keep diagnostics disabled by default and avoid unbounded trace retention, persistent copies of Fiber graphs, or benchmark allocations in the ordinary render path.
-   - Extend C++ tests through the real queue/subject delivery path as well as existing direct-state tests. Check native reachability, hierarchy consistency, Yoga ownership, and subject cleanup.
-   - Add diagnostic sources to every affected CMake target. Limit build changes to what this slice requires.
+2. Release JavaScript mappings and registrations by native lifetime.
+   - Add reverse native-ID/public-ID lookup and idempotent cleanup of Fiber entries, forward/reverse mappings, registration sets, and per-target references when native destruction is acknowledged.
+   - Handle nodes with no public ID and effect registrations that occur separately from native creation. Delayed effects must not resurrect destroyed registrations; delayed cleanup must not remove a newer owner of a reused public ID.
+   - Audit registration effects across existing components, including plots, Table, Map, and Canvas. Pair registration with cleanup using a shared approach where practical. Strict Mode setup/cleanup/setup must leave a still-mounted widget usable.
+   - Keep numeric native identity immutable through every create/clone/patch path. Treat public string ID addition, change, removal, and reuse as mapping operations; never serialize that public ID or null over native numeric identity.
+   - Define and test ownership when public IDs are rebound: old cleanup removes only the binding it owns. Avoid unbounded tombstone collections or scanning every widget for each destroyed ID.
+   - Dispose cleanup/event subscriptions and retained bridge references on teardown. Cleanup must work with diagnostics disabled, without test-only polling or manual map resets.
 
-3. Run one shared lifecycle/streaming fixture on Node and Wasm.
-   - Use local fonts/assets and deterministic synthetic data; the fixture must work without serial hardware, ubx-monitor, external map tiles, or network data feeds.
-   - Include a small keyed subtree with registered widgets, a multi-series PlotBar using imperative data APIs, and a typed Table. Exercise table sorting/filtering in focused native tests through the actual implementation.
-   - Run mount -> update/reorder -> stream -> remove subtree -> unmount, checking expected native content and recording JavaScript/native live counts at each stage.
-   - Add a bounded stress mode of at least 1,000 mount/update/unmount cycles, preserving the same runtime long enough to expose accumulation. Report count deltas after warm-up instead of relying only on RSS.
-   - Use explicit React completion and observable native/frame conditions with timeouts. A fixed sleep or PNG file existence alone is not a successful semantic assertion.
-   - Reuse Node framebuffer capture and the browser screenshot harness to save a populated-frame artifact. Preserve the existing full-App smokes as regression checks.
-   - Terminate cleanly on success, assertion failure, native crash, and timeout; retain the last available trace and diagnostics. Run crash-prone known cases in isolated processes.
+3. Reject events and imperative operations targeting dead widgets.
+   - Check liveness at React event dispatch, including already queued or replayed events. Never invoke Fabric's event handler with an undefined or destroyed Fiber target.
+   - Define ordering across native destruction, cleanup acknowledgment, and JS dispatch. Test delayed notification/event delivery; document when unmount cleanup is complete rather than assuming unrelated callback queues are ordered.
+   - Drop stale or unknown-target events and expose bounded diagnostic counters. Preserve normal event delivery for surviving and newly mounted widgets.
+   - Make saved imperative handles harmless after deletion, including after replacement/public-ID reuse. Preserve valid operations before deletion; operations arriving after destruction must not recreate native state or internal-op subjects.
+   - Use a consistent, documented stale-handle behavior compatible with the current API (prefer a no-op with a diagnostic counter). Do not suppress unrelated validation/runtime errors.
 
-4. Establish a repeatable streaming baseline.
-   - Parameterize input rate at 20, 60, and 120 Hz, duration, warm-up, retained plot points, and table size. Include an extended 100,000-row table case; use a smaller bounded case for routine CI.
-   - Record requested and achieved input/update rates, operation counts by type, serialized bytes, frame counts, startup milestones, and idle behavior.
-   - Collect resident memory and idle CPU where the platform exposes meaningful measurements. Mark unavailable metrics explicitly; browser JavaScript heap is not total browser/native memory.
-   - Report sample counts and p50/p95/p99/maximum for measurable timing intervals. Define each interval and clock source. Keep JS/native clocks comparable before subtracting timestamps.
-   - Distinguish data receipt, native application, and frame observation. Record coalesced, superseded, or timed-out updates; do not invent one rendered frame per input sample or claim byte-to-pixel/presentation latency without observing it.
-   - Use production React and optimized native builds for the performance baseline. Run at least three measured repetitions after warm-up. Identify debug/fast-build smoke results separately.
-   - Keep hardware-specific timing results informational in shared CI; fail CI on correctness violations, crashes, hangs, or invalid/missing required measurements.
-   - Emit machine-readable results plus a concise baseline report containing source revision, OS, toolchain, build mode, GPU/adapter, fixture parameters, measurement limits, and observed bottlenecks. Keep raw traces and screenshots in ignored artifact directories or CI artifacts.
-   - Declare proposed update-rate and latency targets separately from observed results so later stages can be assessed against explicit expectations.
+4. Turn the baseline into a passing cleanup regression gate.
+   - Extend the real Fabric fake-binding suite in isolated development and production runs. Model native destruction acknowledgments, including delayed/duplicate delivery, instead of directly clearing adapter state in tests.
+   - Cover deep deletion, insertion/removal/reorder, keyed replacement, direct populated-root unmount, rapid updates, Strict Mode, public ID mutation/reuse, late effects, stale callbacks/handles, and bridge disposal with queued notifications.
+   - Extend native tests through actual queue/subject delivery. Assert exact destroyed-ID sets, native counts, hierarchy/Yoga consistency, subject cleanup, and retained state of surviving widgets.
+   - Run the shared PlotBar/Table fixture on current-source Node and Wasm binaries. Exercise both subtree removal before unmount and direct unmount while populated widgets remain attached.
+   - Run at least 1,000 lifecycle cycles in one process/renderer per runtime, alternating meaningful removal/replacement cases. After cleanup acknowledgment and an observable frame, require zero growth from the empty post-warm-up baseline in native elements, hierarchy entries, subjects, Fiber entries, forward/reverse mappings, and registration sets.
+   - Keep fixed empty-container metadata explicit. Assert expected live counts and working events/imperative updates while mounted, so dropping all work cannot pass the cleanup checks.
+   - Retain semantic content assertions, populated screenshots, timeouts, bounded traces, count deltas, and failure artifacts. Process exit, forced GC, RSS alone, or wholesale registry resets are not proof of unmount cleanup.
 
-5. Make the slice reproducible in application-code CI.
-   - Add documented npm workspace commands for bridge lifecycle tests, Node/Wasm fixture runs, and baseline collection. Provide a bounded default and explicit extended/stress options.
-   - Add workflows for JavaScript verification/package builds, VS2022 and Linux native tests, and Docker-built Wasm with headless Chromium WebGPU verification.
-   - Run the real Node fixture on a validated native runner and the real Wasm fixture on a browser runner. Clearly identify which jobs provide compilation, native unit, and GPU integration coverage.
-   - Rebuild native artifacts from the checked-out source for integration runs; do not silently test stale local binaries. Cache dependencies without masking source changes.
-   - Upload logs, semantic results, lifecycle counts, baseline JSON, and screenshots even when a test fails. Use bounded execution time and clean up spawned processes.
-   - Retain existing fabric:verify and package build gates. A runner that lacks required graphics capability must be reported explicitly, not counted as a passing rendering test.
-
-Known-defect policy:
-- Stage 0 succeeds by making current behavior reproducible. It does not require implementing the zero-leak/atomic-publication guarantees assigned to later stages.
-- Assert the intended lifecycle invariant. For a defect confirmed in current code, keep an executing, narrowly identified expected-failure case with its observed signature and a linked explanation of the follow-up stage. Do not assert that leaking mappings or publishing speculative nodes is correct behavior.
-- An unexpected failure, changed failure signature, or unexpected pass must require review of that case. Avoid broad skips, catch-all error suppression, and continue-on-error for test jobs.
-- Unsupported renderer scenarios and infrastructure limitations must be reported separately from confirmed runtime defects.
-
-Scope and constraints:
-- Preserve Fabric, RxJS, ReactivePlusPlus, Yoga, Dear ImGui, and the existing public widget APIs. Modify the host/debug seams rather than generated renderer snapshots.
-- Keep runtime changes observational. Explicit destruction notifications, stale-event dropping, reverse mappings, ApplyCommit, commit batching/revisions, and invalidation scheduling belong to subsequent slices.
-- Do not implement durable replay, general locator/input automation, macOS support, new widgets/languages, package publishing, or a broad build-system refactor here.
-- Full map/canvas benchmarking, Electron/GPUIX comparative implementations, and ubx-monitor integration remain follow-up Stage 0/milestone coverage. Do not mark all of Stage 0 complete when only this PlotBar/Table slice is delivered.
-- Work from packages/dear-imgui/npm with its authoritative workspace lockfile and one React instance. Preserve the documented common peer boundary.
-- Use Visual Studio 2022 for Windows native builds and the documented Docker/Emscripten path for Wasm. Record separate results for software WebGPU adapters and hardware GPUs.
-
-Relevant implementation locations:
-- packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts
-- packages/dear-imgui/npm/common/src/lib/widgetRegistrationService.ts
-- packages/dear-imgui/npm/common/scripts/test-rn-fabric-host.ts
-- packages/dear-imgui/npm/node/src/lib/render.tsx
-- packages/dear-imgui/npm/node/src/xframes-node.cpp
-- packages/dear-imgui/npm/wasm/src/lib/ReactNativeWrapper.tsx
-- packages/dear-imgui/npm/wasm/scripts/browser-smoke.mjs
-- packages/dear-imgui/cpp/wasm/src/main.cpp
-- packages/dear-imgui/cpp/app/include/xframes.h
-- packages/dear-imgui/cpp/app/src/xframes.cpp
-- packages/dear-imgui/cpp/app/src/imgui_renderer.cpp
-- packages/dear-imgui/cpp/tests/xframes_test.cpp
-- packages/dear-imgui/npm/package.json
-- .github/workflows/ (create application-code workflows)
+Expected-failure migration:
+- Convert XF-LIFE-001/002/003/006/007/010 cleanup/identity cases into ordinary passing invariants as they are fixed. Update the runtime fixture and report tooling to accept fully passing cleanup runs instead of requiring known-leak status or hardcoded orphan counts.
+- Keep XF-LIFE-004/005/008/009 executing with narrow signatures and documented follow-up stages. Cleanup may change secondary counts; explain those changes while preserving the underlying publication/reparenting/abandonment assertions.
+- Ordinary unmount cleanup does not prove speculative nodes are never retained. Residual accumulation in an isolated abandoned-work case belongs in its remaining characterization, not in normal lifecycle stress acceptance.
+- Unexpected failures, unexplained signature changes, and unexpected passes require review. No broad skips, catch-all suppression, or continue-on-error test jobs.
 
 Validation and acceptance:
-- npm run fabric:verify, npm run build:common, npm run build:node, and npm run build:wasm pass from the npm workspace with the required native artifacts built first.
-- Development and production Fabric lifecycle scenarios run deterministically against the fake binding, with isolated state and actionable diagnostics.
-- Native tests exercise actual operation delivery and prove the diagnostic snapshots describe real state.
-- The same PlotBar/Table fixture runs through real Fabric and current-source native bindings on Node and Wasm, asserts populated/updated content, and captures rendered output.
-- The stress run reports bounded expected counts or precisely identified existing failures; known mapping accumulation is reproducible rather than hidden by resetting the runtime between cycles.
-- Baseline reports contain actual measured results, timing definitions, hardware/build metadata, and explicit limitations. Snapshot/screenshot presence is never the sole assertion.
-- CI configurations and local reproduction commands are included. Report which commands and platforms actually passed; workflow configuration alone is not evidence of a successful hosted run.
-- Update ROADMAP.md only for delivered subitems, and add a concise engineering record of results and known defects. Leave Stage 1 onward and remaining Stage 0 coverage planned.
+- From packages/dear-imgui/npm, pass fabric:verify, build:common, diagnostics:typecheck, test:lifecycle, build:node, and build:wasm with current-source native artifacts built first.
+- Run the complete native unit suite with VS2022 on Windows and on Linux. Run the real Node fixture on a validated OpenGL environment and the Wasm fixture through Docker/Emscripten and headless WebGPU; identify hardware/software adapters separately.
+- Pass both real 1,000-cycle cleanup runs and existing full-App Node/browser smokes. Validate representative lifecycle behavior with diagnostics disabled as well as enabled.
+- Preserve the 20/60/120 Hz streaming assertions and 100,000-row case. Collect three-repetition production results with optimized native builds and comparable fixture parameters; report material regressions against Stage 0 without making hardware-specific timings universal CI gates.
+- Update application CI to enforce passing cleanup invariants on its existing rendering runners, preserve extended/stress commands, and upload diagnostics on failures. Report which local and hosted checks actually ran.
+- Update ROADMAP.md only for delivered work and add a concise cleanup engineering record linking the historical baseline. Record resolved/remaining defect IDs, count deltas, notification/stale-target semantics, reproduction commands, and measured results.
+
+Scope and constraints:
+- Preserve Fabric, React 19.2.3, RN 0.87.0, RxJS, ReactivePlusPlus, Yoga, Dear ImGui, and public widget APIs. Modify owned host/binding seams rather than generated renderer snapshots.
+- Integrate cleanup into ordinary Node and Wasm wrappers, not only the harness. Keep direct native callers compatible when adding results or optional callbacks; avoid a new mandatory init argument without a compatibility path.
+- Keep individual-operation publication and rendering policy unchanged. Do not implement ApplyCommit, schema/revision machinery, commit batching, speculative staging, reparent-safe reachability, or invalidation scheduling here.
+- Do not sweep all currently unreachable nodes after every operation: that conflates prospective work and same-ID moves with accepted deletion before Stage 3 exists.
+- Preserve existing resource destructor behavior. General asynchronous resource/renderer shutdown redesign, new widgets, macOS support, publishing, CMake consolidation, and dependency-version upgrades are outside this slice.
+- Remaining Map/Canvas benchmarks, hardware WebGPU baselines, ubx-monitor integration, and Electron/GPUIX comparisons stay open. Ordinary cleanup does not complete Stage 0 or the Stages 0-4 milestone.
+- Use the authoritative npm workspace lockfile, supported VS2022 toolchain, and documented Docker Wasm build. Keep raw results and generated build artifacts out of source changes.
+
+Relevant implementation locations:
+- packages/dear-imgui/cpp/app/include/xframes.h
+- packages/dear-imgui/cpp/app/src/xframes.cpp
+- packages/dear-imgui/cpp/tests/xframes_test.cpp
+- packages/dear-imgui/npm/node/src/xframes-node.cpp
+- packages/dear-imgui/npm/node/src/lib/render.tsx
+- packages/dear-imgui/cpp/wasm/src/main.cpp
+- packages/dear-imgui/npm/wasm/src/lib/ReactNativeWrapper.tsx
+- packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts
+- packages/dear-imgui/npm/common/src/lib/widgetRegistrationService.ts
+- packages/dear-imgui/npm/common/src/lib/components/XFrames/
+- packages/dear-imgui/npm/diagnostics/
+- .github/workflows/application.yml
 
 Completion handoff:
-Summarize the observed lifecycle defects, baseline bottlenecks, and remaining coverage. Recommend the next cleanup slice using this evidence, identifying which failures additionally require atomic commit/reachability work. Preserve the new harness as the regression gate for that implementation.
+Summarize which cleanup invariants now pass, exact post-warm-up count deltas, and any remaining ordering limitations. Recommend the next Stage 2 transaction API slice, preserving Stage 3 expected failures as its subsequent integration gate.

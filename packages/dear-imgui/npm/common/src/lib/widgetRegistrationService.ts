@@ -3,12 +3,20 @@ import { v4 as uuidv4 } from "uuid";
 import { XFramesStyle } from "./stylesheet/xframes-style";
 import { PlotCandlestickDataItem } from "./components/XFrames/types";
 
+export type WidgetTarget = { readonly nativeId: number; alive: boolean; publicId?: string };
+type WidgetId = string | WidgetTarget | undefined;
+export type RegistrationKind = "table" | "map" | "widget";
+
 export class WidgetRegistrationService {
     private wasmModule: any;
     private tables: Set<string>;
     private maps: Set<string>;
     private fabricWidgetsMapping: Map<string, number>;
     private fonts: string[];
+    private nativeWidgets = new Map<number, WidgetTarget>();
+    private registrations = new Map<WidgetTarget, Map<RegistrationKind, Set<object>>>();
+    private droppedOperations = 0;
+    private disposed = false;
 
     constructor(wasmModule: any) {
         this.wasmModule = wasmModule;
@@ -26,7 +34,6 @@ export class WidgetRegistrationService {
         return this.fonts;
     }
 
-    // Copies scalar registration data on demand; no reverse mapping or cleanup policy.
     getDiagnostics() {
         return {
             mappings: [...this.fabricWidgetsMapping.entries()].map(([publicId, nativeId]) => ({
@@ -36,6 +43,11 @@ export class WidgetRegistrationService {
             mappingCount: this.fabricWidgetsMapping.size,
             tableCount: this.tables.size,
             mapCount: this.maps.size,
+            reverseMappingCount: [...this.nativeWidgets.values()].filter(target => target.publicId !== undefined).length,
+            nativeCount: this.nativeWidgets.size,
+            registrationCount: this.registrations.size,
+            droppedOperations: this.droppedOperations,
+            disposed: this.disposed,
         };
     }
 
@@ -47,12 +59,112 @@ export class WidgetRegistrationService {
         return uuidv4();
     }
 
-    linkWidgetIds(id: string, fabricId: number) {
-        this.fabricWidgetsMapping.set(id, fabricId);
+    createNativeTarget(nativeId: number) {
+        if (this.disposed) return;
+        if (!this.nativeWidgets.has(nativeId)) this.nativeWidgets.set(nativeId, { nativeId, alive: true });
     }
 
-    unlinkWidgetIds(id: string) {
-        this.fabricWidgetsMapping.delete(id);
+    linkWidgetIds(id: string, fabricId: number) {
+        // Direct binding users may link an already-created native widget without
+        // going through Fabric. Native liveness is the authority for that case.
+        if (!this.disposed && !this.nativeWidgets.has(fabricId) && this.wasmModule?.isElementAlive?.(fabricId)) {
+            this.createNativeTarget(fabricId);
+        }
+        const target = this.nativeWidgets.get(fabricId);
+        if (!target?.alive) return;
+        this.unlinkNativePublicId(target);
+        const previous = this.captureWidget(id);
+        if (previous) this.unlinkNativePublicId(previous);
+        target.publicId = id;
+        this.fabricWidgetsMapping.set(id, fabricId);
+        this.refreshRegistrationSets(target);
+    }
+
+    private unlinkNativePublicId(target: WidgetTarget) {
+        const id = target.publicId;
+        if (id !== undefined && this.fabricWidgetsMapping.get(id) === target.nativeId) {
+            this.fabricWidgetsMapping.delete(id);
+            this.tables.delete(id);
+            this.maps.delete(id);
+        }
+        target.publicId = undefined;
+    }
+
+    unlinkWidgetIds(id: string, owner = this.captureWidget(id)) {
+        if (owner && owner.publicId === id) this.unlinkNativePublicId(owner);
+    }
+
+    setPublicId(nativeId: number, id: unknown) {
+        const target = this.nativeWidgets.get(nativeId);
+        if (!target) return;
+        if (typeof id === "string") this.linkWidgetIds(id, nativeId);
+        else this.unlinkNativePublicId(target);
+    }
+
+    releaseNativeTarget(nativeId: number) {
+        const target = this.nativeWidgets.get(nativeId);
+        if (!target) return;
+        target.alive = false;
+        this.unlinkNativePublicId(target);
+        this.registrations.delete(target);
+        this.nativeWidgets.delete(nativeId);
+    }
+
+    captureWidget(id: string): WidgetTarget | undefined {
+        const nativeId = this.fabricWidgetsMapping.get(id);
+        return nativeId === undefined ? undefined : this.nativeWidgets.get(nativeId);
+    }
+
+    private resolveTarget(id: WidgetId) {
+        const target = typeof id === "string" ? this.captureWidget(id) : id;
+        if (target?.alive && this.nativeWidgets.get(target.nativeId) === target && !this.disposed) {
+            if (!this.wasmModule.isElementAlive || this.wasmModule.isElementAlive(target.nativeId)) return target;
+            this.releaseNativeTarget(target.nativeId);
+        }
+        return undefined;
+    }
+
+    private getNativeId(id: WidgetId) {
+        const target = this.resolveTarget(id);
+        if (!target) this.droppedOperations = Math.min(Number.MAX_SAFE_INTEGER, this.droppedOperations + 1);
+        return target?.nativeId;
+    }
+
+    private refreshRegistrationSets(target: WidgetTarget) {
+        const id = target.publicId;
+        if (id === undefined || this.fabricWidgetsMapping.get(id) !== target.nativeId) return;
+        const kinds = this.registrations.get(target);
+        for (const [kind, set] of [["table", this.tables], ["map", this.maps]] as const) {
+            if (kinds?.get(kind)?.size) set.add(id);
+            else set.delete(id);
+        }
+    }
+
+    // A lease owns only this setup. Strict Mode and delayed cleanup can release an
+    // earlier lease without changing a later setup or a rebound public ID.
+    registerWidget(id: WidgetId, kind: RegistrationKind = "widget"): () => void {
+        const target = this.resolveTarget(id);
+        if (!target) return () => {};
+        const kinds = this.registrations.get(target) ?? new Map<RegistrationKind, Set<object>>();
+        const owners = kinds.get(kind) ?? new Set<object>();
+        const owner = {};
+        owners.add(owner);
+        kinds.set(kind, owners);
+        this.registrations.set(target, kinds);
+        this.refreshRegistrationSets(target);
+        return () => {
+            owners.delete(owner);
+            if (!owners.size && kinds.get(kind) === owners) kinds.delete(kind);
+            if (!kinds.size && this.registrations.get(target) === kinds) this.registrations.delete(target);
+            this.refreshRegistrationSets(target);
+        };
+    }
+
+    destroy() {
+        this.disposed = true;
+        for (const nativeId of this.nativeWidgets.keys()) this.releaseNativeTarget(nativeId);
+        this.wasmModule = undefined;
+        this.fonts = [];
     }
 
     setDebug(debug: boolean) {
@@ -63,444 +175,324 @@ export class WidgetRegistrationService {
         this.wasmModule.showDebugWindow();
     }
 
-    registerTable(id: string) {
-        this.tables.add(id);
+    registerTable(id: WidgetId) {
+        return this.registerWidget(id, "table");
     }
 
-    unregisterTable(id: string) {
-        this.tables.delete(id);
-    }
-
-    registerMap(id: string) {
-        this.maps.add(id);
-    }
-
-    unregisterMap(id: string) {
-        this.maps.delete(id);
-    }
-
-    appendDataToTable(id: string, data: any[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
-        if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "appendData", data }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+    unregisterTable(id: WidgetId) {
+        const target = this.resolveTarget(id);
+        if (target) {
+            this.registrations.get(target)?.delete("table");
+            if (!this.registrations.get(target)?.size) this.registrations.delete(target);
+            this.refreshRegistrationSets(target);
         }
     }
 
-    setTableData(id: string, data: any[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
-        if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", data }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+    registerMap(id: WidgetId) {
+        return this.registerWidget(id, "map");
+    }
+
+    unregisterMap(id: WidgetId) {
+        const target = this.resolveTarget(id);
+        if (target) {
+            this.registrations.get(target)?.delete("map");
+            if (!this.registrations.get(target)?.size) this.registrations.delete(target);
+            this.refreshRegistrationSets(target);
         }
     }
 
-    appendDataToPlotLine(id: string, x: number, y: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendDataToTable(id: WidgetId, data: any[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "appendData", x, y }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "appendData", data }),
+            );
         }
     }
 
-    appendSeriesDataToPlotLine(id: string, seriesIndex: number, x: number, y: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setTableData(id: WidgetId, data: any[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "appendSeriesData", seriesIndex, x, y }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", data }),
+            );
         }
     }
 
-    setPlotLineData(id: string, series: { data: { x: number; y: number }[] }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendDataToPlotLine(id: WidgetId, x: number, y: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", series }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "appendData", x, y }),
+            );
         }
     }
 
-    setPlotLineAxesDecimalDigits(id: string, x: number, y: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendSeriesDataToPlotLine(id: WidgetId, seriesIndex: number, x: number, y: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setAxesDecimalDigits", x, y }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "appendSeriesData", seriesIndex, x, y }),
+            );
         }
     }
 
-    setPlotLineAutoAxisFitEnabled(id: string, enabled: boolean) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotLineData(id: WidgetId, series: { data: { x: number; y: number }[] }[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setAxesAutoFit", enabled }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", series }),
+            );
         }
     }
 
-    setPlotBarData(id: string, data: { x: number; y: number }[], tickLabels?: string[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotLineAxesDecimalDigits(id: WidgetId, x: number, y: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                const op: Record<string, unknown> = { op: "setData", data };
-                if (tickLabels) op.tickLabels = tickLabels;
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify(op),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setAxesDecimalDigits", x, y }),
+            );
         }
     }
 
-    setPlotBarSeriesData(id: string, seriesData: { data: { x: number; y: number }[]; tickLabels?: string[] }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotLineAutoAxisFitEnabled(id: WidgetId, enabled: boolean) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setSeriesData", series: seriesData }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setAxesAutoFit", enabled }),
+            );
         }
     }
 
-    appendPlotBarSeriesData(id: string, seriesIndex: number, x: number, y: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotBarData(id: WidgetId, data: { x: number; y: number }[], tickLabels?: string[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "appendSeriesData", seriesIndex, x, y }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            const op: Record<string, unknown> = { op: "setData", data };
+            if (tickLabels) op.tickLabels = tickLabels;
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify(op),
+            );
         }
     }
 
-    setPlotHeatmapData(id: string, rows: number, cols: number, values: number[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotBarSeriesData(id: WidgetId, seriesData: { data: { x: number; y: number }[]; tickLabels?: string[] }[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", rows, cols, values }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setSeriesData", series: seriesData }),
+            );
         }
     }
 
-    setPlotPieChartData(id: string, data: { label: string; value: number }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendPlotBarSeriesData(id: WidgetId, seriesIndex: number, x: number, y: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", data }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "appendSeriesData", seriesIndex, x, y }),
+            );
         }
     }
 
-    setPlotHistogramData(id: string, values: number[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotHeatmapData(id: WidgetId, rows: number, cols: number, values: number[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", data: values }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", rows, cols, values }),
+            );
         }
     }
 
-    appendDataToPlotHistogram(id: string, value: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotPieChartData(id: WidgetId, data: { label: string; value: number }[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "appendData", value }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", data }),
+            );
         }
     }
 
-    setPlotScatterData(id: string, data: { x: number; y: number }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotHistogramData(id: WidgetId, values: number[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", data }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", data: values }),
+            );
         }
     }
 
-    setPlotCandlestickData(id: string, data: PlotCandlestickDataItem[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendDataToPlotHistogram(id: WidgetId, value: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", data }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "appendData", value }),
+            );
+        }
+    }
+
+    setPlotScatterData(id: WidgetId, data: { x: number; y: number }[]) {
+        const fabricWidgetId = this.getNativeId(id);
+        if (fabricWidgetId !== undefined) {
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", data }),
+            );
+        }
+    }
+
+    setPlotCandlestickData(id: WidgetId, data: PlotCandlestickDataItem[]) {
+        const fabricWidgetId = this.getNativeId(id);
+        if (fabricWidgetId !== undefined) {
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", data }),
+            );
         }
     }
 
     // todo: 'merge'?
-    setPlotCandlestickAutoAxisFitEnabled(id: string, enabled: boolean) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setPlotCandlestickAutoAxisFitEnabled(id: WidgetId, enabled: boolean) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setAxesAutoFit", enabled }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setAxesAutoFit", enabled }),
+            );
         }
     }
 
-    resetPlotData(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    resetPlotData(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "resetData" }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "resetData" }),
+            );
         }
     }
 
-    reloadImage(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    reloadImage(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "reloadImage" }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "reloadImage" }),
+            );
         }
     }
 
-    renderMap(id: string, centerX: number, centerY: number, zoom: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    renderMap(id: WidgetId, centerX: number, centerY: number, zoom: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "render", centerX, centerY, zoom }),
-                );
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "render", centerX, centerY, zoom }),
+            );
         }
     }
 
-    prefetchMapTiles(id: string, minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    prefetchMapTiles(id: WidgetId, minLon: number, minLat: number, maxLon: number, maxLat: number, minZoom: number, maxZoom: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "prefetch", minLon, minLat, maxLon, maxLat, minZoom, maxZoom }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "prefetch", minLon, minLat, maxLon, maxLat, minZoom, maxZoom }),
+            );
         }
     }
 
-    setMapMarkers(id: string, markers: { lat: number; lon: number; color?: string; label?: string; radius?: number }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setMapMarkers(id: WidgetId, markers: { lat: number; lon: number; color?: string; label?: string; radius?: number }[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setMarkers", markers }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setMarkers", markers }),
+            );
         }
     }
 
-    clearMapMarkers(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    clearMapMarkers(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "clearMarkers" }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "clearMarkers" }),
+            );
         }
     }
 
-    setMapPolylines(id: string, polylines: { points: { lat: number; lon: number }[]; color?: string; thickness?: number }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setMapPolylines(id: WidgetId, polylines: { points: { lat: number; lon: number }[]; color?: string; thickness?: number }[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setPolylines", polylines }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setPolylines", polylines }),
+            );
         }
     }
 
-    clearMapPolylines(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    clearMapPolylines(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "clearPolylines" }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "clearPolylines" }),
+            );
         }
     }
 
-    setMapOverlays(id: string, overlays: { lat: number; lon: number; radiusMeters: number; radiusMinorMeters?: number; rotation?: number; fillColor?: string; strokeColor?: string; strokeThickness?: number }[]) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setMapOverlays(id: WidgetId, overlays: { lat: number; lon: number; radiusMeters: number; radiusMinorMeters?: number; rotation?: number; fillColor?: string; strokeColor?: string; strokeThickness?: number }[]) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setOverlays", overlays }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setOverlays", overlays }),
+            );
         }
     }
 
-    clearMapOverlays(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    clearMapOverlays(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "clearOverlays" }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "clearOverlays" }),
+            );
         }
     }
 
-    appendMapPolylinePoint(id: string, polylineIndex: number, lat: number, lon: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendMapPolylinePoint(id: WidgetId, polylineIndex: number, lat: number, lon: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "appendPolylinePoint", polylineIndex, lat, lon }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "appendPolylinePoint", polylineIndex, lat, lon }),
+            );
         }
     }
 
-    appendTextToClippedMultiLineTextRenderer(id: string, text: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    appendTextToClippedMultiLineTextRenderer(id: WidgetId, text: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.appendTextToClippedMultiLineTextRenderer(fabricWidgetId, text);
-            } catch (error) {
-                // todo: propagate this?
-                console.error(error);
-            }
+            this.wasmModule.appendTextToClippedMultiLineTextRenderer(fabricWidgetId, text);
         }
     }
 
-    setInputTextValue(id: string, value: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setInputTextValue(id: WidgetId, value: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
             this.wasmModule.elementInternalOp(
                 fabricWidgetId,
@@ -509,36 +501,28 @@ export class WidgetRegistrationService {
         }
     }
 
-    setColumnFilter(id: string, columnIndex: number, filterText: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setColumnFilter(id: WidgetId, columnIndex: number, filterText: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setColumnFilter", columnIndex, filterText }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setColumnFilter", columnIndex, filterText }),
+            );
         }
     }
 
-    clearTableFilters(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    clearTableFilters(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "clearFilters" }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "clearFilters" }),
+            );
         }
     }
 
-    setSliderValue(id: string, value: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setSliderValue(id: WidgetId, value: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
             this.wasmModule.elementInternalOp(
                 fabricWidgetId,
@@ -547,106 +531,78 @@ export class WidgetRegistrationService {
         }
     }
 
-    setCanvasScript(id: string, script: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setCanvasScript(id: WidgetId, script: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setScript", script }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setScript", script }),
+            );
         }
     }
 
-    setCanvasScriptFile(id: string, path: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setCanvasScriptFile(id: WidgetId, path: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setScriptFile", path }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setScriptFile", path }),
+            );
         }
     }
 
-    setCanvasData(id: string, data: any) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setCanvasData(id: WidgetId, data: any) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "setData", data }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "setData", data }),
+            );
         }
     }
 
-    clearCanvas(id: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    clearCanvas(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "clear" }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "clear" }),
+            );
         }
     }
 
-    loadCanvasTexture(id: string, textureId: string, source: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    loadCanvasTexture(id: WidgetId, textureId: string, source: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "loadTexture", textureId, source }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "loadTexture", textureId, source }),
+            );
         }
     }
 
-    unloadCanvasTexture(id: string, textureId: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    unloadCanvasTexture(id: WidgetId, textureId: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "unloadTexture", textureId }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "unloadTexture", textureId }),
+            );
         }
     }
 
-    reloadCanvasTexture(id: string, textureId: string, source: string) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    reloadCanvasTexture(id: WidgetId, textureId: string, source: string) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
-            try {
-                this.wasmModule.elementInternalOp(
-                    fabricWidgetId,
-                    JSON.stringify({ op: "reloadTexture", textureId, source }),
-                );
-            } catch (error) {
-                console.error(error);
-            }
+            this.wasmModule.elementInternalOp(
+                fabricWidgetId,
+                JSON.stringify({ op: "reloadTexture", textureId, source }),
+            );
         }
     }
 
-    setComboSelectedIndex(id: string, index: number) {
-        const fabricWidgetId = this.fabricWidgetsMapping.get(id);
+    setComboSelectedIndex(id: WidgetId, index: number) {
+        const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {
             this.wasmModule.elementInternalOp(
                 fabricWidgetId,

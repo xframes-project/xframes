@@ -1,10 +1,9 @@
 # Fabric lifecycle and streaming diagnostics
 
-This is the first Phase 12 Stage 0 slice. The same React PlotBar/Table fixture runs
-through the embedded Fabric renderer and either real native binding. It observes
-existing publication and cleanup behavior; it does not fix lifecycle defects.
-See the [engineering record](../../../../docs/engineering/fabric-baseline-2026-09.md)
-for results, expected failures, and the next cleanup slice.
+The shared React PlotBar/Table fixture runs through Fabric and both real native
+bindings. Normal lifecycle runs now require passing Stage 1 cleanup invariants.
+See the [cleanup record](../../../../docs/engineering/fabric-cleanup-2026-09.md)
+and the [historical Stage 0 baseline](../../../../docs/engineering/fabric-baseline-2026-09.md).
 
 ## Build from this checkout
 
@@ -112,11 +111,20 @@ subject cleanup, and a newer submitted frame. It captures a populated screenshot
 before streaming. Sleeps are only pacing/warm-up/idle intervals, not assertions.
 The typed Table native test invokes actual sorting/filtering during ImGui frames.
 
-Stress first removes the content subtree, then unmounts its root. This deliberately
-distinguishes working recursive subtree cleanup from broken container-0 cleanup.
-After the initial lifecycle warm-up it reports element, subject, Fiber and widget
-registration deltas without resetting the renderer. Native direct queue stress
-uses a real parent and separately proves its counts return to baseline.
+Stress alternates subtree removal followed by root unmount with keyed PlotBar
+replacement followed by direct populated-root unmount. Each mounted fixture must
+have 8 elements, 9 hierarchy entries, 2 internal subjects, 8 Fiber entries, 7
+forward/reverse public-ID bindings, and 2 widget registrations. Its events and
+imperative data updates must work. Every unmount must have zero elements,
+subjects, Fiber entries, public bindings, native target records and registrations.
+Container 0 retains exactly one empty hierarchy entry and has no Element/Yoga node.
+Count deltas from the empty post-warm-up baseline must all be zero. No renderer
+reset, GC, or process exit participates in these assertions.
+
+Both runtimes also create, update, dispatch events and destroy with diagnostics
+disabled, then enable snapshots to verify the result in a later frame. Browser
+runs additionally exercise the ordinary Wasm wrapper through a real DOM root:
+Strict Mode, updates, retained data, deferred events and populated unmount.
 
 Artifacts default to ignored `build/diagnostics/`: bounded bridge traces, process
 logs, JSON semantic/timing results, and `fixture.png`. Browser JSON wraps the
@@ -132,6 +140,38 @@ known defect signature. XPASS, a changed signature, timeout, or any unexpected
 assertion fails the run. The C++ same-ID reparent characterization avoids drawing
 a known dangling hierarchy and is distinct from React's cross-parent remount.
 No crash-prone case runs inside the shared rendering process.
+
+The remaining executing characterizations are XF-LIFE-004 (early publication),
+005 (same-ID reparent destruction), 008 (incomplete cross-parent clone staging)
+and 009 (abandoned Suspense work). Ordinary runtime reports use `status: passed`;
+report tooling still accepts historical Stage 0 reports for comparison.
+
+## Lifetime ordering
+
+`setChildren(id, childrenJson)` returns a JSON array of actual destroyed native
+IDs in both Node and Wasm. The current ReactivePlusPlus subject applies on the
+calling thread before returning. IDs include descendants in destruction order;
+each actual element destruction appears once. Results are created under tree
+locks and returned only after those locks are released. Existing direct callers
+can ignore the added return value; no initialization callback was added.
+
+The adapter consumes each result synchronously. React's render completion callback
+therefore follows native deletion and JS mapping cleanup for that work; a later
+observed frame proves rendering has caught up. Independent native event queues
+are not assumed to share this completion order. Dispatch checks both the Fiber
+mapping and native liveness. Wasm handlers enqueue at most 256 events per drain
+and dispatch in a microtask after the native render callback returns, avoiding
+re-entry into native tree locks. Dead, unknown, disposed and overflow events are
+dropped and counted. The queue is cleared on bridge disposal.
+
+Component imperative handles capture a native lifetime token at layout setup.
+Deleted handles are no-ops with a saturating diagnostic counter; they never look
+up a replacement by public ID. String-based service calls intentionally resolve
+the current public binding. Ownership tokens and returned registration leases
+must be retained for delayed work/cleanup. Public-ID changes modify mappings only;
+effect cleanup releases its own registration lease, while native acknowledgment
+invalidates the lifetime. Strict Mode setup/cleanup/setup preserves live handles.
+Unrelated serialization and native errors propagate normally.
 
 ## Measurement contract
 
@@ -155,6 +195,9 @@ No crash-prone case runs inside the shared rendering process.
   truncation. They exclude numeric arguments, native allocations and transport
   framing. Complete-root enter/exit records observe publication order; they are
   not native operations or atomic transaction boundaries.
+- Operation counts include the Stage 1 `isElementAlive` boundary calls. Streaming
+  performs one liveness query per imperative operation; these numeric-only calls
+  add no serialized JSON bytes. Historical Stage 0 reports did not have them.
 - Node records process RSS and cumulative CPU; idle CPU is expressed as percent
   of one core. Browser total native/browser memory and CPU are unavailable from
   the page and explicitly null. A JS heap measurement would not substitute for RSS.

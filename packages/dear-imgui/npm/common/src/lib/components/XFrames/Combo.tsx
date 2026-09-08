@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type ComboImperativeHandle = {
@@ -21,14 +22,15 @@ export const Combo = forwardRef<ComboImperativeHandle, WidgetPropsMap["Combo"]>(
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
+        const idRef = useWidgetRegistration(widgetRegistratonService, "widget");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setSelectedIndex(index: number) {
-                        widgetRegistratonService.setComboSelectedIndex(idRef.current, index);
+                        widgetRegistratonService.setComboSelectedIndex(target, index);
                     },
                 };
             },

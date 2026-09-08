@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type TableImperativeHandle = {
@@ -31,27 +32,24 @@ export const Table = forwardRef<TableImperativeHandle, WidgetPropsMap["Table"]>(
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setTableData(data: any[]) {
-                        widgetRegistratonService.setTableData(idRef.current, data);
+                        widgetRegistratonService.setTableData(target, data);
                     },
                     appendDataToTable(data: any[]) {
-                        widgetRegistratonService.appendDataToTable(idRef.current, data);
+                        widgetRegistratonService.appendDataToTable(target, data);
                     },
                     setColumnFilter(columnIndex: number, filterText: string) {
-                        widgetRegistratonService.setColumnFilter(idRef.current, columnIndex, filterText);
+                        widgetRegistratonService.setColumnFilter(target, columnIndex, filterText);
                     },
                     clearFilters() {
-                        widgetRegistratonService.clearTableFilters(idRef.current);
+                        widgetRegistratonService.clearTableFilters(target);
                     },
                 };
             },

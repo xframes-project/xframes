@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type LuaCanvasImperativeHandle = {
@@ -15,32 +16,33 @@ export type LuaCanvasImperativeHandle = {
 export const LuaCanvas = forwardRef<LuaCanvasImperativeHandle, WidgetPropsMap["LuaCanvas"]>(
     ({ style, hoverStyle, activeStyle, disabledStyle, onScriptError }: WidgetPropsMap["LuaCanvas"], ref) => {
         const widgetRegistrationService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistrationService.generateId());
+        const idRef = useWidgetRegistration(widgetRegistrationService, "widget");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistrationService.captureWidget(idRef.current);
                 return {
                     setScript(script: string) {
-                        widgetRegistrationService.setCanvasScript(idRef.current, script);
+                        widgetRegistrationService.setCanvasScript(target, script);
                     },
                     setScriptFile(path: string) {
-                        widgetRegistrationService.setCanvasScriptFile(idRef.current, path);
+                        widgetRegistrationService.setCanvasScriptFile(target, path);
                     },
                     setData(data: any) {
-                        widgetRegistrationService.setCanvasData(idRef.current, data);
+                        widgetRegistrationService.setCanvasData(target, data);
                     },
                     clear() {
-                        widgetRegistrationService.clearCanvas(idRef.current);
+                        widgetRegistrationService.clearCanvas(target);
                     },
                     loadTexture(textureId: string, source: string) {
-                        widgetRegistrationService.loadCanvasTexture(idRef.current, textureId, source);
+                        widgetRegistrationService.loadCanvasTexture(target, textureId, source);
                     },
                     unloadTexture(textureId: string) {
-                        widgetRegistrationService.unloadCanvasTexture(idRef.current, textureId);
+                        widgetRegistrationService.unloadCanvasTexture(target, textureId);
                     },
                     reloadTexture(textureId: string, source: string) {
-                        widgetRegistrationService.reloadCanvasTexture(idRef.current, textureId, source);
+                        widgetRegistrationService.reloadCanvasTexture(target, textureId, source);
                     },
                 };
             },

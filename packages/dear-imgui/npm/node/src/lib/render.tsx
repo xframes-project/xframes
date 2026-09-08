@@ -200,6 +200,8 @@ export const render = (
     onPrefetchProgress,
     onScriptError,
     onBeforeExit: () => {
+      flag = false;
+      ReactNativePrivateInterface.nativeFabricUIManager.destroy();
       process.exit(0);
     },
   });
@@ -215,4 +217,14 @@ export const render = (
   (function keepProcessRunning() {
     setTimeout(() => flag && keepProcessRunning(), 1000);
   })();
+
+  // Resolves after native destruction acknowledgment and JS bridge teardown.
+  return () => new Promise<void>((resolve) => {
+    ReactFabric.render(null, 0, () => {
+      flag = false;
+      ReactFabric.stopSurface(0);
+      ReactNativePrivateInterface.nativeFabricUIManager.destroy();
+      resolve();
+    }, 1, undefined);
+  });
 };

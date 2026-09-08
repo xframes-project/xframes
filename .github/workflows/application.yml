@@ -110,7 +110,7 @@ jobs:
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           XFRAMES_TOOLCHAIN: GCC / Ubuntu 24.04 (see build logs)
-        run: xvfb-run -a npm run diagnostics:node -- --baseline
+        run: xvfb-run -a npm run diagnostics:node -- --baseline --stress
       - name: Preserve full-App Node smoke
         if: runner.os == 'Linux'
         env:
@@ -161,7 +161,7 @@ jobs:
         env:
           XFRAMES_BROWSER: /usr/bin/google-chrome
           XFRAMES_WEBGPU_ADAPTER: swiftshader
-        run: npm run diagnostics:wasm -- --baseline
+        run: npm run diagnostics:wasm -- --baseline --stress
       - name: Preserve full-App browser smoke
         env:
           XFRAMES_BROWSER: /usr/bin/google-chrome

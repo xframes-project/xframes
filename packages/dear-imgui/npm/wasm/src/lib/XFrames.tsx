@@ -9,7 +9,7 @@ import {
   components,
   useXFramesFonts,
   attachSubComponents,
-  ReactNativePrivateInterface,
+  createReactNativeHost,
 } from "@xframes/common";
 import { ReactNativeWrapper } from "./ReactNativeWrapper";
 import { GetWasmModule, MainModule, WasmExitStatus } from "./wasm-app-types";
@@ -39,7 +39,8 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
 
   const canvasId = useMemo(() => `canvas-${uuidv4()}`, []);
 
-  const { eventHandlers } = useXFramesWasm(ReactNativePrivateInterface);
+  const host = useMemo(() => createReactNativeHost(), []);
+  const { eventHandlers } = useXFramesWasm(host);
   const fonts = useXFramesFonts(fontDefs);
 
   useEffect(() => {
@@ -85,17 +86,9 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
         load();
       }
 
-      return () => {
-        if (wasmModule) {
-          try {
-            wasmModule.exit();
-          } catch (error) {
-            if ((error as WasmExitStatus).status !== 0) {
-              // TODO: report error?
-            }
-          }
-        }
-      };
+      // ReactNativeWrapper exits the module after populated-root destruction and
+      // bridge cleanup. Parent effect cleanup runs before that async Fabric work.
+      return () => {};
     } else {
       return () => {};
     }
@@ -144,7 +137,13 @@ export const MainComponent: React.ComponentType<MainComponentProps> = ({
   return (
     <>
       {wasmModule && (
-        <ReactNativeWrapper wasmModule={wasmModule}>
+        <ReactNativeWrapper wasmModule={wasmModule} host={host} onUnmount={() => {
+          try {
+            wasmModule.exit();
+          } catch (error) {
+            if ((error as WasmExitStatus).status !== 0) throw error;
+          }
+        }}>
           {children}
         </ReactNativeWrapper>
       )}

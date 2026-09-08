@@ -92,6 +92,10 @@ protected:
     void DirectRemoveElement(int id) {
         xf->RemoveElement(id);
     }
+
+    auto CopyInternalSubject(int id) {
+        return xf->m_elementInternalOpsSubject.at(id);
+    }
 };
 
 // --- RemoveElement tests ---
@@ -266,9 +270,8 @@ TEST_F(XFramesTest, SetChildren_IdenticalList) {
 
 // These tests use the real serialized subject handlers and real ImGui/ImPlot
 // frame construction. No window, graphics driver, or fake native tree is involved.
-class XFramesQueueTest : public ::testing::Test {
+class XFramesQueueTest : public XFramesTest {
 protected:
-    std::unique_ptr<XFrames> xf;
     std::unique_ptr<ImPlotRenderer> renderer;
 
     void SetUp() override {
@@ -432,7 +435,7 @@ TEST_F(XFramesQueueTest, TableRenderAppliesNumericSortAndTypedFilters) {
     EXPECT_EQ(Node(xf->GetDiagnosticsFrame(), 2)["state"]["filteredCount"], 1);
 }
 
-TEST_F(XFramesQueueTest, CharacterizeContainerUnmountAndSameIdReparentDefects) {
+TEST_F(XFramesQueueTest, CharacterizeSameIdReparentDefect) {
     Create({{"id", 2}, {"type", "node"}});
     Create({{"id", 3}, {"type", "node"}});
     Create({{"id", 4}, {"type", "plot-bar"}});
@@ -449,9 +452,89 @@ TEST_F(XFramesQueueTest, CharacterizeContainerUnmountAndSameIdReparentDefects) {
     EXPECT_EQ(Node(state, 3)["yogaChildren"], json::array());
     xf->QueueSetChildren(0, {});
     state = xf->GetDiagnosticsState();
-    const bool unmountInvariant = state["elementCount"] == 0;
-    EXPECT_FALSE(unmountInvariant) << "XPASS XF-LIFE-010: remove the expected failure after container cleanup is fixed";
-    EXPECT_EQ(state["elementCount"], 3) << "XF-LIFE-010 signature changed";
-    EXPECT_EQ(state["unreachableCount"], 3);
-    RecordProperty("known_defects", "XF-LIFE-005,XF-LIFE-010");
+    EXPECT_EQ(state["elementCount"], 0);
+    EXPECT_EQ(state["unreachableCount"], 0);
+    RecordProperty("known_defects", "XF-LIFE-005");
+}
+
+TEST_F(XFramesQueueTest, VirtualContainerAcknowledgesDeepDestructionAndPreservesSurvivors) {
+    Create({{"id", 2}, {"type", "node"}, {"root", true}});
+    Create({{"id", 3}, {"type", "plot-bar"}});
+    Create({{"id", 4}, {"type", "di-table"}, {"columns", json::array({{{"fieldId", "value"}, {"heading", "Value"}, {"type", "number"}}})}});
+    xf->QueueSetChildren(1, {3});
+    xf->QueueSetChildren(2, {4});
+    EXPECT_TRUE(xf->QueueSetChildren(0, {1, 2}).empty());
+    Internal(4, {{"op", "setData"}, {"data", json::array({{{"value", 42}}})}});
+    const auto survivor = Node(xf->GetDiagnosticsState(), 4);
+    EXPECT_TRUE(xf->QueueSetChildren(0, {2, 1}).empty());
+    EXPECT_EQ(xf->QueueSetChildren(0, {2}), (std::vector<int>{3, 1}));
+    const auto state = xf->GetDiagnosticsState();
+    EXPECT_EQ(state["elementCount"], 2);
+    EXPECT_EQ(state["hierarchyCount"], 3);
+    EXPECT_EQ(state["internalSubjectCount"], 1);
+    EXPECT_EQ(Node(state, 4)["state"], survivor["state"]);
+    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({4}));
+    EXPECT_EQ(Node(state, 4)["yogaParent"], 2);
+    EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{4, 2}));
+    EXPECT_TRUE(xf->QueueSetChildren(0, {}).empty());
+    EXPECT_TRUE(xf->QueueSetChildren(2, {}).empty());
+    EXPECT_TRUE(xf->GetChildren(2).empty()); // a stale read must not recreate metadata
+    Internal(4, {{"op", "setData"}, {"data", json::array()}});
+    EXPECT_FALSE(xf->IsElementAlive(4));
+    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 0);
+    EXPECT_EQ(xf->GetDiagnosticsState()["hierarchyCount"], 1);
+    EXPECT_EQ(xf->GetDiagnosticsState()["internalSubjectCount"], 0);
+}
+
+TEST_F(XFramesQueueTest, ThousandPopulatedRootUnmountsReturnExactLifetimeResults) {
+    EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{1}));
+    const auto baseline = xf->GetDiagnosticsState();
+    for (int cycle = 0; cycle < 1000; ++cycle) {
+        Create({{"id", 1}, {"type", "node"}, {"root", true}});
+        Create({{"id", 2}, {"type", "plot-bar"}});
+        Create({{"id", 3}, {"type", "di-table"}, {"columns", json::array({{{"fieldId", "value"}, {"heading", "Value"}, {"type", "number"}}})}});
+        xf->QueueSetChildren(1, {2, 3});
+        xf->QueueSetChildren(0, {1});
+        Internal(2, {{"op", "appendData"}, {"x", cycle}, {"y", 7}});
+        ASSERT_TRUE(xf->IsElementAlive(2));
+        ASSERT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"]["series"][0]["lastX"], cycle);
+        if (cycle % 2 == 0) {
+            ASSERT_EQ(xf->QueueSetChildren(1, {}), (std::vector<int>{2, 3}));
+            ASSERT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{1}));
+        } else {
+            ASSERT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{2, 3, 1}));
+        }
+        const auto state = xf->GetDiagnosticsState();
+        ASSERT_EQ(state["elementCount"], baseline["elementCount"]) << cycle;
+        ASSERT_EQ(state["hierarchyCount"], baseline["hierarchyCount"]) << cycle;
+        ASSERT_EQ(state["internalSubjectCount"], baseline["internalSubjectCount"]) << cycle;
+        ASSERT_TRUE(xf->QueueSetChildren(0, {}).empty());
+    }
+}
+
+TEST_F(XFramesQueueTest, DelayedSubjectDeliveryCannotMutateAReusedNativeId) {
+    Create({{"id", 2}, {"type", "plot-bar"}});
+    xf->QueueSetChildren(1, {2});
+    auto oldSubject = CopyInternalSubject(2);
+    oldSubject.get_observer().on_next({{"op", "appendData"}, {"x", 1}, {"y", 2}});
+    ASSERT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"]["series"][0]["lastX"], 1);
+    ASSERT_EQ(xf->QueueSetChildren(1, {}), (std::vector<int>{2}));
+    Create({{"id", 2}, {"type", "plot-bar"}});
+    xf->QueueSetChildren(1, {2});
+    Internal(2, {{"op", "appendData"}, {"x", 10}, {"y", 20}});
+    oldSubject.get_observer().on_next({{"op", "appendData"}, {"x", 99}, {"y", 99}});
+    const auto state = xf->GetDiagnosticsState();
+    EXPECT_EQ(Node(state, 2)["state"]["series"][0]["lastX"], 10);
+    EXPECT_EQ(Node(state, 2)["state"]["series"][0]["count"], 1);
+    EXPECT_EQ(state["internalSubjectCount"], 1);
+}
+
+TEST_F(XFramesQueueTest, DestructionResultsReportEachActualElementOnlyOnce) {
+    Create({{"id", 2}, {"type", "plot-bar"}});
+    xf->QueueSetChildren(1, {2});
+    // Virtual roots have no Yoga owner, allowing this duplicate incoming list.
+    xf->QueueSetChildren(0, {1, 1});
+    EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{2, 1}));
+    EXPECT_TRUE(xf->QueueSetChildren(0, {}).empty());
+    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 0);
 }

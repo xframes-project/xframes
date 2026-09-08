@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type InputTextImperativeHandle = {
@@ -9,14 +10,15 @@ export type InputTextImperativeHandle = {
 export const InputText = forwardRef<InputTextImperativeHandle, WidgetPropsMap["InputText"]>(
     ({ onChange, defaultValue, hint, multiline, password, readOnly, numericOnly, style, hoverStyle, activeStyle, disabledStyle }, ref) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
+        const idRef = useWidgetRegistration(widgetRegistratonService, "widget");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setValue(value: string) {
-                        widgetRegistratonService.setInputTextValue(idRef.current, value);
+                        widgetRegistratonService.setInputTextValue(target, value);
                     },
                 };
             },

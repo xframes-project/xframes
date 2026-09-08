@@ -1,0 +1,5 @@
+# Generated Fabric files are compared byte-for-byte with the extractor output.
+packages/dear-imgui/npm/common/src/lib/react-native/ReactFabric-*.js text eol=lf
+packages/dear-imgui/npm/common/src/lib/react-native/ReactNativeAttributePayload.js text eol=lf
+packages/dear-imgui/npm/common/src/lib/react-native/flattenStyle.js text eol=lf
+packages/dear-imgui/npm/common/src/lib/react-native/deepDiffer.js text eol=lf

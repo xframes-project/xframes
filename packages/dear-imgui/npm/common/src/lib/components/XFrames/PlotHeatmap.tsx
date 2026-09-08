@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type PlotHeatmapImperativeHandle = {
@@ -28,19 +29,16 @@ export const PlotHeatmap = forwardRef<PlotHeatmapImperativeHandle, WidgetPropsMa
         ref,
     ) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
-
-        useEffect(() => {
-            widgetRegistratonService.registerTable(idRef.current);
-        }, [widgetRegistratonService]);
+        const idRef = useWidgetRegistration(widgetRegistratonService, "table");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setData: (rows: number, cols: number, values: number[]) => {
                         widgetRegistratonService.setPlotHeatmapData(
-                            idRef.current,
+                            target,
                             rows,
                             cols,
                             values,
@@ -48,12 +46,12 @@ export const PlotHeatmap = forwardRef<PlotHeatmapImperativeHandle, WidgetPropsMa
                     },
                     setAxesAutoFit: (enabled: boolean) => {
                         widgetRegistratonService.setPlotLineAutoAxisFitEnabled(
-                            idRef.current,
+                            target,
                             enabled,
                         );
                     },
                     resetData: () => {
-                        widgetRegistratonService.resetPlotData(idRef.current);
+                        widgetRegistratonService.resetPlotData(target);
                     },
                 };
             },

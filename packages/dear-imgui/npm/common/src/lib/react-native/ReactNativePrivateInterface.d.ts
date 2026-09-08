@@ -16,7 +16,10 @@ declare const ReactNativePrivateInterface: {
     nativeFabricUIManager: {
         init(nativeModule: unknown, widgetRegistrationService: unknown): void;
         dispatchEvent(rootNodeId: number, topLevelType: string, nativeEvent: unknown): void;
+        enqueueEvent(rootNodeId: number, topLevelType: string, nativeEvent: unknown): void;
         unstable_getCurrentEventPriority(): number | null;
+        destroy(): void;
+        getDiagnostics(): { subscriptionClosed: boolean };
     };
 };
 

@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { WidgetPropsMap } from "./types";
+import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type SliderImperativeHandle = {
@@ -19,14 +20,15 @@ export const Slider = forwardRef<SliderImperativeHandle, WidgetPropsMap["Slider"
         disabledStyle,
     }, ref) => {
         const widgetRegistratonService = useWidgetRegistrationService();
-        const idRef = useRef(widgetRegistratonService.generateId());
+        const idRef = useWidgetRegistration(widgetRegistratonService, "widget");
 
         useImperativeHandle(
             ref,
             () => {
+                const target = widgetRegistratonService.captureWidget(idRef.current);
                 return {
                     setValue(value: number) {
-                        widgetRegistratonService.setSliderValue(idRef.current, value);
+                        widgetRegistratonService.setSliderValue(target, value);
                     },
                 };
             },

@@ -11,16 +11,18 @@ export const makeRows = (count: number, sequence = 0) => Array.from({ length: co
 }));
 export const makeHandles = () => ({ plot: React.createRef<PlotBarImperativeHandle>(), table: React.createRef<TableImperativeHandle>() });
 
-export function Fixture({ handles, reversed = false, visible = true, points = 128 }: {
+export function Fixture({ handles, reversed = false, visible = true, points = 128, replacement = false, onStationClick }: {
     handles: ReturnType<typeof makeHandles>; reversed?: boolean; visible?: boolean; points?: number;
+    replacement?: boolean; onStationClick?: () => void;
 }) {
     const stations = reversed ? ["B", "A"] : ["A", "B"];
     return React.createElement("node", { root: true, id: "fixture-root", style: { width: "100%", height: "100%", padding: { all: 12 } } },
         React.createElement("separator-text", { label: "XFrames Fabric lifecycle / streaming baseline" }),
         visible && React.createElement("node", { id: "content", style: { width: "100%", height: 630 } },
             React.createElement("node", { id: "stations", style: { flexDirection: "row", height: 40 } },
-                stations.map(station => React.createElement("di-button", { key: station, id: `station-${station}`, label: `Station ${station}`, style: { width: 130, height: 30 } }))),
+                stations.map(station => React.createElement("di-button", { key: station, id: `station-${station}`, label: `Station ${station}`, onClick: onStationClick, style: { width: 130, height: 30 } }))),
             React.createElement(components.PlotBar, { ref: handles.plot, dataPointsLimit: points, axisAutoFit: true,
+                key: replacement ? "plot-replacement" : "plot",
                 showLegend: true, series: [{ label: "Signal A" }, { label: "Signal B" }],
                 style: { width: 820, height: 240 } }),
             React.createElement(components.Table, { ref: handles.table, columns, clipRows: 10, filterable: true,

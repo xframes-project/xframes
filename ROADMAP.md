@@ -12,9 +12,9 @@ The strategic basis for this focus is documented in [XFrames and GPUIX: Technica
 
 ## Next Milestone — Runtime Reliability & Measured Streaming Performance (in progress)
 
-Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice now supplies executing lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stages 1–4 remain planned; the full Stage 0 benchmark coverage is not complete.
+Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 now adds explicit native destruction and lifetime cleanup, with passing 1,000-cycle Node and Wasm cleanup runs. Stages 2–4 remain planned; full Stage 0 benchmark coverage is not complete.
 
-See the [baseline and known-defect record](docs/engineering/fabric-baseline-2026-09.md) and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). Cleanup is the next implementation slice: address retained container roots, Fiber mappings, widget registrations, and stale callbacks/imperative targets. Keep abandoned-work and reparenting failures as regression gates for later atomic staging and reachability work. Local verification and configured hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
+See the [cleanup record](docs/engineering/fabric-cleanup-2026-09.md), [historical baseline](docs/engineering/fabric-baseline-2026-09.md), and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). The next slice is Stage 2's versioned transaction API. Abandoned-work and reparenting failures remain regression gates for Stage 3's atomic staging and reachability work. Local verification and hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
 
 The GPUIX assessment identifies bridge correctness, lifecycle discipline, automation, and performance evidence as gaps to close while concentrating product work on Plot, Table, Map, and Canvas. The August Fabric upgrade and screenshot smokes provide foundations for this work. End-to-end performance advantages still require measurement.
 
@@ -162,7 +162,7 @@ Implementation and verification record: [React Native Fabric Embedding](packages
 - [x] Add minimal screenshot and full-App Node smoke harnesses; verify the full App with development and production renderers
 - [x] Rebuild Wasm with Docker/Emscripten and add a headless WebGPU browser smoke harness with readiness, runtime-error checks, and screenshot output
 
-These checks cover embedding compatibility, initialization, and screenshot capture. The smoke harnesses still use fixed delays and lack comprehensive semantic widget assertions. Lifecycle stress tests, commit/frame synchronization, input automation, and application-code CI remain planned below.
+These checks cover embedding compatibility, initialization, and screenshot capture. The later Phase 12 harness adds semantic widget assertions, lifecycle stress, observable-frame checks and application-code CI. Comprehensive input automation and transaction/revision synchronization remain planned below.
 
 ### Release & Build Follow-Through (planned)
 
@@ -172,7 +172,7 @@ These checks cover embedding compatibility, initialization, and screenshot captu
 
 ---
 
-## Phase 12 — Fabric Runtime Hardening (Stage 0 in progress)
+## Phase 12 — Fabric Runtime Hardening (Stage 1 cleanup implemented; Stage 0 coverage incomplete)
 
 Detailed design: [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
 
@@ -198,12 +198,14 @@ Establish reproducible current behavior and measurements before changing runtime
 
 Initial cleanup can follow current native destruction. Final reparent-safe destruction depends on Stage 3's committed reachability calculation.
 
-- [ ] Add reverse native-ID/public-ID widget mappings
-- [ ] Drop and count events whose targets are no longer live
-- [ ] Return or emit destroyed IDs from native structural application
-- [ ] Include container-root destruction; current container-0 unmount leaves native roots unreachable
-- [ ] Remove destroyed IDs from `fiberNodesMap` and widget registrations idempotently
-- [ ] Convert the Stage 0 stress characterizations into passing cleanup invariants with zero count growth after warm-up
+- [x] Add reverse native-ID/public-ID widget mappings
+- [x] Drop and count events whose targets are no longer live
+- [x] Return or emit destroyed IDs from native structural application
+- [x] Include container-root destruction, including direct populated-root unmount and partial root removal
+- [x] Remove destroyed IDs from `fiberNodesMap` and widget registrations idempotently
+- [x] Convert the Stage 0 stress characterizations into passing cleanup invariants with zero count growth after warm-up
+
+Both current-source runtimes passed 1,000 cycles in one renderer, alternating subtree removal and keyed replacement/direct populated unmount. Native elements, hierarchy entries, subjects, Fiber entries, forward/reverse mappings and registrations all have zero post-warm-up growth. See the [cleanup record](docs/engineering/fabric-cleanup-2026-09.md) for ordering, remaining defects and the validation matrix. This does not establish speculative-work isolation or reparent-safe destruction.
 
 ### Stage 2 — Versioned Native Transaction API
 

@@ -246,6 +246,14 @@ The current software-adapter flags come from Chromium's official [WebGPU test co
 
 ## Known gaps and deliberate non-hacks
 
+The August verification below is historical. September's
+[Stage 1 cleanup record](../../../docs/engineering/fabric-cleanup-2026-09.md)
+documents explicit destruction results, mapping/registration cleanup, stale-target
+guards, wrapper teardown and passing 1,000-cycle Node/Wasm lifetime runs. The
+generated Fabric renderer snapshots and React/RN versions remain unchanged.
+Atomic publication, speculative-work isolation, reparent-safe reachability and
+render scheduling remain subsequent slices.
+
 - Fabric implementation files are private React Native internals. Hashes and AST invariants detect source drift, but runtime smokes are still mandatory after every upgrade.
 - Both development and production renderers are currently present in the `@xframes/common` CJS artifact (about 1.11 MB uncompressed). Runtime selection is correct, but CJS consumers may not eliminate the unused variant. Separate production/development entry points are a future size optimization, not a correctness blocker.
 - The existing Windows `@xframes/node` package rule copies and publishes all `build/Release/*.*` files. A dry-run tarball therefore includes build-only Janet bootstrap, import-library, and export files in addition to `xframes.node` and its runtime DLLs. Narrow that allowlist only after auditing every required runtime DLL; it is package-size/release hygiene debt, not a Fabric runtime blocker.

@@ -1,6 +1,7 @@
 import wasmData from "../wasm/src/lib/xframes.data";
 import { defaults, runRuntime, type RunOptions } from "./runtime";
 import { waitFor } from "./assertions";
+import { verifyWasmWrapper } from "./wasm-wrapper";
 
 declare const XFRAMES_DIAGNOSTICS_OPTIONS: Partial<RunOptions>;
 declare const XFRAMES_SOURCE_REVISION: string;
@@ -50,6 +51,7 @@ async function main() {
                 device: gpuAdapter.info.device, description: gpuAdapter.info.description } : null,
             readyMs, assets: "repository roboto-regular.ttf, size 16", display: "900x700 canvas", devicePixelRatio },
     });
+    report.wrapperLifecycle = await verifyWasmWrapper(native);
     state.report = report;
     state.status = "complete";
     console.log(`Wasm diagnostics: ${report.status}`);

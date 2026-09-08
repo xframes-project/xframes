@@ -748,7 +748,8 @@ interface EmbindModule {
   setElement(_0: EmbindString): void;
   patchElement(_0: number, _1: EmbindString): void;
   elementInternalOp(_0: number, _1: EmbindString): void;
-  setChildren(_0: number, _1: EmbindString): void;
+  setChildren(_0: number, _1: EmbindString): string;
+  isElementAlive(_0: number): boolean;
   appendChild(_0: number, _1: number): void;
   getChildren(_0: number): string;
   appendDataToTable(_0: number, _1: EmbindString): void;
