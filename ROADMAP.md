@@ -12,9 +12,9 @@ The strategic basis for this focus is documented in [XFrames and GPUIX: Technica
 
 ## Next Milestone — Runtime Reliability & Measured Streaming Performance (in progress)
 
-Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 now adds explicit native destruction and lifetime cleanup, with passing 1,000-cycle Node and Wasm cleanup runs. Stages 2–4 remain planned; full Stage 0 benchmark coverage is not complete.
+Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 adds explicit native destruction and lifetime cleanup. Stage 2 now supplies a shared versioned native transaction path and migrated compatibility exports, with passing parity and 1,000-cycle Node/Wasm cleanup runs. Stages 3–4 remain planned; full Stage 0 benchmark coverage is not complete.
 
-See the [cleanup record](docs/engineering/fabric-cleanup-2026-09.md), [historical baseline](docs/engineering/fabric-baseline-2026-09.md), and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). The next slice is Stage 2's versioned transaction API. Abandoned-work and reparenting failures remain regression gates for Stage 3's atomic staging and reachability work. Local verification and hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
+See the [transaction record](docs/engineering/fabric-transactions-2026-09.md), [cleanup record](docs/engineering/fabric-cleanup-2026-09.md), [historical baseline](docs/engineering/fabric-baseline-2026-09.md), and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). The next slice is Stage 3's prospective Fabric staging and one atomic transaction per `completeRoot`. Abandoned-work and reparenting failures remain its regression gates. Local verification and hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
 
 The GPUIX assessment identifies bridge correctness, lifecycle discipline, automation, and performance evidence as gaps to close while concentrating product work on Plot, Table, Map, and Canvas. The August Fabric upgrade and screenshot smokes provide foundations for this work. End-to-end performance advantages still require measurement.
 
@@ -209,11 +209,13 @@ Both current-source runtimes passed 1,000 cycles in one renderer, alternating su
 
 ### Stage 2 — Versioned Native Transaction API
 
-- [ ] Define commit schema version 1, sequence, and surface identifiers
-- [ ] Add a common `ApplyCommit` path for Node and Wasm
-- [ ] Make current single-operation exports delegate to one-operation transactions during migration
-- [ ] Parse and validate the complete transaction before published state changes
-- [ ] Increment one native revision per successfully applied transaction
+- [x] Define commit schema version 1, sequence, and surface identifiers
+- [x] Add a common `ApplyCommit` path for Node and Wasm
+- [x] Make current single-operation exports delegate to one-operation transactions during migration
+- [x] Parse and validate the complete transaction before published state changes
+- [x] Increment one native revision per successfully applied transaction
+
+Delivered on surface 0 with native uint64 sequence/revision strings and explicit destroyed IDs. Full preflight prevents invalid prefixes from mutating live state; successful multi-operation batches retain per-operation visibility boundaries. All 343 native tests passed on Windows/Linux, 53 actual-binding transaction results matched, and both runtimes passed 1,000 cleanup cycles. Production overhead, remaining regressions, compatibility exceptions and current hosted status are in the [transaction record](docs/engineering/fabric-transactions-2026-09.md). These revisions are not Fabric commit revisions or frame guarantees; Stage 3's four known defect gates remain active.
 
 ### Stage 3 — One Atomic Batch per Fabric Commit
 

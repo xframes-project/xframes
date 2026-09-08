@@ -352,6 +352,32 @@ async function main() {
     assert.equal(bridge.manager.getDiagnostics().fiberCount, 0);
     assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
   });
+  await scenario("compatibility transactions and direct destruction share ordering and cleanup", async (bridge, fake) => {
+    await bridge.render(tree(["transaction-owner"]));
+    const initial = JSON.parse(fake.binding.getCommitState());
+    const structuralCalls = bridge.observer.snapshot().counts;
+    assert.equal(BigInt(initial.nativeRevision), BigInt(["setElement", "patchElement", "appendChild", "setChildren"]
+        .reduce((sum, key) => sum + (structuralCalls[key] ?? 0), 0)));
+    const owner = bridge.registrations.captureWidget("transaction-owner")!;
+    const result = bridge.manager.applyCommit({ schemaVersion: 1, surfaceId: 0, operations: [
+        { op: "patch", id: owner.nativeId, props: { label: "patched" } },
+        { op: "setChildren", parentId: 0, childrenIds: [] },
+    ] });
+    assert.equal(result.status, "applied");
+    assert.equal(BigInt(result.nativeRevision), BigInt(initial.nativeRevision) + 1n);
+    assert.ok(result.destroyedIds.includes(owner.nativeId));
+    assert.equal(owner.alive, false);
+    assert.equal(bridge.manager.getDiagnostics().fiberCount, 0);
+    assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
+    const rejected = bridge.manager.applyCommit({ schemaVersion: 1, surfaceId: 0, operations: [
+        { op: "create", id: 100001, elementType: "node", props: {} },
+        { op: "patch", id: 100002, props: {} },
+    ] });
+    assert.equal(rejected.status, "rejected");
+    assert.equal(rejected.nativeRevision, result.nativeRevision);
+    assert.equal(fake.nodes.has(100001), false);
+    await bridge.render(null);
+  });
   console.log(`${mode}: ${results.length} bridge lifecycle scenarios passed; ${results.reduce((sum, result) => sum + result.checks.length, 0)} known defects reproduced`);
 }
 

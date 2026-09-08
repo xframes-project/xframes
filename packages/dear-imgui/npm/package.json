@@ -8,6 +8,7 @@
     ],
     "scripts": {
         "test:lifecycle": "node diagnostics/run.mjs bridge",
+        "test:transactions:parity": "node diagnostics/transaction-parity.mjs",
         "diagnostics:node": "node diagnostics/run.mjs node",
         "diagnostics:wasm": "node diagnostics/run.mjs wasm",
         "diagnostics:typecheck": "npm run typecheck:diagnostics --workspace @xframes/common",

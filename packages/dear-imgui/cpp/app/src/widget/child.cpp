@@ -20,10 +20,10 @@ void Child::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 void Child::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
-    if (widgetPatchDef["width"].is_string()) {
+    if (widgetPatchDef.contains("width") && widgetPatchDef["width"].is_number()) {
         m_width = widgetPatchDef["width"].template get<float>();
     }
-    if (widgetPatchDef["height"].is_string()) {
+    if (widgetPatchDef.contains("height") && widgetPatchDef["height"].is_number()) {
         m_height = widgetPatchDef["height"].template get<float>();
     }
 };

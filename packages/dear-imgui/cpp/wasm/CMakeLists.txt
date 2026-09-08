@@ -125,6 +125,9 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/widget/tree_node.cpp
     ${XFRAMES_BASE_PATH}/src/widget/window.cpp
     ${XFRAMES_BASE_PATH}/src/xframes.cpp
+    ${XFRAMES_BASE_PATH}/src/commit.cpp
+    ${XFRAMES_BASE_PATH}/src/commit_props.cpp
+    ${XFRAMES_BASE_PATH}/src/xframes_commit.cpp
     ${XFRAMES_BASE_PATH}/src/imgui_renderer.cpp
     ${XFRAMES_BASE_PATH}/src/implot_renderer.cpp
 )

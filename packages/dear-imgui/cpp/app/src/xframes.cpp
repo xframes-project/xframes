@@ -92,9 +92,12 @@ XFrames::XFrames(
 
     SetUpElementCreatorFunctions();
     SetUpFloatFormatChars();
+    SetUpSubjects();
 }
 
 XFrames::~XFrames() {
+    m_commitSubscription.dispose();
+    m_elementOpSubject.get_disposable().dispose();
     // Break all Yoga parent-child links before m_elements map destructs.
     // unordered_map destroys entries in arbitrary order; if a parent is freed
     // before its child, YGNodeFree(child) calls owner->removeChild() on the
@@ -211,33 +214,22 @@ void XFrames::CompleteDiagnosticsFrame() {
 }
 
 void XFrames::SetUpSubjects() {
-    auto handler = [this](const ElementOpDef& elementOpDef) {
-        switch(elementOpDef.op) {
-            case OpCreateElement: {
-                CreateElement(elementOpDef.data);
-                break;
+    // Idempotent: Init/tests must never reset a live instance's ordering state.
+    const std::lock_guard<std::mutex> lock(m_commitMutex);
+    if (m_subjectsReady) return;
+    m_elementOpSubject = rpp::subjects::serialized_replay_subject<std::weak_ptr<CommitRequest>>{1};
+    m_elementOpSubject.get_observable() | rpp::ops::subscribe(m_commitSubscription,
+        [this](const std::weak_ptr<CommitRequest>& record) {
+            if (auto request = record.lock()) {
+                // RPP must not convert an application exception into a terminated
+                // subscription. Transfer it back to this synchronous caller instead.
+                try { request->result = ApplyCommitOperations(request->batch); }
+                catch (...) { request->exception = std::current_exception(); }
+                request->completed = true;
             }
-            case OpPatchElement: {
-                PatchElement(elementOpDef.data);
-                break;
-            }
-            case OpSetChildren: {
-                auto destroyed = SetChildren(elementOpDef.data);
-                if (auto result = elementOpDef.destroyedIds.lock()) *result = std::move(destroyed);
-                break;
-            }
-            case OpAppendChild: {
-                AppendChild(elementOpDef.data);
-                break;
-            }
-
-            default: break;
-        }
-    };
-
-    m_elementOpSubject = rpp::subjects::serialized_replay_subject<ElementOpDef>{100};
-    m_elementOpSubject.get_observable() | rpp::ops::subscribe(handler);
-};
+        });
+    m_subjectsReady = true;
+}
 
 void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["group"] = &makeWidget<Group>;
@@ -336,64 +328,37 @@ void XFrames::SetChildrenDisplay(const int id, const YGDisplay display) {
 };
 
 void XFrames::CreateElement(const json& elementDef) {
-    if (elementDef.is_object()) {
-        if (elementDef.contains("type") && elementDef["type"].is_string()) {
-            std::string type = elementDef["type"].template get<std::string>();
-
-            if (elementDef.contains("id") && elementDef["id"].is_number_integer()) {
-                int id = elementDef["id"].template get<int>();
-
-                if (m_element_init_fn.contains(type) || type == "node") {
-                    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
-                    const std::lock_guard<std::mutex> elementLock(m_elements_mutex);
-
-                    try {
-                        if (type == "node") {
-                            m_elements[id] = makeElement(elementDef, this);
-                        } else if (m_element_init_fn.contains(type)) {
-                            m_elements[id] = m_element_init_fn[type](elementDef, StyledWidget::ExtractStyle(elementDef, this), this);
-                        }
-
-                        if (m_elements[id]->HasInternalOps()) {
-                            m_elementInternalOpsSubject[id] = rpp::subjects::serialized_replay_subject<json>{10};
-                            const auto owner = m_elementInternalOpsSubject.at(id).get_disposable().as_weak();
-                            auto handler = [this, id, owner](const json& opDef) {
-                                const std::lock_guard<std::mutex> lock(m_elements_mutex);
-                                const auto current = m_elementInternalOpsSubject.find(id);
-                                if (m_elements.contains(id) && current != m_elementInternalOpsSubject.end()
-                                    && current->second.get_disposable() == owner) {
-                                    m_elements[id]->HandleInternalOp(opDef);
-                                    if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
-                                        m_diagnosticsLastInternalOpMs[id] = DiagnosticsNowMs();
-                                    }
-                                }
-                            };
-                            m_elementInternalOpsSubject[id].get_observable() | rpp::ops::subscribe(handler);
-                        }
-
-                        m_elements[id]->Init(elementDef);
-
-                        m_hierarchy[id] = std::vector<int>();
-                    } catch (const nlohmann::json::exception& ex) {
-                        // todo: signal that widget creation was not successful!
-                        printf("An error occurred while decoding JSON element creation definition %d (%s): %s\n", id, type.c_str(), ex.what());
-                    } catch (const std::exception& ex) {
-                        // todo: signal that widget creation was not successful!
-                        printf("An error occurred while creating widget %d (%s): %s\n", id, type.c_str(), ex.what());
-                    }
-                } else {
-                    printf("unrecognised element type: '%s'\n", type.c_str());
-                }
-            } else {
-                printf("element has no ID: '%s'\n", elementDef.dump().c_str());
-            }
-        } else {
-            printf("received JSON does not contain type property: %s\n", elementDef.dump().c_str());
-        }
-    } else {
-        printf("received JSON not an object\n");
+    const auto id = elementDef.at("id").get<int>();
+    const auto type = elementDef.at("type").get<std::string>();
+    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+    const std::lock_guard<std::mutex> elementLock(m_elements_mutex);
+    if (type == "node") {
+        m_elements[id] = makeElement(elementDef, this);
+    } else if (m_element_init_fn.contains(type)) {
+        m_elements[id] = m_element_init_fn[type](elementDef, StyledWidget::ExtractStyle(elementDef, this), this);
     }
-};
+
+    if (m_elements[id]->HasInternalOps()) {
+        m_elementInternalOpsSubject[id] = rpp::subjects::serialized_replay_subject<json>{10};
+        const auto owner = m_elementInternalOpsSubject.at(id).get_disposable().as_weak();
+        auto handler = [this, id, owner](const json& opDef) {
+            const std::lock_guard<std::mutex> lock(m_elements_mutex);
+            const auto current = m_elementInternalOpsSubject.find(id);
+            if (m_elements.contains(id) && current != m_elementInternalOpsSubject.end()
+                && current->second.get_disposable() == owner) {
+                m_elements[id]->HandleInternalOp(opDef);
+                if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
+                    m_diagnosticsLastInternalOpMs[id] = DiagnosticsNowMs();
+                }
+            }
+        };
+        m_elementInternalOpsSubject[id].get_observable() | rpp::ops::subscribe(handler);
+    }
+
+    m_elements[id]->Init(elementDef);
+
+    m_hierarchy[id] = std::vector<int>();
+}
 
 void XFrames::SetEventHandlers(
     const OnInitCallback onInitFn,
@@ -740,64 +705,36 @@ void XFrames::TakeStyleSnapshot() {
 };
 
 void XFrames::QueueCreateElement(std::string& elementJsonAsString) {
-    try {
-        ElementOpDef elementOp{OpCreateElement,json::parse(elementJsonAsString)};
-        m_elementOpSubject.get_observer().on_next(elementOp);
-#ifndef __EMSCRIPTEN__
-        glfwPostEmptyEvent();
-#endif
-    } catch (nlohmann::detail::parse_error& parseError) {
-        printf("XFrames::QueueCreateElement, parse error: %s\n", parseError.what());
-    }
-};
+    auto props = json::parse(elementJsonAsString);
+    if (!props.is_object() || !props.contains("id") || !props.contains("type"))
+        throw xframes::CommitError("missing_field", "setElement requires id and type");
+    const auto id = props.at("id");
+    const auto type = props.at("type");
+    props.erase("id"); props.erase("type");
+    ApplyCompatibility({{"op", "create"}, {"id", id}, {"elementType", type}, {"props", std::move(props)}});
+}
 
 void XFrames::QueuePatchElement(const int id, std::string& elementJsonAsString) {
-    try {
-        json opDef = json::parse(elementJsonAsString);
-        opDef["id"] = id;
-        ElementOpDef elementOp{OpPatchElement,opDef};
-        m_elementOpSubject.get_observer().on_next(elementOp);
-#ifndef __EMSCRIPTEN__
-        glfwPostEmptyEvent();
-#endif
-    } catch (nlohmann::detail::parse_error& parseError) {
-        printf("XFrames::QueuePatchElement, parse error: %s\n", parseError.what());
-    }
-};
+    auto props = json::parse(elementJsonAsString);
+    if (!props.is_object()) throw xframes::CommitError("invalid_props", "patchElement requires an object");
+    // Legacy Fabric sends its complete cloned description, including the same ID/type.
+    // These fields are transport metadata; public string IDs never become identity.
+    if (props.contains("id") && props["id"] != id)
+        throw xframes::CommitError("immutable_identity", "patchElement cannot overwrite numeric identity");
+    props.erase("id"); props.erase("type");
+    ApplyCompatibility({{"op", "patch"}, {"id", id}, {"props", std::move(props)}});
+}
 
 void XFrames::QueueAppendChild(int parentId, int childId) {
-    try {
-        json opDef;
-        opDef["parentId"] = parentId;
-        opDef["childId"] = childId;
-        ElementOpDef elementOp{OpAppendChild,opDef};
-        m_elementOpSubject.get_observer().on_next(elementOp);
-#ifndef __EMSCRIPTEN__
-        glfwPostEmptyEvent();
-#endif
-    } catch (nlohmann::detail::parse_error& parseError) {
-        printf("XFrames::QueueAppendChild, parse error: %s\n", parseError.what());
-    }
-};
+    ApplyCompatibility({{"op", "appendChild"}, {"parentId", parentId}, {"childId", childId}});
+}
 
 std::vector<int> XFrames::QueueSetChildren(const int parentId, const std::vector<int>& childrenIds) {
-    auto destroyedIds = std::make_shared<std::vector<int>>();
-    try {
-        json opDef;
-        opDef["parentId"] = parentId;
-        opDef["childrenIds"] = childrenIds;
-        ElementOpDef elementOp{OpSetChildren,opDef,destroyedIds};
-        m_elementOpSubject.get_observer().on_next(elementOp);
-#ifndef __EMSCRIPTEN__
-        glfwPostEmptyEvent();
-#endif
-    } catch (nlohmann::detail::parse_error& parseError) {
-        printf("XFrames::QueueSetChildren, parse error: %s\n", parseError.what());
-    }
-    return std::move(*destroyedIds);
-};
+    return ApplyCompatibility({{"op", "setChildren"}, {"parentId", parentId}, {"childrenIds", childrenIds}}).destroyedIds;
+}
 
 void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
+    const std::lock_guard<std::mutex> dispatchLock(m_commitMutex);
     try {
         const json opDef = json::parse(widgetOpDef);
 
@@ -821,25 +758,9 @@ void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
 };
 
 void XFrames::PatchElement(const json& patchDef) {
-    if (patchDef.is_object()) {
-        const auto id = patchDef["id"].template get<int>();
-
-        const std::lock_guard<std::mutex> lock(m_elements_mutex);
-
-        if (m_elements.contains(id)) {
-            const auto pElement = m_elements[id].get();
-
-            try {
-                pElement->Patch(patchDef, this);
-            } catch (const nlohmann::json::exception& ex) {
-                // todo: signal that widget creation was not successful!
-                printf("An error occurred while decoding JSON element patching definition %d (%s): %s\n", id, pElement->m_type.c_str(), ex.what());
-            } catch (const std::exception& ex) {
-                // todo: signal that widget creation was not successful!
-                printf("An error occurred while patching widget %d (%s): %s\n", id, pElement->m_type.c_str(), ex.what());
-            }
-        }
-    }
+    const auto id = patchDef.at("id").get<int>();
+    const std::lock_guard<std::mutex> lock(m_elements_mutex);
+    if (auto it = m_elements.find(id); it != m_elements.end()) it->second->Patch(patchDef, this);
 }
 
 bool XFrames::IsElementAlive(const int id) {
@@ -927,6 +848,7 @@ void XFrames::AppendChild(const json& opDef) {
 
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
 
+    if (parentId == 0) m_hierarchy.try_emplace(0);
     auto hIt = m_hierarchy.find(parentId);
     if (hIt != m_hierarchy.end()) {
         if (std::find(hIt->second.begin(), hIt->second.end(), childId) == hIt->second.end()) {
@@ -988,6 +910,7 @@ void XFrames::InvalidateMaxBottomCaches() {
 
 // todo: switch to ReactivePlusPlus's BehaviorSubject
 void XFrames::AppendTextToClippedMultiLineTextRenderer(const int id, const std::string& data) {
+    const std::lock_guard<std::mutex> dispatchLock(m_commitMutex);
     const std::lock_guard<std::mutex> lock(m_elements_mutex);
 
     if (m_elements.contains(id)) {

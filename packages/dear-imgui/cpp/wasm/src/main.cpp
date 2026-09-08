@@ -230,6 +230,14 @@ class WasmRunner {
             m_renderer->SetWindowSize(width, height);
         }
 
+        std::string applyCommit(const std::string& wire) const {
+            return (m_xframes ? m_xframes->ApplyCommit(wire) : xframes::UninitializedCommitResult()).ToJson().dump();
+        }
+
+        std::string getCommitState() const {
+            return (m_xframes ? m_xframes->GetCommitState() : xframes::UninitializedCommitState()).dump();
+        }
+
         void setElement(std::string& elementJsonAsString) const {
             m_xframes->QueueCreateElement(elementJsonAsString);
         }
@@ -382,12 +390,20 @@ void resizeWindow(const int width, const int height) {
 }
 
 // emscripten::bind cannot receive `elementJson` by reference
+std::string applyCommit(std::string wire) {
+    return pRunner->applyCommit(wire);
+}
+
+std::string getCommitState() {
+    return pRunner->getCommitState();
+}
+
 void setElement(std::string elementJson) {
     pRunner->setElement(elementJson);
 }
 
-void patchElement(const int id, std::string elementJson) {
-    pRunner->patchElement(id, elementJson);
+void patchElement(const double id, std::string elementJson) {
+    pRunner->patchElement(xframes::ParseBindingId(id), elementJson);
 }
 
 // emscripten::bind cannot receive `elementJson` by reference
@@ -396,16 +412,16 @@ void elementInternalOp(const int id, std::string elementJson) {
 }
 
 // emscripten::bind cannot receive `childrenIds` by reference
-std::string setChildren(const int id, std::string childrenIds) {
-    return json(pRunner->setChildren(id, JsonToVector<int>(childrenIds))).dump();
+std::string setChildren(const double id, std::string childrenIds) {
+    return json(pRunner->setChildren(xframes::ParseBindingId(id, true), xframes::ParseChildrenIds(childrenIds))).dump();
 }
 
 bool isElementAlive(const int id) {
     return pRunner->isElementAlive(id);
 }
 
-void appendChild(const int parentId, const int childId) {
-    pRunner->appendChild(parentId, childId);
+void appendChild(const double parentId, const double childId) {
+    pRunner->appendChild(xframes::ParseBindingId(parentId, true), xframes::ParseBindingId(childId));
 }
 
 std::string getChildren(const int id) {
@@ -439,6 +455,8 @@ EMSCRIPTEN_BINDINGS(my_module) {
     emscripten::function("getDiagnostics", +[]() { return pRunner->getDiagnostics(); });
     emscripten::function("exit", &_exit);
     emscripten::function("resizeWindow", &resizeWindow);
+    emscripten::function("applyCommit", &applyCommit);
+    emscripten::function("getCommitState", &getCommitState);
     emscripten::function("setElement", &setElement);
     emscripten::function("patchElement", &patchElement);
     emscripten::function("elementInternalOp", &elementInternalOp);

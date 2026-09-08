@@ -476,6 +476,14 @@ class Runner {
             m_renderer->SetWindowSize(width, height);
         }
 
+        std::string applyCommit(const std::string& wire) const {
+            return (m_xframes ? m_xframes->ApplyCommit(wire) : xframes::UninitializedCommitResult()).ToJson().dump();
+        }
+
+        std::string getCommitState() const {
+            return (m_xframes ? m_xframes->GetCommitState() : xframes::UninitializedCommitState()).dump();
+        }
+
         void setElement(std::string& elementJsonAsString) const {
             m_xframes->QueueCreateElement(elementJsonAsString);
         }
@@ -620,7 +628,34 @@ void resizeWindow(const int width, const int height) {
     pRunner->resizeWindow(width, height);
 }
 
+Napi::Value applyCommit(const Napi::CallbackInfo& info) {
+    try {
+    if (info.Length() != 1 || !info[0].IsString())
+        throw Napi::TypeError::New(info.Env(), "applyCommit expects one JSON string");
+    return Napi::String::New(info.Env(), Runner::getInstance()->applyCommit(info[0].As<Napi::String>().Utf8Value()));
+
+    } catch (const xframes::CommitError& error) {
+        auto jsError = Napi::Error::New(info.Env(), error.what());
+        jsError.Value().Set("code", Napi::String::New(info.Env(), error.code));
+        throw jsError;
+    } catch (const Napi::Error&) { throw; }
+    catch (const std::exception& error) { throw Napi::Error::New(info.Env(), error.what()); }
+}
+
+Napi::Value getCommitState(const Napi::CallbackInfo& info) {
+    try {
+    return Napi::String::New(info.Env(), Runner::getInstance()->getCommitState());
+
+    } catch (const xframes::CommitError& error) {
+        auto jsError = Napi::Error::New(info.Env(), error.what());
+        jsError.Value().Set("code", Napi::String::New(info.Env(), error.code));
+        throw jsError;
+    } catch (const Napi::Error&) { throw; }
+    catch (const std::exception& error) { throw Napi::Error::New(info.Env(), error.what()); }
+}
+
 void setElement(const Napi::CallbackInfo& info) {
+    try {
     auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
@@ -633,9 +668,17 @@ void setElement(const Napi::CallbackInfo& info) {
     auto elementJson = info[0].As<Napi::String>().Utf8Value();
 
     pRunner->setElement(elementJson);
+
+    } catch (const xframes::CommitError& error) {
+        auto jsError = Napi::Error::New(info.Env(), error.what());
+        jsError.Value().Set("code", Napi::String::New(info.Env(), error.code));
+        throw jsError;
+    } catch (const Napi::Error&) { throw; }
+    catch (const std::exception& error) { throw Napi::Error::New(info.Env(), error.what()); }
 }
 
 void patchElement(const Napi::CallbackInfo& info) {
+    try {
     auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
@@ -647,10 +690,17 @@ void patchElement(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected second arg to be string");
     }
 
-    auto id = info[0].As<Napi::Number>().Int32Value();
+    auto id = xframes::ParseBindingId(info[0].As<Napi::Number>().DoubleValue(), false);
     auto elementJson = info[1].As<Napi::String>().Utf8Value();
 
     pRunner->patchElement(id, elementJson);
+
+    } catch (const xframes::CommitError& error) {
+        auto jsError = Napi::Error::New(info.Env(), error.what());
+        jsError.Value().Set("code", Napi::String::New(info.Env(), error.code));
+        throw jsError;
+    } catch (const Napi::Error&) { throw; }
+    catch (const std::exception& error) { throw Napi::Error::New(info.Env(), error.what()); }
 }
 
 void elementInternalOp(const Napi::CallbackInfo& info) {
@@ -672,6 +722,7 @@ void elementInternalOp(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value setChildren(const Napi::CallbackInfo& info) {
+    try {
     auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
@@ -683,15 +734,23 @@ Napi::Value setChildren(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected second arg to be string");
     }
 
-    auto id = info[0].As<Napi::Number>().Int32Value();
+    auto id = xframes::ParseBindingId(info[0].As<Napi::Number>().DoubleValue(), true);
     auto childrenIds = info[1].As<Napi::String>().Utf8Value();
 
     // todo: use array of numbers instead of parsing JSON
-    const auto destroyedIds = pRunner->setChildren((int)id, JsonToVector<int>(childrenIds));
+    const auto destroyedIds = pRunner->setChildren((int)id, xframes::ParseChildrenIds(childrenIds));
     return Napi::String::New(env, json(destroyedIds).dump());
+
+    } catch (const xframes::CommitError& error) {
+        auto jsError = Napi::Error::New(info.Env(), error.what());
+        jsError.Value().Set("code", Napi::String::New(info.Env(), error.code));
+        throw jsError;
+    } catch (const Napi::Error&) { throw; }
+    catch (const std::exception& error) { throw Napi::Error::New(info.Env(), error.what()); }
 }
 
 void appendChild(const Napi::CallbackInfo& info) {
+    try {
     auto pRunner = Runner::getInstance();
     Napi::Env env = info.Env();
 
@@ -703,10 +762,17 @@ void appendChild(const Napi::CallbackInfo& info) {
         throw Napi::TypeError::New(env, "Expected second arg to be number");
     }
 
-    auto parentId = info[0].As<Napi::Number>().Int32Value();
-    auto childId = info[1].As<Napi::Number>().Int32Value();
+    auto parentId = xframes::ParseBindingId(info[0].As<Napi::Number>().DoubleValue(), true);
+    auto childId = xframes::ParseBindingId(info[1].As<Napi::Number>().DoubleValue());
 
     pRunner->appendChild(parentId, childId);
+
+    } catch (const xframes::CommitError& error) {
+        auto jsError = Napi::Error::New(info.Env(), error.what());
+        jsError.Value().Set("code", Napi::String::New(info.Env(), error.code));
+        throw jsError;
+    } catch (const Napi::Error&) { throw; }
+    catch (const std::exception& error) { throw Napi::Error::New(info.Env(), error.what()); }
 }
 
 std::string getChildren(const int id) {
@@ -882,6 +948,8 @@ static Napi::Object Init(Napi::Env env, Napi::Object exports) {
         return Napi::String::New(info.Env(), Runner::getInstance()->getDiagnostics());
     });
     exports["init"] = Napi::Function::New(env, init);
+    exports["applyCommit"] = Napi::Function::New(env, applyCommit);
+    exports["getCommitState"] = Napi::Function::New(env, getCommitState);
     exports["setElement"] = Napi::Function::New(env, setElement);
     exports["patchElement"] = Napi::Function::New(env, patchElement);
     exports["setChildren"] = Napi::Function::New(env, setChildren);

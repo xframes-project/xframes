@@ -246,6 +246,24 @@ The current software-adapter flags come from Chromium's official [WebGPU test co
 
 ## Known gaps and deliberate non-hacks
 
+The September [Stage 2 transaction record](../../../docs/engineering/fabric-transactions-2026-09.md)
+specifies the shared native `applyCommit(payload: string): string` and
+`getCommitState(): string` exports; public types are exported from
+`@xframes/common`. Existing `setElement`, `patchElement`, `setChildren` and
+`appendChild` calls now use the same native preflight/application path as single
+operations, with unchanged successful return shapes and ready-callback setup.
+`setChildren` still returns its destroyed-ID JSON array. The adapter's explicit
+`applyCommit` consumes `destroyedIds` through the existing lifetime cleanup.
+Public string IDs remain JS mappings and cannot overwrite native identity.
+
+Direct transactions can contain multiple operations. They use schema version 1
+and surface 0, with native sequence/revision returned as decimal strings. Check
+`status` before treating a result as applied: validation rejection changes no
+live state; an unrelated runtime failure may leave a prefix applied. Diagnostics
+are not required to obtain ordering state. Native revisions do not identify a
+Fabric commit or a presented frame. Ordinary wrappers still publish each host
+operation immediately; Stage 3 must stage until `completeRoot`.
+
 The August verification below is historical. September's
 [Stage 1 cleanup record](../../../docs/engineering/fabric-cleanup-2026-09.md)
 documents explicit destruction results, mapping/registration cleanup, stale-target
@@ -261,4 +279,4 @@ render scheduling remain subsequent slices.
 - The repository-wide common ESLint command has a pre-existing backlog (356 findings at verification time). The new extraction scripts lint cleanly, but this upgrade does not hide or mass-rewrite unrelated legacy findings.
 - An online npm install reported 70 dependency advisories in the legacy development dependency graph. No uncontrolled `npm audit fix --force` was applied. Production exposure and dependency-toolchain modernization need a separate audit.
 - macOS hardware and Safari are untested. The technologies are portable, but portability is not a substitute for a real platform build and runtime test.
-- The future atomic-commit, destruction, replay, invalidation, and automation work remains intentionally separate in the [runtime hardening design](../../../docs/architecture/fabric-runtime-hardening.md). No reconciler patch or speculative C++ rewrite was introduced during this version upgrade.
+- Atomic publication, final-reachability destruction, replay, invalidation, and automation remain separate in the [runtime hardening design](../../../docs/architecture/fabric-runtime-hardening.md). The Stage 2 native transaction path does not implement prospective Fabric staging.

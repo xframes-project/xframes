@@ -1,6 +1,7 @@
 import { Subject, Subscription } from "rxjs";
 // import { MainModule } from "../wasm/wasm-app-types";
 import { WidgetRegistrationService } from "../widgetRegistrationService";
+import type { NativeCommit, NativeCommitResult } from "../nativeCommit";
 
 type CloningNode = { id: number; childrenIds: number[] } | null;
 type DispatchEventFn = (id: number, topLevelType: string, nativeEventParam: any) => void;
@@ -125,6 +126,14 @@ export default class {
             this.widgetRegistrationService?.releaseNativeTarget(id);
             if (this.cloningNode?.id === id) this.cloningNode = null;
         }
+    };
+    applyCommit = (commit: NativeCommit): NativeCommitResult => {
+        if (this.disposed || !this.wasmModule) throw new Error("Native bridge is disposed or uninitialized");
+        const result: NativeCommitResult = JSON.parse(this.wasmModule.applyCommit(JSON.stringify(commit)));
+        // Also release completed destructions from an explicitly failed partial apply.
+        // Rejected batches always return an empty list. No snapshot/registry reset is needed.
+        this.acknowledgeDestruction(result.destroyedIds);
+        return result;
     };
     private isTargetAlive(id: number) {
         if (this.wasmModule?.isElementAlive && !this.wasmModule.isElementAlive(id)) {

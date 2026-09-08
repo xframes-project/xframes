@@ -142,6 +142,9 @@ add_library(${PROJECT_NAME} SHARED
         ${APP}/src/widget/styled_widget.cpp
 
         ${APP}/src/xframes.cpp
+        ${APP}/src/commit.cpp
+        ${APP}/src/commit_props.cpp
+        ${APP}/src/xframes_commit.cpp
         ${APP}/src/imgui_renderer.cpp
         ${APP}/src/implot_renderer.cpp
 

@@ -1,8 +1,9 @@
 # Fabric lifecycle and streaming diagnostics
 
 The shared React PlotBar/Table fixture runs through Fabric and both real native
-bindings. Normal lifecycle runs now require passing Stage 1 cleanup invariants.
-See the [cleanup record](../../../../docs/engineering/fabric-cleanup-2026-09.md)
+bindings. Runs require Stage 1 cleanup invariants and the shared Stage 2
+transaction checks. See the [transaction record](../../../../docs/engineering/fabric-transactions-2026-09.md),
+[cleanup record](../../../../docs/engineering/fabric-cleanup-2026-09.md)
 and the [historical Stage 0 baseline](../../../../docs/engineering/fabric-baseline-2026-09.md).
 
 ## Build from this checkout
@@ -64,6 +65,7 @@ npm run diagnostics:wasm -- --stress
 npm run diagnostics:node -- --baseline --extended
 npm run diagnostics:wasm -- --baseline --extended
 npm run diagnostics:report -- build/diagnostics/node/result.json build/diagnostics/wasm/result.json
+npm run test:transactions:parity -- build/diagnostics/node/result.json build/diagnostics/wasm/result.json
 ```
 
 Default: 1,000 initial rows, 128 retained points per series, 20/60/120 Hz inputs,
@@ -104,6 +106,16 @@ npm run smoke:browser --workspace @xframes/wasm
 ```
 
 ## Assertions and artifacts
+
+Both real runtime commands also execute the same version-1 transaction fixtures
+after the ordinary lifecycle/streaming checks. They compare exact results and
+error indexes, native ordering across direct batches and compatibility calls,
+rejected-prefix immutability, populated PlotBar/Table state, guarded null prop
+removal, Yoga ownership, disabled diagnostics and acknowledged destruction followed
+by a newer frame. The parity command compares those actual Node/Wasm reports;
+the fake Fabric harness is a separate dev/production gate. See the
+[transaction record](../../../../docs/engineering/fabric-transactions-2026-09.md)
+for the wire schema, compatibility exceptions and current-source validation.
 
 The fixture awaits React completion, imperative refs, populated native content,
 matching hierarchy/Yoga ownership, keyed reorder, final table/series data, subtree
@@ -174,6 +186,23 @@ invalidates the lifetime. Strict Mode setup/cleanup/setup preserves live handles
 Unrelated serialization and native errors propagate normally.
 
 ## Measurement contract
+
+The transaction fixture adds a bounded three-repetition comparison after streaming:
+400 plot patches per mode, either 100 four-operation batches or 400 compatibility
+calls. Reports include actual UTF-8 payload bytes, JS serialization/boundary
+intervals and native preflight/application intervals. Direct-batch `parseMs`
+includes JSON and envelope decoding. Compatibility `envelopeMs` measures owned
+envelope conversion after legacy JSON decoding; that earlier decode is included
+in boundary time but has no isolated sample. State-query calls used to collect
+samples are excluded from the microbenchmark's structural call/byte totals.
+Diagnostics overhead and different batch sizes prevent interpreting these as pure
+widget costs or an automatic Fabric batching benefit.
+
+`getCommitState` exposes always-current sequence/revision with diagnostics off.
+When enabled, its bounded `lastTransaction` is the last enabled sample and may
+precede current counters after disabled calls. It is not a durable recorder or
+a frame/revision correlation. The native subject retains a weak reference to one
+request, not a completed batch or destruction payload.
 
 - `dataToObservedFrameMs`: JS `performance.now()`, from imperative invocation to
   polling a submitted frame whose last series sample matches the input. Includes

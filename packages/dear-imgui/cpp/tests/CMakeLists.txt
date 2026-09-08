@@ -192,6 +192,9 @@ add_executable(Google_Tests_run
         ../app/src/widget/janet_canvas.cpp
 
         ../app/src/xframes.cpp
+        ../app/src/commit.cpp
+        ../app/src/commit_props.cpp
+        ../app/src/xframes_commit.cpp
         ../app/src/disk_tile_cache.cpp
         ../app/src/screenshot_writer.cpp
         ../app/src/imgui_renderer.cpp

@@ -1,96 +1,95 @@
 /goal
 
-Implement the next Phase 12 vertical slice: Stage 1 explicit cross-runtime destruction and lifetime cleanup across Node/OpenGL and Wasm/WebGPU.
+Implement the next Phase 12 vertical slice: Stage 2 versioned native transaction API and compatibility migration across Node/OpenGL and Wasm/WebGPU.
 
 Primary outcome:
-A React application can repeatedly mount, update, reorder, replace, remove, and unmount registered widgets without accumulating native elements, Fiber mappings, public/native ID mappings, widget registrations, or internal-operation subjects. Destroyed targets cannot receive callbacks or imperative updates, and stale handles cannot mutate a replacement widget. Prove this across at least 1,000 cycles in each real runtime using the existing harness.
+Both runtimes accept the same schema-version-1 structural transaction through a shared native ApplyCommit implementation. The complete transaction is parsed and validated before any operation mutates live state. Each successfully applied transaction produces one authoritative sequence, one native revision increment, and an explicit destruction result. Existing structural exports delegate to this path as single-operation transactions, preserving public JavaScript behavior and all Stage 1 lifetime guarantees.
 
-This slice implements cleanup around the current native destruction path. Atomic publication, speculative-work isolation, and reparent-safe final reachability remain Stages 2-3; render scheduling remains Stage 4.
+This slice delivers a usable multi-operation native API and migrates the ordinary runtime path onto it. It does not batch Fabric work at completeRoot or establish atomic visibility, speculative-work isolation, or reparent-safe final reachability. Those are Stage 3; rendering and invalidation scheduling remain Stage 4. A transaction revision in this slice must not be described as a Fabric commit revision or a presented-frame guarantee.
 
 Read first:
-- ROADMAP.md, especially Phase 12 Stage 1 and the milestone review gate.
-- docs/engineering/fabric-baseline-2026-09.md for measured accumulation, defect IDs, and the recommended cleanup slice.
-- docs/architecture/fabric-runtime-hardening.md, especially explicit destruction, mapping cleanup, event races, and the incremental delivery plan.
-- docs/strategy/gpuix-comparison-2026-08.md for the strategic priority of lifecycle correctness.
-- packages/dear-imgui/npm/diagnostics/README.md and packages/dear-imgui/npm/FABRIC_EMBEDDING.md for reproduction commands, instrumentation limits, workspace rules, and toolchains.
+- ROADMAP.md, especially Phase 12 Stages 2-3 and the milestone review gate.
+- docs/engineering/fabric-cleanup-2026-09.md for the current lifetime contract, passing count baselines, remaining defects, toolchains, and measured regressions.
+- docs/architecture/fabric-runtime-hardening.md, especially the transaction model, sequence allocation, native application, atomicity boundary, and incremental delivery plan. Distinguish the full target architecture from the narrower Stage 2 exit condition.
+- docs/engineering/fabric-baseline-2026-09.md for historical defect signatures and streaming methodology.
+- docs/strategy/gpuix-comparison-2026-08.md for lifecycle correctness and measured performance priorities.
+- packages/dear-imgui/npm/diagnostics/README.md and packages/dear-imgui/npm/FABRIC_EMBEDDING.md for reproduction commands, instrumentation limits, workspace rules, and supported toolchains.
 
 Starting evidence:
-- Commit 4256d19 delivered the first Stage 0 slice: real development/production Fabric lifecycle tests, native queue tests, opt-in diagnostics, shared PlotBar/Table fixtures, production baselines, and application-code CI configuration.
-- Each 1,000-cycle real-runtime stress run accumulated 2,000 native elements, 8,000 Fiber mappings, and 2,000 widget registrations after warm-up. Internal subjects returned to zero because the fixture removed its expensive subtree before root unmount.
-- XF-LIFE-001/002/003/006/010 identify retained Fiber mappings, retained registrations, forwarded stale imperative calls, late event callbacks, and missing container-root destruction.
-- XF-LIFE-007 shows that removing a public string ID can overwrite native numeric identity with null during cloning. Fix this identity boundary as part of reliable lifetime bookkeeping.
-- XF-LIFE-004/005/008/009 cover pre-completeRoot publication, same-native-ID reparent destruction, incomplete cross-parent clone staging, and abandoned Suspense work. Keep these as executing characterizations for later atomic staging/reachability work.
-- Local Windows/Linux native tests and real Node/Wasm fixtures passed with documented expected failures. Hosted CI was configured but had not run in the baseline session; verify its actual status separately when available.
+- Commit 62f46a4 delivered Stage 1 cleanup. Both real runtimes passed 1,000 cycles with zero growth across all ten lifetime counters, retaining only one fixed empty hierarchy entry for virtual container 0.
+- Native suites passed 333 tests each on Windows and Linux. The Fabric suite passed 14 scenarios in each isolated development/production process, including the remaining narrow expected failures.
+- Node and Wasm setChildren return the same JSON array of actual destroyed IDs. ReactivePlusPlus subject delivery is synchronous; results are completed after native tree locks are released. Preserve this completion boundary for existing callers.
+- XF-LIFE-001/002/003/006/007/010 are passing invariants. XF-LIFE-004/005/008/009 still characterize pre-completeRoot publication, same-native-ID reparent destruction, incomplete cross-parent clone staging, and abandoned Suspense work.
+- The cleanup record reports material Wasm latency and Node idle-CPU regressions, plus missed 120 Hz rate targets. These are open measurements, not established causes or universal CI thresholds.
+- Hosted results in the cleanup record describe the checks known at that time. Inspect current hosted status separately; do not infer that committed configuration or successful local runs establish hosted coverage.
 
 Deliverables:
 
-1. Make native destruction explicit, including virtual container roots.
-   - Correct SetChildren(0, ...) so removing or replacing roots recursively destroys detached subtrees even though container 0 is not an Element. Cover direct populated-root unmount, multiple root children, partial removal, and repeated empty unmount.
-   - Preserve cleanup of hierarchy entries, Yoga ownership, internal-op subjects, diagnostic per-element state, and widget-owned resources. Surviving siblings and ordinary reorders must retain identity and state.
-   - Collect actual destroyed IDs and expose them through one shared cleanup contract in Node and Wasm. A synchronous result or ordered notification is acceptable; document its ordering and completion boundary.
-   - Include all descendants, report each actual destruction once per operation, and make duplicate cleanup delivery harmless. Native ownership is authoritative; do not infer successful destruction solely from JS prop diffs or diagnostic snapshots.
-   - Respect hierarchy/element locks. Do not call JavaScript while holding native tree locks or introduce blocking cross-thread callbacks. Give new notification payloads, queues, and subscriptions explicit ownership and teardown.
+1. Define and implement the shared version-1 contract.
+   - Add owned native transaction/result types and matching TypeScript binding types. Keep Node and Wasm schema parsing, operation validation, result semantics, and error codes in one common implementation wherever possible.
+   - Support ordered create, patch, setChildren, and appendChild operations, including multiple operations in one transaction and references to nodes created earlier in that transaction. JSON is appropriate for this first version.
+   - Define required fields, schemaVersion, surface identity, sequence/correlation fields, numeric ranges, root handling, and unknown-field policy. Public string IDs remain JavaScript bindings and cannot overwrite native numeric identity.
+   - Define how surface IDs relate to the current Fabric root and virtual container 0. A single supported surface is sufficient for this slice if unsupported surfaces are rejected explicitly. Do not silently alias different surfaces to the same tree or introduce full multi-window support.
+   - Make one authority allocate structural application order across both the new API and compatibility exports. Prefer native allocation per XFrames instance; distinguish any caller correlation sequence from the authoritative native sequence. Define duplicate, stale, gap, and overflow behavior for caller-supplied ordering fields if supported.
+   - Return a shared result containing accepted sequence, surface, native revision, and actual destroyed IDs. Define rejected-input results/errors so callers can distinguish rejection from successful application without log parsing. Finalize the exact wire spelling in the implementation record with valid and invalid examples.
+   - Keep sequence/revision state available with diagnostics disabled. Define initialization, empty-batch, accepted no-op, rejected-batch, and teardown behavior. Diagnostics resets must not reset ordering or revision state for a live runtime. Avoid lossy JavaScript integer conversion.
 
-2. Release JavaScript mappings and registrations by native lifetime.
-   - Add reverse native-ID/public-ID lookup and idempotent cleanup of Fiber entries, forward/reverse mappings, registration sets, and per-target references when native destruction is acknowledged.
-   - Handle nodes with no public ID and effect registrations that occur separately from native creation. Delayed effects must not resurrect destroyed registrations; delayed cleanup must not remove a newer owner of a reused public ID.
-   - Audit registration effects across existing components, including plots, Table, Map, and Canvas. Pair registration with cleanup using a shared approach where practical. Strict Mode setup/cleanup/setup must leave a still-mounted widget usable.
-   - Keep numeric native identity immutable through every create/clone/patch path. Treat public string ID addition, change, removal, and reuse as mapping operations; never serialize that public ID or null over native numeric identity.
-   - Define and test ownership when public IDs are rebound: old cleanup removes only the binding it owns. Avoid unbounded tombstone collections or scanning every widget for each destroyed ID.
-   - Dispose cleanup/event subscriptions and retained bridge references on teardown. Cleanup must work with diagnostics disabled, without test-only polling or manual map resets.
+2. Parse and validate the entire batch before mutation.
+   - Parse once into an owned representation and validate all operations before executing the first operation. A valid prefix followed by an invalid final operation must leave native elements, hierarchy, Yoga, widget data, subjects, destruction output, and revision unchanged.
+   - Cover malformed JSON, unsupported versions/operations/surfaces, missing or incorrectly typed fields, unsafe/out-of-range IDs, invalid element types, attempts to overwrite numeric identity, and invalid structural relationships supported by the validation contract.
+   - Validate references and relationships against the ordered operations and current native state. A validation-only working model is acceptable; it must not create live Elements, Yoga nodes, subjects, or widget resources. Validate synchronously consumed props sufficiently to avoid predictable type/shape errors halfway through application.
+   - Define policies for duplicate creates/children, missing targets, self-links/cycles, forward references, and references to nodes destroyed earlier in the batch. Preserve established compatibility no-op behavior for stale legacy calls, and document any deliberate difference from the new explicit API rather than changing it accidentally.
+   - Keep validation and subsequent application serialized against competing structural mutations, so checks cannot become stale before use. Respect the existing lock order and avoid recursively taking tree locks inside existing mutation helpers.
+   - Surface unrelated application/runtime exceptions honestly. Full rollback after arbitrary allocation, resource, or widget-constructor failure is outside this slice; document that limit and never report a partial apply as a successful transaction.
 
-3. Reject events and imperative operations targeting dead widgets.
-   - Check liveness at React event dispatch, including already queued or replayed events. Never invoke Fabric's event handler with an undefined or destroyed Fiber target.
-   - Define ordering across native destruction, cleanup acknowledgment, and JS dispatch. Test delayed notification/event delivery; document when unmount cleanup is complete rather than assuming unrelated callback queues are ordered.
-   - Drop stale or unknown-target events and expose bounded diagnostic counters. Preserve normal event delivery for surviving and newly mounted widgets.
-   - Make saved imperative handles harmless after deletion, including after replacement/public-ID reuse. Preserve valid operations before deletion; operations arriving after destruction must not recreate native state or internal-op subjects.
-   - Use a consistent, documented stale-handle behavior compatible with the current API (prefer a no-op with a diagnostic counter). Do not suppress unrelated validation/runtime errors.
+3. Introduce the common native application path and migrate compatibility exports.
+   - Expose equivalent applyCommit entry points through Node-API and Emscripten, backed by the shared C++ ApplyCommit implementation. Exercise genuine multi-operation batches through both exported bindings.
+   - Route setElement, patchElement, setChildren, appendChild, and their externally used Queue* entry points through the same validated structural application path as one-operation transactions. Keep private mutation helpers distinct from public dispatch to avoid recursive re-enqueueing or duplicate application.
+   - Preserve current valid-call argument conventions, return shapes, synchronous completion, public widget APIs, and ordinary Node/Wasm wrapper behavior. In particular, legacy setChildren still returns its destroyed-ID JSON array; no mandatory initialization argument is added.
+   - Apply operations in their declared order using Stage 1 destruction semantics. Collect actual destroyed descendants once, preserve survivor identity/state and resource destructors, and return results only after native tree locks are released. Define or reject same-batch destruction/recreation of the same numeric ID so an acknowledgment cannot invalidate a newly live owner.
+   - Increment the native revision exactly once after successful application of a transaction, regardless of operation count. Compatibility transactions and direct batches must share ordering and revision state; rejected transactions must not increment the revision.
+   - Preserve cleanup of Fibers, native target records, forward/reverse public mappings, registration leases, internal subjects, and stale event/handle rejection. The new result contract must be consumable by the existing cleanup mechanism without relying on diagnostic snapshots or wholesale registry resets.
+   - Give transaction payloads, results, subject records, and subscriptions explicit bounded ownership and teardown. Preserve ReactivePlusPlus/RxJS; bounded replay must not unnecessarily retain large completed batch/result payloads.
+   - Preserve ordering of existing imperative widget calls relative to synchronous structural calls. Do not migrate all widget commands into the new wire schema or claim a total ordering domain for asynchronous resources in this slice.
 
-4. Turn the baseline into a passing cleanup regression gate.
-   - Extend the real Fabric fake-binding suite in isolated development and production runs. Model native destruction acknowledgments, including delayed/duplicate delivery, instead of directly clearing adapter state in tests.
-   - Cover deep deletion, insertion/removal/reorder, keyed replacement, direct populated-root unmount, rapid updates, Strict Mode, public ID mutation/reuse, late effects, stale callbacks/handles, and bridge disposal with queued notifications.
-   - Extend native tests through actual queue/subject delivery. Assert exact destroyed-ID sets, native counts, hierarchy/Yoga consistency, subject cleanup, and retained state of surviving widgets.
-   - Run the shared PlotBar/Table fixture on current-source Node and Wasm binaries. Exercise both subtree removal before unmount and direct unmount while populated widgets remain attached.
-   - Run at least 1,000 lifecycle cycles in one process/renderer per runtime, alternating meaningful removal/replacement cases. After cleanup acknowledgment and an observable frame, require zero growth from the empty post-warm-up baseline in native elements, hierarchy entries, subjects, Fiber entries, forward/reverse mappings, and registration sets.
-   - Keep fixed empty-container metadata explicit. Assert expected live counts and working events/imperative updates while mounted, so dropping all work cannot pass the cleanup checks.
-   - Retain semantic content assertions, populated screenshots, timeouts, bounded traces, count deltas, and failure artifacts. Process exit, forced GC, RSS alone, or wholesale registry resets are not proof of unmount cleanup.
-
-Expected-failure migration:
-- Convert XF-LIFE-001/002/003/006/007/010 cleanup/identity cases into ordinary passing invariants as they are fixed. Update the runtime fixture and report tooling to accept fully passing cleanup runs instead of requiring known-leak status or hardcoded orphan counts.
-- Keep XF-LIFE-004/005/008/009 executing with narrow signatures and documented follow-up stages. Cleanup may change secondary counts; explain those changes while preserving the underlying publication/reparenting/abandonment assertions.
-- Ordinary unmount cleanup does not prove speculative nodes are never retained. Residual accumulation in an isolated abandoned-work case belongs in its remaining characterization, not in normal lifecycle stress acceptance.
-- Unexpected failures, unexplained signature changes, and unexpected passes require review. No broad skips, catch-all suppression, or continue-on-error test jobs.
+4. Establish transaction regression gates on the actual shared path.
+   - Extend native tests through real queue/subject delivery, not only pure parser helpers. Verify exact results, revisions, surviving widget content, hierarchy/Yoga consistency, destruction, and recovery after rejected transactions.
+   - Test several-operation create/attach/patch/reorder/remove batches; virtual-root partial removal and populated unmount; malformed final operations; duplicate/missing IDs; unsupported surfaces; empty/no-op policy; and mixed legacy/new API ordering. Verify that invalid batches cause no mutation or destruction and the next valid batch still works.
+   - Exercise the same valid and invalid wire fixtures through the current-source Node and Wasm bindings. Compare semantic results, error classifications, revisions, and actual native state; a fake module alone is not binding parity evidence.
+   - Extend the isolated development/production Fabric fake-binding harness to model the compatibility transaction path and destruction results. Keep ordinary wrappers on the tested migration path and preserve Strict Mode, ID rebinding, delayed effects/events, stale handles, and teardown checks.
+   - Prove that one multi-operation API call gives one native revision increment and that compatibility calls advance that same state once each. Capture enough bounded diagnostics to identify a failed sequence/operation without adding a durable recorder or full frame-correlation system.
+   - Keep all six resolved cleanup/identity defect IDs as ordinary passing invariants. Keep XF-LIFE-004/005/008/009 executing with narrow signatures for Stage 3. Review unexpected passes and explain secondary signature changes; do not silently skip, widen, or relabel the underlying defects as fixed.
 
 Validation and acceptance:
-- From packages/dear-imgui/npm, pass fabric:verify, build:common, diagnostics:typecheck, test:lifecycle, build:node, and build:wasm with current-source native artifacts built first.
-- Run the complete native unit suite with VS2022 on Windows and on Linux. Run the real Node fixture on a validated OpenGL environment and the Wasm fixture through Docker/Emscripten and headless WebGPU; identify hardware/software adapters separately.
-- Pass both real 1,000-cycle cleanup runs and existing full-App Node/browser smokes. Validate representative lifecycle behavior with diagnostics disabled as well as enabled.
-- Preserve the 20/60/120 Hz streaming assertions and 100,000-row case. Collect three-repetition production results with optimized native builds and comparable fixture parameters; report material regressions against Stage 0 without making hardware-specific timings universal CI gates.
-- Update application CI to enforce passing cleanup invariants on its existing rendering runners, preserve extended/stress commands, and upload diagnostics on failures. Report which local and hosted checks actually ran.
-- Update ROADMAP.md only for delivered work and add a concise cleanup engineering record linking the historical baseline. Record resolved/remaining defect IDs, count deltas, notification/stale-target semantics, reproduction commands, and measured results.
+- Build current-source native artifacts first using supported VS2022 and Docker/Emscripten toolchains. From packages/dear-imgui/npm, pass fabric:verify, build:common, diagnostics:typecheck, test:lifecycle, build:node, and build:wasm, plus the new transaction checks.
+- Run the complete native unit suite on Windows and Linux. Run binding parity and real transaction checks on validated Node/OpenGL and headless Wasm/WebGPU environments, identifying hardware and software adapters separately.
+- Re-run at least 1,000 ordinary lifecycle cycles in one process/renderer per runtime through the migrated compatibility path, alternating subtree removal and keyed replacement/direct populated unmount. After cleanup acknowledgment and an observable newer frame, require zero growth in all ten Stage 1 count fields, with the fixed empty-container hierarchy entry explicit.
+- Retain expected mounted counts, semantic PlotBar/Table data assertions, working events/imperative calls, populated screenshots, diagnostics-disabled checks, ordinary-wrapper lifecycle checks, and full-App Node/browser smokes. Dropping work, process exit, forced GC, or clearing registries must not substitute for cleanup proof.
+- Preserve the 20/60/120 Hz streaming accounting and 100,000-row workload. Collect three-repetition production measurements with optimized native builds and comparable Stage 1 parameters; report transaction envelope/parse/application overhead, boundary-call and byte accounting, and material regressions. Do not require a batching performance win while Fabric still emits one operation at a time.
+- Wire new transaction checks into application CI alongside existing cleanup gates; retain extended/stress commands, bounded timeouts, and failure artifacts. No broad skips, catch-all suppression, or continue-on-error jobs. Report which local and hosted checks actually ran, including pre-existing failures.
+- Update ROADMAP.md only for delivered Stage 2 work. Add a concise transaction engineering record linking the cleanup/baseline records, and update architecture/binding/diagnostic documentation where the implemented contract resolves open decisions.
+- Record the exact schema and error semantics, sequence/revision/surface policies, compatibility mapping, validation and application completion boundaries, result ownership, test commands/results, measurements, remaining defects, and Stage 3 integration requirements. Keep raw reports and generated artifacts out of source changes.
 
 Scope and constraints:
-- Preserve Fabric, React 19.2.3, RN 0.87.0, RxJS, ReactivePlusPlus, Yoga, Dear ImGui, and public widget APIs. Modify owned host/binding seams rather than generated renderer snapshots.
-- Integrate cleanup into ordinary Node and Wasm wrappers, not only the harness. Keep direct native callers compatible when adding results or optional callbacks; avoid a new mandatory init argument without a compatibility path.
-- Keep individual-operation publication and rendering policy unchanged. Do not implement ApplyCommit, schema/revision machinery, commit batching, speculative staging, reparent-safe reachability, or invalidation scheduling here.
-- Do not sweep all currently unreachable nodes after every operation: that conflates prospective work and same-ID moves with accepted deletion before Stage 3 exists.
-- Preserve existing resource destructor behavior. General asynchronous resource/renderer shutdown redesign, new widgets, macOS support, publishing, CMake consolidation, and dependency-version upgrades are outside this slice.
-- Remaining Map/Canvas benchmarks, hardware WebGPU baselines, ubx-monitor integration, and Electron/GPUIX comparisons stay open. Ordinary cleanup does not complete Stage 0 or the Stages 0-4 milestone.
-- Use the authoritative npm workspace lockfile, supported VS2022 toolchain, and documented Docker Wasm build. Keep raw results and generated build artifacts out of source changes.
+- Preserve Fabric, React 19.2.3, RN 0.87.0, RxJS, ReactivePlusPlus, Yoga, Dear ImGui, and public component APIs. Modify owned host/binding seams rather than generated renderer snapshots.
+- Keep Stage 2 separate from Stage 3: no prospective Fabric collector, completeRoot batching, final committed-reachability destruction, reparenting repair, or abandoned-work sweep. Full preflight validation is required; atomic visibility of a successfully applying multi-operation batch is not this slice's acceptance claim.
+- Keep individual-operation mutation behavior and render policy intact except where needed for the common transaction contract. Do not implement invalidation scheduling, frame-revision correlation, trace/replay, automation APIs, operation coalescing, or binary transport.
+- Do not add a general asynchronous shutdown redesign, new widgets, macOS support, multi-window rendering, publishing, dependency upgrades, or CMake consolidation. Use the authoritative npm workspace lockfile and documented toolchains.
+- Map/Canvas benchmarks, hardware WebGPU baselines, ubx-monitor integration, and Electron/GPUIX comparisons remain open. Stage 2 completion does not complete Stage 0 coverage or the Stages 0-4 milestone.
 
 Relevant implementation locations:
 - packages/dear-imgui/cpp/app/include/xframes.h
 - packages/dear-imgui/cpp/app/src/xframes.cpp
-- packages/dear-imgui/cpp/tests/xframes_test.cpp
+- packages/dear-imgui/cpp/tests/xframes_test.cpp and native test/build registration for new owned transaction files
 - packages/dear-imgui/npm/node/src/xframes-node.cpp
-- packages/dear-imgui/npm/node/src/lib/render.tsx
 - packages/dear-imgui/cpp/wasm/src/main.cpp
-- packages/dear-imgui/npm/wasm/src/lib/ReactNativeWrapper.tsx
 - packages/dear-imgui/npm/common/src/lib/react-native/nativeFabricUiManager.ts
+- packages/dear-imgui/npm/common/src/lib/react-native/ReactNativePrivateInterface.d.ts
 - packages/dear-imgui/npm/common/src/lib/widgetRegistrationService.ts
-- packages/dear-imgui/npm/common/src/lib/components/XFrames/
-- packages/dear-imgui/npm/diagnostics/
-- .github/workflows/application.yml
+- packages/dear-imgui/npm/node/src/lib/render.tsx
+- packages/dear-imgui/npm/wasm/src/lib/ReactNativeWrapper.tsx
+- packages/dear-imgui/npm/wasm/src/lib/wasm-app-types.ts
+- packages/dear-imgui/npm/diagnostics/ and .github/workflows/application.yml
 
 Completion handoff:
-Summarize which cleanup invariants now pass, exact post-warm-up count deltas, and any remaining ordering limitations. Recommend the next Stage 2 transaction API slice, preserving Stage 3 expected failures as its subsequent integration gate.
+Summarize the implemented transaction schema, rejection guarantees, sequence/revision semantics, compatibility behavior, passing parity/lifetime gates, measured overhead, and remaining visibility/ordering limitations. Recommend Stage 3's per-surface prospective staging and one transaction per completeRoot, with atomic native visibility and final-reachability destruction; preserve XF-LIFE-004/005/008/009 as that slice's integration gate.

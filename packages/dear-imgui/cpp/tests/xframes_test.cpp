@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+#include <thread>
+#include <algorithm>
 #include <gmock/gmock.h>
 #include <nlohmann/json.hpp>
 #include <rpp/rpp.hpp>
@@ -95,6 +97,26 @@ protected:
 
     auto CopyInternalSubject(int id) {
         return xf->m_elementInternalOpsSubject.at(id);
+    }
+
+    void SetCommitCounters(uint64_t sequence, uint64_t revision) {
+        xf->m_nativeSequence = sequence;
+        xf->m_nativeRevision = revision;
+    }
+
+    void FailButtonCreation() {
+        xf->m_element_init_fn["di-button"] = [](const json&, std::optional<WidgetStyle>, XFrames*) -> std::unique_ptr<Element> {
+            throw std::runtime_error("injected constructor failure");
+        };
+    }
+
+    bool LastCommitRequestExpired() {
+        bool expired = false;
+        auto subscription = rpp::composite_disposable_wrapper::make();
+        xf->m_elementOpSubject.get_observable() | rpp::ops::subscribe(subscription,
+            [&](const std::weak_ptr<CommitRequest>& request) { expired = request.expired(); });
+        subscription.dispose();
+        return expired;
     }
 };
 
@@ -537,4 +559,224 @@ TEST_F(XFramesQueueTest, DestructionResultsReportEachActualElementOnlyOnce) {
     EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{2, 1}));
     EXPECT_TRUE(xf->QueueSetChildren(0, {}).empty());
     EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 0);
+}
+
+
+namespace {
+json Transaction(std::initializer_list<json> operations) {
+    return {{"schemaVersion", 1}, {"surfaceId", 0}, {"operations", std::vector<json>(operations)}};
+}
+json TxCreate(int id, std::string type = "node", json props = json::object()) {
+    return {{"op", "create"}, {"id", id}, {"elementType", type}, {"props", props}};
+}
+json TxChildren(int id, std::initializer_list<int> children) {
+    return {{"op", "setChildren"}, {"parentId", id}, {"childrenIds", std::vector<int>(children)}};
+}
+json TxPatch(int id, json props) { return {{"op", "patch"}, {"id", id}, {"props", props}}; }
+json TxAppend(int parent, int child) { return {{"op", "appendChild"}, {"parentId", parent}, {"childId", child}}; }
+}
+
+TEST_F(XFramesQueueTest, CommitSeveralOperationsShareOneRevisionAndPreserveWidgetData) {
+    const auto result = xf->ApplyCommit(Transaction({TxCreate(2), TxCreate(3, "plot-bar"),
+        TxCreate(4, "di-table", {{"columns", json::array({{{"fieldId", "v"}, {"heading", "Value"}}})}}),
+        TxAppend(2, 3), TxAppend(2, 4), TxChildren(1, {2}),
+        TxPatch(3, {{"series", json::array({{{"label", "Updated"}}})}})}).dump()).ToJson();
+    ASSERT_EQ(result["status"], "applied") << result;
+    EXPECT_EQ(result["nativeSequence"], "3"); EXPECT_EQ(result["nativeRevision"], "3");
+    EXPECT_EQ(result["destroyedIds"], json::array());
+    Internal(3, {{"op", "appendData"}, {"x", 42}, {"y", 7}});
+    Internal(4, {{"op", "setData"}, {"data", json::array({{{"v", 19}}})}});
+    auto state = xf->GetDiagnosticsState();
+    const auto plot = Node(state, 3)["state"], table = Node(state, 4)["state"];
+    EXPECT_EQ(plot["series"][0]["lastX"], 42); EXPECT_EQ(plot["series"][0]["label"], "Updated");
+    EXPECT_EQ(table["rowCount"], 1);
+    const auto reordered = xf->ApplyCommit(Transaction({TxChildren(2, {4, 3}), TxPatch(3, {{"showLegend", true}, {"series", json::array({{{"label", "Updated"}}})}})}).dump());
+    ASSERT_EQ(reordered.status, "applied"); EXPECT_EQ(reordered.nativeRevision, 4);
+    state = xf->GetDiagnosticsState();
+    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({4, 3}));
+    EXPECT_EQ(Node(state, 3)["state"], plot); EXPECT_EQ(Node(state, 4)["state"], table);
+    const auto removed = xf->ApplyCommit(Transaction({TxChildren(2, {4}), TxChildren(0, {})}).dump());
+    EXPECT_EQ(removed.destroyedIds, (std::vector<int>{3, 4, 2, 1})); EXPECT_EQ(removed.nativeRevision, 5);
+    state = xf->GetDiagnosticsState();
+    EXPECT_EQ(state["elementCount"], 0); EXPECT_EQ(state["hierarchyCount"], 1); EXPECT_EQ(state["internalSubjectCount"], 0);
+}
+
+TEST_F(XFramesQueueTest, CommitInvalidFinalOperationsLeaveEveryNativeStateFieldUnchanged) {
+    Create({{"id", 2}, {"type", "plot-bar"}}); xf->QueueSetChildren(1, {2});
+    Internal(2, {{"op", "appendData"}, {"x", 10}, {"y", 20}});
+    const auto before = xf->GetDiagnosticsState(), counters = xf->GetCommitState();
+    const std::vector<std::pair<json, std::string>> cases = {
+        {TxCreate(2), "duplicate_id"}, {TxPatch(999, json::object()), "missing_target"},
+        {TxCreate(3, "unknown"), "invalid_element_type"}, {TxChildren(1, {2, 2}), "duplicate_child"},
+        {TxChildren(1, {999}), "missing_target"}, {TxChildren(1, {1}), "cycle"},
+        {TxPatch(2, {{"id", "public"}}), "immutable_identity"}, {TxPatch(2, {{"type", "node"}}), "immutable_identity"},
+        {TxPatch(2, {{"axisAutoFit", "bad"}}), "invalid_props"},
+        {TxPatch(2, {{"series", json::array({{{"label", 3}}})}}), "invalid_props"},
+        {TxPatch(2, {{"style", {{"border", {{"thickness", "bad"}}}}}}), "invalid_props"},
+        {TxCreate(3, "di-table", {{"columns", json::array({{{"heading", "missing fieldId"}}})}}), "invalid_props"},
+        {{{"op", "future"}}, "unsupported_operation"}, {TxCreate(-1), "invalid_id"}
+    };
+    for (const auto& [invalid, code] : cases) {
+        auto wire = Transaction({TxCreate(8, "plot-bar"), TxPatch(2, {{"showLegend", true}}), invalid});
+        const auto result = xf->ApplyCommit(wire.dump()).ToJson(); SCOPED_TRACE(wire.dump());
+        ASSERT_EQ(result["status"], "rejected") << result;
+        EXPECT_EQ(result["error"]["code"], code); EXPECT_EQ(result["error"]["operationIndex"], 2);
+        EXPECT_EQ(result["destroyedIds"], json::array()); EXPECT_TRUE(result["nativeSequence"].is_null());
+        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump()); EXPECT_EQ(xf->GetCommitState(), counters);
+    }
+    auto rejected = xf->ApplyCommit(Transaction({TxChildren(1, {}), TxPatch(2, json::object())}).dump());
+    EXPECT_EQ(rejected.error->code, "destroyed_id"); EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
+    const auto recovery = xf->ApplyCommit(Transaction({TxChildren(1, {})}).dump());
+    EXPECT_EQ(recovery.status, "applied"); EXPECT_EQ(recovery.destroyedIds, (std::vector<int>{2}));
+}
+
+TEST_F(XFramesQueueTest, CommitRejectsEnvelopeAndIdErrorsAndRecovers) {
+    const auto before = xf->GetDiagnosticsState();
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"{", "invalid_json"}, {"[]", "invalid_field"},
+        {R"({"schemaVersion":2,"surfaceId":0,"operations":[]})", "unsupported_version"},
+        {R"({"schemaVersion":1,"surfaceId":1,"operations":[]})", "unsupported_surface"},
+        {R"({"schemaVersion":1,"surfaceId":"0","operations":[]})", "unsupported_surface"},
+        {R"({"schemaVersion":1,"surfaceId":0})", "missing_field"},
+        {R"({"schemaVersion":1,"surfaceId":0,"operations":{}})", "invalid_field"},
+        {R"({"schemaVersion":1,"surfaceId":0,"operations":[],"sequence":1})", "unknown_field"}
+    };
+    for (const auto& [wire, code] : cases) {
+        const auto result = xf->ApplyCommit(wire); SCOPED_TRACE(wire);
+        ASSERT_TRUE(result.error.has_value()); EXPECT_EQ(result.status, "rejected"); EXPECT_EQ(result.error->code, code);
+        EXPECT_EQ(result.nativeRevision, 2); EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
+    }
+    for (const auto& id : json::array({0, -1, 1.5, 2147483648LL, 9007199254740993LL, "2", nullptr})) {
+        auto op = TxCreate(2); op["id"] = id;
+        const auto result = xf->ApplyCommit(Transaction({op}).dump());
+        ASSERT_TRUE(result.error.has_value()); EXPECT_EQ(result.error->code, "invalid_id");
+        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
+    }
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxCreate(2147483647)}).dump()).status, "applied");
+}
+
+TEST_F(XFramesQueueTest, CommitValidatesOrderedRelationshipsAndSameBatchIdReuse) {
+    const auto before = xf->GetDiagnosticsState();
+    const std::vector<std::pair<json, std::string>> cases = {
+        {Transaction({TxAppend(1, 2), TxCreate(2)}), "missing_target"},
+        {Transaction({TxCreate(2), TxCreate(2)}), "duplicate_id"},
+        {Transaction({TxCreate(2), TxAppend(1, 2), TxChildren(1, {}), TxCreate(2)}), "destroyed_id"},
+        {Transaction({TxCreate(2), TxAppend(1, 2), TxAppend(2, 1)}), "invalid_relationship"},
+        {Transaction({TxCreate(2), TxCreate(3), TxAppend(1, 2), TxAppend(3, 2)}), "multiple_parents"},
+        {Transaction({TxCreate(2, "unformatted-text", {{"text", "leaf"}}), TxCreate(3), TxAppend(2, 3)}), "invalid_relationship"},
+        {Transaction({TxCreate(2), TxCreate(3), TxAppend(2, 3), TxAppend(3, 2)}), "cycle"}
+    };
+    for (const auto& [wire, code] : cases) {
+        const auto result = xf->ApplyCommit(wire.dump()); SCOPED_TRACE(wire.dump());
+        ASSERT_TRUE(result.error.has_value()) << result.ToJson(); EXPECT_EQ(result.error->code, code);
+        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
+    }
+}
+
+TEST_F(XFramesQueueTest, CommitEmptyNoOpsCompatibilityAndDiagnosticTogglesShareOrdering) {
+    auto wire = Transaction({}); wire["correlationId"] = "same-correlation-is-not-ordering";
+    EXPECT_EQ(xf->ApplyCommit(wire.dump()).nativeRevision, 3); EXPECT_EQ(xf->ApplyCommit(wire.dump()).nativeRevision, 4);
+    Create({{"id", 2}, {"type", "node"}}); xf->QueueAppendChild(1, 2);
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "6");
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxAppend(1, 2), TxPatch(2, json::object())}).dump()).nativeRevision, 7);
+    std::string props = "{}"; xf->QueuePatchElement(999, props);
+    EXPECT_TRUE(xf->QueueSetChildren(999, {}).empty()); xf->QueueAppendChild(999, 2);
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "10");
+    xf->SetDiagnosticsEnabled(true); xf->SetUpSubjects(); xf->SetDiagnosticsEnabled(false);
+    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], "10");
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxChildren(0, {})}).dump()).destroyedIds, (std::vector<int>{2, 1}));
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "11");
+}
+
+TEST_F(XFramesTest, CommitCountersRemainLosslessAndOverflowRejectsBeforeMutation) {
+    SetCommitCounters(9007199254740992ULL, 9007199254740992ULL);
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxCreate(1)}).dump()).ToJson()["nativeRevision"], "9007199254740993");
+    SetCommitCounters(UINT64_MAX, 12); const auto before = xf->GetDiagnosticsState();
+    auto result = xf->ApplyCommit(Transaction({TxCreate(2)}).dump()); ASSERT_TRUE(result.error.has_value());
+    EXPECT_EQ(result.error->code, "counter_overflow"); EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
+    SetCommitCounters(12, UINT64_MAX); result = xf->ApplyCommit(Transaction({}).dump());
+    EXPECT_EQ(result.error->code, "counter_overflow");
+}
+
+TEST_F(XFramesTest, CommitApplicationFailureIsHonestAndDoesNotTerminateSubject) {
+    FailButtonCreation();
+    const auto result = xf->ApplyCommit(Transaction({TxCreate(1), TxCreate(2, "di-button", {{"label", "Fail"}})}).dump());
+    EXPECT_EQ(result.status, "failed"); ASSERT_TRUE(result.error.has_value());
+    EXPECT_EQ(result.error->code, "application_error"); EXPECT_EQ(result.error->operationIndex, 1);
+    EXPECT_EQ(result.nativeSequence, 1); EXPECT_EQ(result.nativeRevision, 0);
+    EXPECT_TRUE(xf->IsElementAlive(1)); // documented lack of arbitrary-failure rollback
+    EXPECT_TRUE(LastCommitRequestExpired());
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxCreate(3)}).dump()).nativeSequence, 2);
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "1");
+}
+
+
+TEST_F(XFramesTest, CommitCompetingStructuralCallsHaveOneNativeAuthority) {
+    std::vector<uint64_t> sequences;
+    std::mutex resultsMutex;
+    std::vector<std::thread> threads;
+    for (int thread = 0; thread < 4; ++thread) threads.emplace_back([&, thread] {
+        for (int i = 0; i < 30; ++i) {
+            const int id = 1000 + thread * 100 + i;
+            const auto result = xf->ApplyCommit(Transaction({TxCreate(id), TxAppend(0, id)}).dump());
+            EXPECT_EQ(result.status, "applied");
+            if (result.nativeSequence) {
+                std::lock_guard<std::mutex> lock(resultsMutex);
+                sequences.push_back(*result.nativeSequence);
+            }
+            // A stale legacy operation participates in the same serialization domain.
+            std::string props = "{}";
+            xf->QueuePatchElement(999999, props);
+        }
+    });
+    for (auto& thread : threads) thread.join();
+    EXPECT_EQ(sequences.size(), 120);
+    std::sort(sequences.begin(), sequences.end());
+    EXPECT_EQ(std::adjacent_find(sequences.begin(), sequences.end()), sequences.end());
+    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], "240");
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "240");
+    const auto removed = xf->ApplyCommit(Transaction({TxChildren(0, {})}).dump());
+    EXPECT_EQ(removed.destroyedIds.size(), 120);
+    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 1); // this fixture owns an actual node 0
+}
+
+TEST_F(XFramesQueueTest, CommitVirtualRootPartialRemovalPreservesTheSurvivingWidget) {
+    Create({{"id", 2}, {"type", "node"}, {"root", true}});
+    Create({{"id", 3}, {"type", "plot-bar"}});
+    xf->QueueAppendChild(2, 3);
+    xf->QueueSetChildren(0, {1, 2});
+    Internal(3, {{"op", "appendData"}, {"x", 12}, {"y", 21}});
+    const auto before = Node(xf->GetDiagnosticsState(), 3)["state"];
+    const auto result = xf->ApplyCommit(Transaction({TxChildren(0, {2, 1}), TxChildren(0, {2})}).dump());
+    EXPECT_EQ(result.status, "applied"); EXPECT_EQ(result.destroyedIds, (std::vector<int>{1}));
+    const auto state = xf->GetDiagnosticsState();
+    EXPECT_EQ(Node(state, 3)["state"], before);
+    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({3}));
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxChildren(0, {})}).dump()).destroyedIds, (std::vector<int>{3, 2}));
+}
+
+TEST_F(XFramesQueueTest, CommitGuardedNullPropRemovalPreservesWidgetData) {
+    ASSERT_EQ(xf->ApplyCommit(Transaction({
+        TxCreate(2, "plot-bar", {{"series", json::array({{{"label", "Keep"}}})}}),
+        TxCreate(3, "di-table", {{"columns", json::array({{{"fieldId", "v"}, {"heading", "Value"}}})}}),
+        TxChildren(1, {2, 3})}).dump()).status, "applied");
+    Internal(2, {{"op", "appendData"}, {"x", 12}, {"y", 21}});
+    Internal(3, {{"op", "setData"}, {"data", json::array({{{"v", 19}}})}});
+    const auto before = xf->GetDiagnosticsState();
+    std::string plotPatch = R"({"series":null,"bullColor":null})";
+    std::string tablePatch = R"({"columns":null,"contextMenuItems":null,"clipRows":null})";
+    xf->QueuePatchElement(2, plotPatch);
+    xf->QueuePatchElement(3, tablePatch);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"], Node(before, 2)["state"]);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 3)["state"], Node(before, 3)["state"]);
+    // Guarded scalar/style removals must remain no-ops at the same queue boundary.
+    const auto removedOptions = xf->ApplyCommit(Transaction({
+        TxCreate(4, "multi-slider", {{"numValues", nullptr}, {"decimalDigits", nullptr}, {"defaultValues", nullptr}}),
+        TxCreate(5, "color-indicator", {{"color", nullptr}}),
+        TxCreate(6, "di-window"),
+        TxPatch(6, {{"title", nullptr}, {"width", nullptr}, {"height", nullptr}}),
+        TxPatch(4, {{"style", {{"font", nullptr}, {"colors", nullptr}, {"vars", nullptr}, {"roundCorners", nullptr}}}}),
+        TxChildren(1, {2, 3, 4, 5, 6})}).dump());
+    EXPECT_EQ(removedOptions.status, "applied") << removedOptions.ToJson();
+    EXPECT_EQ(xf->ApplyCommit(Transaction({TxChildren(1, {2, 3})}).dump()).destroyedIds, (std::vector<int>{4, 5, 6}));
 }

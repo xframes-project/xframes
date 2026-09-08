@@ -1,7 +1,7 @@
 # Fabric-Compatible Runtime Hardening
 
-- Status: proposed architecture
-- Last updated: 28 August 2026
+- Status: target architecture; Stage 1 cleanup and Stage 2 native transaction path implemented
+- Last updated: 8 September 2026
 - Related decision: [XFrames and GPUIX assessment](../strategy/gpuix-comparison-2026-08.md)
 
 ## Purpose
@@ -20,6 +20,32 @@ The programme covers six related capabilities:
 All six are compatible with Fabric. They strengthen the existing Fabric, RxJS, ReactivePlusPlus, Yoga, and Dear ImGui architecture rather than replacing it.
 
 ## Summary
+
+### Implemented Stage 2 boundary
+
+The [transaction implementation record](../engineering/fabric-transactions-2026-09.md)
+defines the current wire contract and validation evidence. Both bindings expose
+`applyCommit(string): string` and `getCommitState(): string`. Schema version 1
+supports ordered create, patch, setChildren and appendChild operations on surface
+0, the current Fabric virtual container. Native IDs are positive signed 32-bit
+integers; native sequence/revision counters are unsigned 64-bit decimal strings.
+An optional opaque correlation ID never controls ordering.
+
+One native authority serializes full preflight and synchronous subject delivery
+for direct batches and legacy one-operation transactions. Rejected input cannot
+apply a prefix. Successful batches advance revision once and return actual
+destroyed IDs after tree locks are released. Application failures report failure
+and may leave a prefix applied; arbitrary resource/allocation rollback is outside
+this boundary. A weak replay record avoids retaining completed owned payloads.
+
+The ordinary Fabric host still publishes individual operations. Each native
+operation retains its own tree-lock boundary, so successful multi-operation
+batches do not yet have atomic visibility. Native revisions are neither Fabric
+commit revisions nor presented-frame guarantees. Imperative widget calls keep
+their existing API and synchronous relative ordering; asynchronous resources do
+not acquire a total ordering domain. The design below describes the fuller
+Stage 3–6 target, including prospective staging, atomic visibility, scheduling,
+recording and automation. Those capabilities are not implied by Stage 2.
 
 The central change is to introduce an XFrames-owned, versioned transaction at Fabric's `completeRoot` publication boundary.
 
@@ -152,6 +178,12 @@ No patch to the vendored Fabric reconciler should be required. The behavior belo
 **Stable frame**: a presented frame for a known revision when no immediately pending transaction or required animation deadline remains.
 
 ## Target transaction model
+
+The envelope sketch in this section describes the future target, not the accepted
+Stage 2 wire shape. The implemented version-1 fields and string counters are in
+the [transaction record](../engineering/fabric-transactions-2026-09.md). Extra
+ordering, timing or command fields below currently produce `unknown_field`;
+introducing them requires an explicit version/compatibility decision.
 
 ### Wire shape
 
@@ -692,7 +724,7 @@ Exit condition: current behavior and known failures are reproducible.
 
 This can initially cover current C++ destruction behavior, but final reparent-safe cleanup depends on Stage 3.
 
-### Stage 2: transaction envelope and compatibility API
+### Stage 2: transaction envelope and compatibility API (implemented)
 
 - Define schema version 1.
 - Add sequence and surface IDs.
@@ -701,6 +733,11 @@ This can initially cover current C++ destruction behavior, but final reparent-sa
 - Add parse, validation, and revision tests.
 
 Exit condition: no public JavaScript behavior changes, but all structural operations can use the common native transaction path.
+
+The implemented contract and local acceptance results are recorded in
+[Stage 2 native transactions](../engineering/fabric-transactions-2026-09.md).
+The next stage must replace per-operation publication and visibility while
+preserving this shared parser, result cleanup and authoritative ordering.
 
 ### Stage 3: batch at Fabric publication
 
@@ -843,6 +880,11 @@ Risk: screenshots differ across drivers or font environments.
 Mitigation: pin assets and fonts, record scale and dimensions, use tolerant comparisons, and assert semantic state and bounds alongside pixels.
 
 ## Open implementation decisions
+
+Stage 2 resolves the initial choices to calling-thread synchronous application,
+surface 0, native allocation of structural sequence numbers, and separate widget
+commands. The remaining choices below concern the full target and any later
+extension of that deliberately narrow contract.
 
 - Whether complete transactions are applied on the calling thread under locks or queued to the render thread.
 - Whether prospective JavaScript nodes are staged as operations or materialized by traversing the final child set.

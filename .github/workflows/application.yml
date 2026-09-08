@@ -105,7 +105,7 @@ jobs:
       - run: npm run copy-artifacts-to-lib-folder --workspace @xframes/node
       # Linux/Xvfb with Mesa is the CI rendering gate. Windows supplies VS2022
       # compilation and native unit coverage; hosted Windows desktop GL varies.
-      - name: Node OpenGL semantic fixture and production baseline (Mesa)
+      - name: Node OpenGL transactions, lifecycle and production baseline (Mesa)
         if: runner.os == 'Linux'
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -157,7 +157,7 @@ jobs:
           bash ../cpp/wasm/build-wasm-docker.sh 2>&1 | tee build/diagnostics/wasm-build.log
       - run: npm run build:wasm
       - run: npm run diagnostics:typecheck
-      - name: Real Fabric semantic fixture and production baseline
+      - name: Wasm transactions, Fabric lifecycle and production baseline
         env:
           XFRAMES_BROWSER: /usr/bin/google-chrome
           XFRAMES_WEBGPU_ADAPTER: swiftshader
@@ -186,3 +186,23 @@ jobs:
             packages/dear-imgui/npm/wasm/build/*.log
             packages/dear-imgui/npm/wasm/build/failure.json
             packages/dear-imgui/cpp/wasm/build-wasm/CMakeCache.txt
+
+  transaction-parity:
+    name: Current-source Node and Wasm transaction parity
+    needs: [native, wasm]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-ubuntu-24.04
+          path: packages/dear-imgui/npm/build/transaction-parity/node
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasm-webgpu
+          path: packages/dear-imgui/npm/build/transaction-parity/wasm
+      - run: npm run test:transactions:parity -- build/transaction-parity/node build/transaction-parity/wasm

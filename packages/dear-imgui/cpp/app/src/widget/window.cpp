@@ -26,13 +26,13 @@ void Window::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 void Window::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
-    if (widgetPatchDef["title"].is_string()) {
+    if (widgetPatchDef.contains("title") && widgetPatchDef["title"].is_string()) {
         m_title = widgetPatchDef["title"].template get<std::string>();
     }
-    if (widgetPatchDef["width"].is_string()) {
+    if (widgetPatchDef.contains("width") && widgetPatchDef["width"].is_number()) {
         m_width = widgetPatchDef["width"].template get<float>();
     }
-    if (widgetPatchDef["height"].is_string()) {
+    if (widgetPatchDef.contains("height") && widgetPatchDef["height"].is_number()) {
         m_height = widgetPatchDef["height"].template get<float>();
     }
 };

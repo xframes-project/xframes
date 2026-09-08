@@ -6,6 +6,8 @@
 #include <string>
 #include <mutex>
 #include <atomic>
+#include <memory>
+#include <new>
 #include <rpp/rpp.hpp>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -15,6 +17,7 @@
 #include "shared.h"
 #include "imgui_helpers.h"
 #include "texture_helpers.h"
+#include "commit.h"
 
 using json = nlohmann::json;
 
@@ -28,19 +31,11 @@ class StyledWidget;
 class LayoutNode;
 struct WidgetStyle;
 
-enum ElementOp {
-    OpCreateElement,
-    OpPatchElement,
-    OpSetChildren,
-    OpAppendChild,
-};
-
-struct ElementOpDef {
-    ElementOp op;
-    json data;
-    // QueueSetChildren owns the result until synchronous subject delivery returns.
-    // Replay records retain only a weak reference, never an acknowledgment payload.
-    std::weak_ptr<std::vector<int>> destroyedIds;
+struct CommitRequest {
+    xframes::CommitBatch batch;
+    xframes::CommitResult result;
+    std::exception_ptr exception;
+    bool completed = false;
 };
 
 class XFrames {
@@ -55,7 +50,18 @@ class XFrames {
 
         std::unordered_map<int, rpp::subjects::serialized_replay_subject<json>> m_elementInternalOpsSubject;
 
-        rpp::subjects::serialized_replay_subject<ElementOpDef> m_elementOpSubject;
+        // Lock order: structural dispatch -> subject -> hierarchy -> elements.
+        // Rendering takes only hierarchy -> elements; Stage 2 allows intermediate frames.
+        std::mutex m_commitMutex;
+        uint64_t m_nativeSequence = 0;
+        uint64_t m_nativeRevision = 0;
+        bool m_subjectsReady = false;
+        rpp::subjects::serialized_replay_subject<std::weak_ptr<CommitRequest>> m_elementOpSubject;
+        rpp::composite_disposable_wrapper m_commitSubscription = rpp::composite_disposable_wrapper::make();
+        json m_lastCommitDiagnostics;
+        xframes::CommitResult DispatchCommit(xframes::CommitBatch batch);
+        xframes::CommitResult ApplyCommitOperations(xframes::CommitBatch& batch);
+        xframes::CommitResult ApplyCompatibility(json operation);
 
         std::unordered_map<std::string, std::function<std::unique_ptr<Element>(const json&, std::optional<WidgetStyle>, XFrames*)>> m_element_init_fn;
 
@@ -166,6 +172,10 @@ class XFrames {
         void RenderElements(int id = 0, const std::optional<ImRect>& viewport = std::nullopt);
 
         void QueueCreateElement(std::string& elementJsonAsString);
+
+        // Synchronous structural API. uint64 counters use decimal strings on the wire.
+        xframes::CommitResult ApplyCommit(std::string_view serializedCommit);
+        json GetCommitState();
 
         void QueuePatchElement(int id, std::string& elementJsonAsString);
 

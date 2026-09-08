@@ -26,6 +26,18 @@ for (const path of paths) {
         console.log(`| ${rate} | ${range(runs.map(run => run.achievedHz))} | ${sum("observedUpdates")} / ${sum("produced")} | ${range(runs.map(run => run.dataToObservedFrameMs.p50))} | ${range(runs.map(run => run.dataToObservedFrameMs.p95))} | ${range(runs.map(run => run.dataToObservedFrameMs.p99))} | ${Math.max(...runs.map(run => run.dataToObservedFrameMs.maximum)).toFixed(2)} | ${range(runs.map(run => run.applyToConstructedMs.p95))} |`);
     }
     console.log("\nRanges are per-repetition values, not pooled percentiles. JS intervals include observation polling; native intervals are widget state age at frame construction.");
+    if (report.transactions) {
+        if (report.transactions.status !== "passed") throw new Error(`Failed transaction fixture: ${path}`);
+        console.log("\n| Transaction mode | Operations | Calls | UTF-8 bytes | Boundary p95 µs | Parse p95 µs | Envelope p95 µs | Validation p95 µs | Application p95 µs |");
+        console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+        for (const mode of ["batch", "compatibility"]) {
+            const runs = report.transactions.overhead.filter(run => run.mode === mode);
+            if (runs.length !== 3) throw new Error(`Missing transaction repetitions: ${path}`);
+            const timing = key => runs.every(run => run[key].samples > 0) ? range(runs.map(run => run[key].p95 * 1000)) : "unsampled";
+            console.log(`| ${mode} | ${range(runs.map(run => run.operations))} | ${range(runs.map(run => run.boundaryCalls))} | ${range(runs.map(run => run.bytes))} | ${timing("boundaryMs")} | ${timing("parseMs")} | ${timing("envelopeMs")} | ${timing("validationMs")} | ${timing("applicationMs")} |`);
+        }
+        console.log(report.transactions.overhead[0].timingScope);
+    }
     console.log(JSON.stringify({ metadata: report.metadata, backend: report.lastFrame.backend,
         idle: { ms: report.idle.elapsedMs, frames: report.idle.frames, cpuPercentOfOneCore: report.idle.cpuPercentOfOneCore,
             rssBefore: report.idle.before.rssBytes, rssAfter: report.idle.after.rssBytes },

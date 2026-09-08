@@ -141,3 +141,5 @@ export {
     ImPlotMarker,
     components,
 };
+export type { NativeCommit, NativeCommitOperation, NativeCommitResult, NativeCommitError,
+    NativeCommitErrorCode, NativeCommitState, NativeCounter, NativeTransactionBinding } from "./nativeCommit";

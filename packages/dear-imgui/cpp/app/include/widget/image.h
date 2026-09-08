@@ -21,12 +21,8 @@ public:
         auto id = widgetDef["id"].template get<int>();
         auto url = widgetDef["url"].template get<std::string>();
 
-#ifdef __EMSCRIPTEN__
-        auto parsedUrl = ada::parse<ada::url>(url);
-        if (!parsedUrl) {
-            throw std::invalid_argument("Invalid url supplied");
-        }
-#endif
+        // URL shape is validated by the shared transaction preflight. Relative
+        // asset paths are resolved by the existing backend resource loader.
 
         std::optional<ImVec2> size;
 

@@ -17,7 +17,7 @@ void TextWrap::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 void TextWrap::Patch(const json& widgetPatchDef, XFrames* view) {
     StyledWidget::Patch(widgetPatchDef, view);
 
-    if (widgetPatchDef.contains("width") && widgetPatchDef["width"].is_string()) {
+    if (widgetPatchDef.contains("width") && widgetPatchDef["width"].is_number()) {
         m_width = widgetPatchDef["width"].template get<float>();
     }
 };

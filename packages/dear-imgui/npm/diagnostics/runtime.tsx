@@ -2,6 +2,7 @@ import React from "react";
 import { createBridge, type NativeBinding } from "./bridge";
 import { check, waitFor } from "./assertions";
 import { Fixture, makeHandles, makeRows } from "./fixture";
+import { verifyTransactions } from "./transactions";
 
 export type NativeFrame = { enabled: boolean; frame: number; sampledAtMs: number; constructedAtMs: number; submittedAtMs: number;
     elementCount: number; hierarchyCount: number; internalSubjectCount: number; unreachableCount: number; vertices: number;
@@ -266,6 +267,7 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
         await observe(frame => frame.elementCount === 0 && frame.internalSubjectCount === 0, "diagnostics-disabled cleanup verification");
         requireEmpty();
         report.diagnosticsDisabled = "passed";
+        report.transactions = await verifyTransactions(binding);
         report.status = "passed";
     } catch (error) {
         report.status = "failed";
