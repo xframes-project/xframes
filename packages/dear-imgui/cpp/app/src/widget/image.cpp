@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <limits>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/fetch.h>
@@ -18,13 +19,73 @@ bool Image::HasCustomHeight() {
     return false;
 }
 
-void Image::Render(XFrames* view, const std::optional<ImRect>& viewport) {
+Image::Image(XFrames* view, int id, const std::string& url, const std::optional<ImVec2>& size, std::optional<WidgetStyle>& style)
+    : StyledWidget(view, id, style), m_url(url), m_size(size),
+      m_resourceLifetime(view->m_frameScheduler.Register(xframes::FrameReason::Resource)),
+      m_completion(std::make_shared<CompletionState>(m_resourceLifetime.GetSource())) {
+    m_type = "di-image";
+}
+Image::~Image() {
 #ifdef __EMSCRIPTEN__
-    bool shouldRender = m_texture.textureView;
-#else
-    auto texIt = view->m_imageToTextureMap.find(m_id);
-    bool shouldRender = (texIt != view->m_imageToTextureMap.end());
+    m_fetches.CancelAll();
 #endif
+    {
+        const std::lock_guard lock(m_completion->mutex);
+        m_completion->alive = false;
+        m_completion->data.clear();
+        m_resourceLifetime.Reset();
+    }
+    if (m_view->m_renderer) m_view->m_renderer->RetireTexture(m_texture);
+}
+void Image::PrepareFrame(XFrames* view) {
+    Texture loaded;
+    bool success = false;
+#ifdef __EMSCRIPTEN__
+    std::vector<unsigned char> data;
+    {
+        const std::lock_guard lock(m_completion->mutex);
+        if (!m_completion->pending) return;
+        m_completion->pending = false;
+        success = m_completion->success;
+        data.swap(m_completion->data);
+    }
+    success = success && data.size() <= static_cast<size_t>(std::numeric_limits<int>::max())
+        && view->m_renderer->LoadTexture(data.data(), static_cast<int>(data.size()), &loaded);
+#else
+    if (!m_loadRequested) return;
+    m_loadRequested = false;
+    success = view->m_renderer->LoadTextureFile(m_url, &loaded);
+#endif
+    m_lastLoadFailed = !success;
+    if (success) {
+        view->m_renderer->RetireTexture(m_texture);
+        m_texture = loaded;
+        YGNodeMarkDirty(m_layoutNode->m_node);
+    }
+}
+
+json Image::GetResourceDiagnostics() const {
+    const std::lock_guard lock(m_completion->mutex);
+    return {{"loadedTextures", m_texture.textureView ? 1 : 0},
+        {"queuedLoads", (m_loadRequested ? 1 : 0) + (m_completion->pending ? 1 : 0)},
+        {"lastLoadFailed", m_lastLoadFailed},
+#ifdef __EMSCRIPTEN__
+        {"pendingRequests", m_fetches.Size()}
+#else
+        {"pendingRequests", 0}
+#endif
+    };
+}
+
+void Image::Render(XFrames* view, const std::optional<ImRect>& viewport) {
+    const bool shouldRender = m_texture.textureView != 0;
+    const auto imageSize = m_size.value_or(ImVec2(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node)));
+    if (!shouldRender || !(imageSize.x > 0 && imageSize.y > 0)) {
+        // StyledWidget positioned the cursor for this Yoga box. Even a pending
+        // or failed image must submit its layout item before the window ends.
+        ImGui::Dummy(ImVec2(std::max(0.0f, imageSize.x), std::max(0.0f, imageSize.y)));
+        return;
+    }
 
     if (shouldRender) {
 
@@ -34,7 +95,6 @@ void Image::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             ImGui::PushID(m_id);
             ImGui::BeginGroup();
 
-            // ImGui::Text("%x", view->m_imageToTextureMap[m_id]);
 
              ImGui::InvisibleButton("##image", imageSize);
             ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -52,9 +112,8 @@ void Image::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         #ifdef __EMSCRIPTEN__
             drawList->AddImage((void*)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
         #else
-            drawList->AddImage((ImTextureID)(intptr_t)texIt->second, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
+            drawList->AddImage((ImTextureID)(intptr_t)m_texture.textureView, p0, p1, ImVec2(0, 0), ImVec2(1, 1));
 
-//            ImGui::Image((ImTextureID)(intptr_t)view->m_imageToTextureMap[24], ImVec2(24, 24));
         #endif
             // ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
             // ImVec2 uv_max = ImVec2(1.0f, 1.0f);                 // Lower-right
@@ -78,67 +137,33 @@ void Image::HandleInternalOp(const json& opDef) {
         auto op = opDef["op"].template get<std::string>();
 
         if (op == "reloadImage") {
-#ifdef __EMSCRIPTEN__
-            FetchImage();
-#else
-            QueueFetchImage();
-#endif
+            RequestImage();
         }
     }
 };
 
+void Image::RequestImage() {
 #ifdef __EMSCRIPTEN__
-void Image::HandleFetchImageSuccess(emscripten_fetch_t *fetch) {
-    m_view->m_renderer->LoadTexture(fetch->data, fetch->numBytes, &m_texture);
-
-    printf("Fetched image using url %s\n", m_url.c_str());
-
-    YGNodeMarkDirty(m_layoutNode->m_node);
-};
-
-void Image::HandleFetchImageFailure(emscripten_fetch_t *fetch) {
-    printf("Unable to fetch image using url %s\n", m_url.c_str());
-};
-#endif
-
-#ifdef __EMSCRIPTEN__
-void Image::FetchImage() {
-    emscripten_fetch_attr_t attr;
-    emscripten_fetch_attr_init(&attr);
-
-    strcpy(attr.requestMethod, "GET");
-    attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
-
-    attr.userData = (void*)this;
-    attr.onsuccess = [](emscripten_fetch_t *fetch) {
-        if (fetch->userData) {
-            auto widget = static_cast<Image*>(fetch->userData);
-            widget->HandleFetchImageSuccess(fetch);
-        } else {
-            printf("Error: fetch->userData is null in onsuccess callback.\n");
+    const std::weak_ptr<CompletionState> completion = m_completion;
+    m_fetches.Get("image", m_url, [completion](bool success, WasmFetches::Bytes data) {
+        if (const auto state = completion.lock()) {
+            {
+                const std::lock_guard lock(state->mutex);
+                if (!state->alive) return;
+                state->data = std::move(data);
+                state->success = success;
+                state->pending = true;
+                state->source.Invalidate(xframes::FrameReason::Resource);
+            }
+            state->source.Notify();
         }
-
-        emscripten_fetch_close(fetch); // Free data associated with the fetch.
-    };
-
-    attr.onerror = [](emscripten_fetch_t *fetch) {
-        if (fetch->userData) {
-            auto widget = static_cast<Image*>(fetch->userData);
-            widget->HandleFetchImageFailure(fetch);
-        } else {
-            printf("Error: fetch->userData is null in onerror callback.\n");
-        }
-
-        emscripten_fetch_close(fetch); // Also free data on failure.
-    };
-
-    emscripten_fetch(&attr, m_url.c_str());
-};
+    });
 #else
-void Image::QueueFetchImage() {
-    m_view->m_imageJobs.push(ImageJob{m_id, m_url});
-}
+    // Widget ownership replaces the old reusable-ID global image-job queue.
+    // Publication/imperative dispatch invalidates after publishing this work.
+    m_loadRequested = true;
 #endif
+}
 
 YGSize Image::Measure(const YGNodeConstRef node, const float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode) {
     YGSize size{};

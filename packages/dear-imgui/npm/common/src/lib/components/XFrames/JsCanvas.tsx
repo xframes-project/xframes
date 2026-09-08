@@ -4,6 +4,10 @@ import { useWidgetRegistration } from "src/lib/hooks/useWidgetRegistration";
 import { useWidgetRegistrationService } from "src/lib/hooks/useWidgetRegistrationService";
 
 export type JsCanvasImperativeHandle = {
+    /** Scripts animate by default. Disable for static content that can settle. */
+    setContinuous: (continuous: boolean) => void;
+    /** Request one redraw, including while continuous rendering is disabled. */
+    redraw: () => void;
     setScript: (script: string) => void;
     setScriptFile: (path: string) => void;
     setData: (data: any) => void;
@@ -23,6 +27,12 @@ export const JsCanvas = forwardRef<JsCanvasImperativeHandle, WidgetPropsMap["JsC
             () => {
                 const target = widgetRegistrationService.captureWidget(idRef.current);
                 return {
+                    setContinuous(continuous: boolean) {
+                        widgetRegistrationService.setCanvasContinuous(target, continuous);
+                    },
+                    redraw() {
+                        widgetRegistrationService.redrawCanvas(target);
+                    },
                     setScript(script: string) {
                         widgetRegistrationService.setCanvasScript(target, script);
                     },

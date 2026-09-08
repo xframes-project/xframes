@@ -12,6 +12,9 @@
 #include <optional>
 #include <queue>
 #include <string>
+#include <array>
+#include <atomic>
+#include "frame_scheduler.h"
 
 #ifdef __EMSCRIPTEN__
 #include "imgui_impl_wgpu.h"
@@ -52,24 +55,53 @@ class ImGuiRenderer {
         // static constexpr ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
 
         void LoadFontsFromDefs();
+        void InstallWindowCallbacks();
+        void ProcessWindowRequests();
+        bool UpdateSurfaceAvailability();
+        void DrawFrame();
+        void UpdateImGuiActivity();
+        void Invalidate(xframes::FrameReason reason);
+        static void WakeRenderer(void* context) noexcept;
+        std::mutex m_windowRequestMutex;
+        std::optional<std::pair<int, int>> m_requestedSize;
+        bool m_sizeSuppressed = false;
+        bool m_loopRunning = false;
+        std::atomic<unsigned> m_windowCallbackCount{0};
+        bool m_resumingFromIdle = true;
+        std::optional<xframes::FrameScheduler::Time> m_previousFrameTime;
+        std::array<xframes::FrameScheduler::Owner, 5> m_imguiActivity;
+        unsigned m_failedSubmissions = 0;
+        std::mutex m_retiredTextureMutex;
+        std::vector<Texture> m_retiredTextures;
+        size_t m_liveResourceTextures = 0; // retired-texture mutex; excludes backend font textures
 
     #ifdef __EMSCRIPTEN__
         std::unique_ptr<char[]> m_canvasSelector;
         wgpu::Instance m_instance;
         WGPUColor m_clearColor;
-        WGPUDevice m_device;
-        WGPUQueue m_queue;
-        WGPUSurface m_wgpu_surface;
+        WGPUDevice m_device = nullptr;
+        WGPUQueue m_queue = nullptr;
+        WGPUSurface m_wgpu_surface = nullptr;
         WGPUTextureFormat m_wgpu_preferred_fmt = WGPUTextureFormat_RGBA8Unorm;
         WGPUSurfaceConfiguration m_wgpu_surface_config = {};
         int m_wgpu_surface_width = 0;
         int m_wgpu_surface_height = 0;
+        long m_browserFrame = 0;
+        long m_browserTimer = 0;
+        bool m_browserHidden = false;
+        bool m_browserKeepalive = false;
+        bool m_visibilityListener = false;
+        void RequestBrowserFrame();
+        void ScheduleBrowserNext();
+        void BrowserFrame();
+        void StopBrowserScheduling();
     #else
         ImVec4 m_clearColor;
 
         struct ScreenshotRequest {
             std::string path;
             std::function<void(std::optional<std::string>)> callback;
+            uint64_t generation = 0;
         };
 
         std::mutex m_screenshotMutex;
@@ -78,9 +110,11 @@ class ImGuiRenderer {
 
         void StartScreenshotRequests();
         void StopScreenshotRequests(const std::string& errorMessage);
+        void FailScreenshotRequests(const std::string& errorMessage);
     #endif
 
     public:
+        virtual ~ImGuiRenderer() = default;
         ImGuiRenderer(
             XFrames* xframes,
             const char* newWindowId,
@@ -100,7 +134,7 @@ class ImGuiRenderer {
 #ifdef __EMSCRIPTEN__
         bool LoadTexture(const void* data, int numBytes, Texture* texture);
 #else
-        void HandleNextImageJob();
+        bool LoadTextureFile(const std::string& url, Texture* texture);
         GLuint LoadTexture(const void* data, int numBytes);
         void RequestScreenshot(
             std::string path,
@@ -144,9 +178,22 @@ class ImGuiRenderer {
     #endif
         void HandleScreenSizeChanged();
 
-        void PerformRendering();
+        bool PerformRendering();
+        // Called by XFrames after coherent frame capture, under its tree locks.
+        // Unit-test renderers with no platform window only construct ImGui data.
+        bool PrepareFrame(int& width, int& height);
+        void FinishFrame();
+        bool HasPlatformWindow() const { return m_glfwWindow != nullptr; }
 
-        void CleanUp();
+        virtual void CleanUp();
+        void StopScheduling();
+
+        // Mutation/destruction relinquishes ownership here. Release runs before
+        // the next frame, after any older draw data using this texture submits.
+        void RetireTexture(Texture texture);
+        void ReleaseRetiredTextures();
+        json GetResourceDiagnostics();
+        json GetPlatformDiagnostics();
 
         void SetWindowSize(int width, int height);
 

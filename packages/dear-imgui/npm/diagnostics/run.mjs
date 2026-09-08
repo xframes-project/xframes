@@ -39,10 +39,15 @@ const invoke = (entry, mode) => new Promise((resolveRun, reject) => {
     child.once("exit", (code, signal) => {
         clearTimeout(timeout);
         writeFileSync(resolve(output, `${mode}-process.json`), JSON.stringify({ entry, code, signal }));
-        code === 0 ? resolveRun() : reject(new Error(`${entry} exited ${code ?? signal}`));
+        if (log.includes("[imgui-error]")) reject(new Error(`${entry} reported an ImGui error; see ${mode}.log`));
+        else code === 0 ? resolveRun() : reject(new Error(`${entry} exited ${code ?? signal}`));
     });
 });
 
+const resourceServer = ["node", "wasm"].includes(command)
+    ? await (await import("./resource-server.mjs")).startResourceServer(root, output) : undefined;
+if (resourceServer) options.resourceFixture = { baseUrl: resourceServer.baseUrl, controlUrl: resourceServer.controlUrl, assets: resourceServer.assets };
+try {
 if (command === "bridge") {
     for (const mode of ["development", "production"]) await invoke("diagnostics/bridge-lifecycle.tsx", mode);
 } else if (command === "node") {
@@ -55,3 +60,4 @@ if (command === "bridge") {
 } else {
     throw new Error(`Unknown diagnostics command: ${command}`);
 }
+} finally { await resourceServer?.close(); }

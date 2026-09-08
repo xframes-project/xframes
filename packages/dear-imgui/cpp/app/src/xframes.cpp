@@ -97,8 +97,17 @@ XFrames::XFrames(
 }
 
 XFrames::~XFrames() {
+    Dispose();
+}
+
+void XFrames::Dispose() {
+    const std::lock_guard dispatchLock(m_commitMutex);
+    if (m_runtimeDisposed.exchange(true)) return;
+    m_frameScheduler.Dispose();
     m_commitSubscription.dispose();
     m_elementOpSubject.get_disposable().dispose();
+    const std::lock_guard hierarchyLock(m_hierarchy_mutex);
+    const std::lock_guard elementsLock(m_elements_mutex);
     // Break all Yoga parent-child links before m_elements map destructs.
     // unordered_map destroys entries in arbitrary order; if a parent is freed
     // before its child, YGNodeFree(child) calls owner->removeChild() on the
@@ -110,18 +119,40 @@ XFrames::~XFrames() {
             YGNodeRemoveAllChildren(element->m_layoutNode->m_node);
         }
     }
+    // Close resource mailboxes while their runtime worker/renderer owners still
+    // exist; member destruction order alone destroys those owners first.
+    m_elements.clear();
+    m_elementInternalOpsSubject.clear();
+    m_publicationOwnedIds.clear();
+    m_hierarchy.clear();
+    m_hierarchy.emplace(0, std::vector<int>{});
+    m_diagnosticsLastInternalOpMs.clear();
+    m_floatFormatChars.clear();
+    m_pendingFrame.reset();
+    m_pendingDiagnosticsFrame = nullptr;
+    { const std::lock_guard eventLock(m_resourceEventMutex); m_prefetchEvents.clear(); }
+#ifndef __EMSCRIPTEN__
+    m_mapWorker.Stop();
+#endif
 }
 
 void XFrames::SetDebug(bool debug) {
-    m_debug = debug;
-
-    if (m_debug) {
-        ImGui::SetWindowFocus("debug");
+    {
+        const std::lock_guard lock(m_elements_mutex);
+        m_debug = debug;
+        m_debugFocusRequested = debug;
+        m_frameScheduler.Invalidate(xframes::FrameReason::Diagnostics);
     }
+    m_frameScheduler.Notify();
 };
 
 void XFrames::ShowDebugWindow() {
-    ImGui::SetWindowFocus("debug");
+    {
+        const std::lock_guard lock(m_elements_mutex);
+        m_debugFocusRequested = true;
+        m_frameScheduler.Invalidate(xframes::FrameReason::Diagnostics);
+    }
+    m_frameScheduler.Notify();
 };
 
 double XFrames::DiagnosticsNowMs() {
@@ -130,7 +161,14 @@ double XFrames::DiagnosticsNowMs() {
 }
 
 void XFrames::SetDiagnosticsEnabled(bool enabled) {
-    m_diagnosticsEnabled.store(enabled, std::memory_order_relaxed);
+    // A newly enabled snapshot requests one frame. Reads and disabling are pure
+    // observations and never reset native ordering or discard pending work.
+    const auto previous = m_diagnosticsEnabled.exchange(enabled, std::memory_order_relaxed);
+    if (enabled && !previous) {
+        const std::lock_guard<std::mutex> lock(m_elements_mutex);
+        m_frameScheduler.Invalidate(xframes::FrameReason::Diagnostics);
+    }
+    if (enabled && !previous) m_frameScheduler.Notify();
 }
 
 json XFrames::GetDiagnosticsFrame() {
@@ -138,6 +176,14 @@ json XFrames::GetDiagnosticsFrame() {
     auto result = m_diagnosticsFrame;
     result["enabled"] = m_diagnosticsEnabled.load(std::memory_order_relaxed);
     result["sampledAtMs"] = DiagnosticsNowMs();
+    result["scheduler"] = m_frameScheduler.GetState();
+    result["platform"] = m_renderer ? m_renderer->GetPlatformDiagnostics() : json::object();
+    result["surfaceStatus"] = m_runtimeDisposed ? "disposed" : m_surfaceQuarantined ? "quarantined" : "healthy";
+    result["resourceState"] = {{"textures", m_renderer ? m_renderer->GetResourceDiagnostics() : json::object()}};
+#ifndef __EMSCRIPTEN__
+    result["resourceState"]["mapWorkers"] = m_mapWorker.Diagnostics();
+#endif
+    { const std::lock_guard eventLock(m_resourceEventMutex); result["resourceState"]["queuedPrefetchEvents"] = m_prefetchEvents.size(); }
     return result;
 }
 
@@ -188,6 +234,8 @@ json XFrames::BuildDiagnosticsStateUnlocked() {
             {"bounds", {YGNodeLayoutGetLeft(node), YGNodeLayoutGetTop(node), YGNodeLayoutGetWidth(node), YGNodeLayoutGetHeight(node)}}};
         const auto opIt = m_diagnosticsLastInternalOpMs.find(id);
         record["lastInternalOpMs"] = opIt == m_diagnosticsLastInternalOpMs.end() ? json(nullptr) : json(opIt->second);
+        const auto resources = element->GetResourceDiagnostics();
+        if (!resources.is_null()) record["resources"] = resources;
         if (auto* plot = dynamic_cast<PlotBar*>(element.get())) record["state"] = plot->GetDiagnosticsState();
         if (auto* table = dynamic_cast<Table*>(element.get())) {
             record["state"] = {{"rowCount", table->m_data.size()}, {"columnCount", table->m_columns.size()},
@@ -206,12 +254,49 @@ json XFrames::BuildDiagnosticsStateUnlocked() {
 void XFrames::CompleteDiagnosticsFrame() {
     // The pending state was captured while constructing draw data under the tree locks.
     // Publication after submission does not inspect a potentially newer live tree.
-    if (m_pendingDiagnosticsFrame.is_null()) return;
-    m_pendingDiagnosticsFrame["frame"] = ++m_diagnosticsFrameCount;
+    if (!m_pendingFrame || !m_frameScheduler.Complete(*m_pendingFrame)) {
+        m_pendingFrame.reset();
+        m_pendingDiagnosticsFrame = nullptr;
+        return;
+    }
+    const auto frame = *m_pendingFrame;
+    m_pendingFrame.reset();
+    if (m_pendingDiagnosticsFrame.is_null() || !m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
+        m_pendingDiagnosticsFrame = nullptr;
+        return;
+    }
+    m_pendingDiagnosticsFrame["frameId"] = std::to_string(frame.id);
+    m_pendingDiagnosticsFrame["nativeRevision"] = std::to_string(frame.revision);
+    m_pendingDiagnosticsFrame["coveredGeneration"] = std::to_string(frame.generation);
+    m_pendingDiagnosticsFrame["reasons"] = frame.reasons;
     m_pendingDiagnosticsFrame["submittedAtMs"] = DiagnosticsNowMs();
     m_pendingDiagnosticsFrame["backend"] = m_renderer->GetDiagnosticsBackendInfo();
     const std::lock_guard<std::mutex> lock(m_diagnosticsMutex);
     m_diagnosticsFrame = std::move(m_pendingDiagnosticsFrame);
+    m_pendingDiagnosticsFrame = nullptr;
+}
+
+void XFrames::QueuePrefetchProgress(xframes::FrameScheduler::Source source, int id, int completed, int total) {
+    const std::lock_guard lock(m_resourceEventMutex);
+    m_prefetchEvents.insert_or_assign(id, PrefetchEvent{std::move(source), id, completed, total});
+}
+
+void XFrames::FlushResourceEvents() {
+    std::unordered_map<int, PrefetchEvent> events;
+    {
+        const std::lock_guard lock(m_resourceEventMutex);
+        events.swap(m_prefetchEvents);
+    }
+    for (const auto& [id, event] : events) {
+        if (!event.source.IsAlive()) continue;
+        if (m_onGuardedPrefetchProgress) m_onGuardedPrefetchProgress(event.source, id, event.completed, event.total);
+        else if (m_onPrefetchProgress) m_onPrefetchProgress(id, event.completed, event.total);
+    }
+}
+
+void XFrames::AbandonFrame() {
+    if (m_pendingFrame) m_frameScheduler.Abandon(*m_pendingFrame);
+    m_pendingFrame.reset();
     m_pendingDiagnosticsFrame = nullptr;
 }
 
@@ -347,6 +432,7 @@ void XFrames::CreateElementUnlocked(const json& elementDef) {
             if (!m_surfaceQuarantined && m_elements.contains(id) && current != m_elementInternalOpsSubject.end()
                 && current->second.get_disposable() == owner) {
                 m_elements[id]->HandleInternalOp(opDef);
+                m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
                 if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
                     m_diagnosticsLastInternalOpMs[id] = DiagnosticsNowMs();
                 }
@@ -540,10 +626,22 @@ void XFrames::RenderElementTree(const int id) {
     }
 };
 
-void XFrames::Render(const int window_width, const int window_height) {
+bool XFrames::Render(int window_width, int window_height) {
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
     const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
 
+    AbandonFrame();
+    m_pendingFrame = m_frameScheduler.Capture(m_nativeRevision);
+    if (!m_pendingFrame) return false;
+    // Capture precedes all render-thread work. Any producer arriving after this
+    // point remains pending, even if preparation also consumes its newer work.
+    if (!m_renderer->PrepareFrame(window_width, window_height)) {
+        AbandonFrame();
+        return false;
+    }
+
+    for (auto& [id, element] : m_elements) element->PrepareFrame(this);
+    m_renderer->ReleaseRetiredTextures();
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -555,12 +653,15 @@ void XFrames::Render(const int window_width, const int window_height) {
 
     // *** DEBUG ***
     if (m_debug && !m_surfaceQuarantined) {
+        if (m_debugFocusRequested) ImGui::SetNextWindowFocus();
+        m_debugFocusRequested = false;
         RenderDebugWindow();
     }
     // *** END DEBUG ***
 
     ImGui::End();
     ImGui::Render();
+    m_renderer->FinishFrame();
     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
         m_pendingDiagnosticsFrame = m_surfaceQuarantined ? json{{"surfaceStatus", "quarantined"}} : BuildDiagnosticsStateUnlocked();
         m_pendingDiagnosticsFrame["constructedAtMs"] = DiagnosticsNowMs();
@@ -569,6 +670,7 @@ void XFrames::Render(const int window_width, const int window_height) {
         // Discard a frame whose backend could not submit before diagnostics stopped.
         m_pendingDiagnosticsFrame = nullptr;
     }
+    return true;
 };
 
 void XFrames::RenderDebugWindow() {
@@ -620,8 +722,10 @@ void XFrames::PatchStyle(const json& styleDef) {
     if (styleDef.is_object()) {
         const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
         const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
+        if (m_runtimeDisposed) return;
 
-        ImGuiStyle* style = &ImGui::GetStyle();
+        auto nextStyle = ImGui::GetStyle();
+        ImGuiStyle* style = &nextStyle;
 
         ExtractNumberFromStyleDef<float>(styleDef, "alpha", style->Alpha);
         ExtractNumberFromStyleDef<float>(styleDef, "disabledAlpha", style->DisabledAlpha);
@@ -694,7 +798,11 @@ void XFrames::PatchStyle(const json& styleDef) {
                 }
             }
         }
+        ImGui::GetStyle() = nextStyle;
+        TakeStyleSnapshot();
+        m_frameScheduler.Invalidate(xframes::FrameReason::Style);
     }
+    if (styleDef.is_object()) m_frameScheduler.Notify();
 };
 
 void XFrames::TakeStyleSnapshot() {
@@ -720,9 +828,7 @@ void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
         }
         if (subject) {
             subject->get_observer().on_next(opDef);
-#ifndef __EMSCRIPTEN__
-            glfwPostEmptyEvent();
-#endif
+            m_frameScheduler.Notify();
         }
     } catch (nlohmann::detail::parse_error& parseError) {
         printf("XFrames::QueueElementInternalOp, parse error: %s\n", parseError.what());
@@ -744,11 +850,6 @@ void XFrames::DestroyElementUnlocked(const int id, std::vector<int>* destroyedId
     // Clean up per-widget reactive subject
     m_elementInternalOpsSubject.erase(id);
     m_diagnosticsLastInternalOpMs.erase(id);
-
-    // Clean up Image texture registry (desktop only)
-#ifndef __EMSCRIPTEN__
-    m_imageToTextureMap.erase(id);
-#endif
 
     // Erase from element registry — triggers unique_ptr destructor chain:
     // LayoutNode::~LayoutNode frees YGNode,
@@ -790,13 +891,16 @@ void XFrames::InvalidateMaxBottomCaches() {
 void XFrames::AppendTextToClippedMultiLineTextRenderer(const int id, const std::string& data) {
     const std::lock_guard<std::mutex> dispatchLock(m_commitMutex);
     if (m_surfaceQuarantined) return;
-    const std::lock_guard<std::mutex> lock(m_elements_mutex);
-
-    if (m_elements.contains(id)) {
-        if (m_elements[id]->m_type == "clipped-multi-line-text-renderer") {
+    bool changed = false;
+    {
+        const std::lock_guard<std::mutex> lock(m_elements_mutex);
+        if (m_elements.contains(id) && m_elements[id]->m_type == "clipped-multi-line-text-renderer") {
             dynamic_cast<ClippedMultiLineTextRenderer*>(m_elements[id].get())->AppendText(data.c_str());
+            m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+            changed = true;
         }
     }
+    if (changed) m_frameScheduler.Notify();
 };
 
 StyleVarValueRef XFrames::GetStyleVar(const ImGuiStyleVar key) {

@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installListenerAudit } from "../../diagnostics/browser-listeners.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDirectory, "..");
@@ -203,6 +204,28 @@ const connectToPage = async () => {
   return { command, listeners, socket };
 };
 
+const dispatchFixtureInput = async (command, request) => {
+  if (request.action === "minimize" || request.action === "restore") {
+    const { windowId } = await command("Browser.getWindowForTarget");
+    await command("Browser.setWindowBounds", { windowId, bounds: { windowState: request.action === "minimize" ? "minimized" : "normal" } });
+  } else if (request.action === "text") {
+    for (const character of request.value)
+      await command("Input.dispatchKeyEvent", { type: "char", text: character, unmodifiedText: character });
+  } else if (request.action === "keyDown" || request.action === "keyUp") {
+    await command("Input.dispatchKeyEvent", { type: request.action === "keyDown" ? "keyDown" : "keyUp",
+      key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+  } else if (["move", "click", "wheel"].includes(request.action)) {
+    const position = { x: request.x ?? 50, y: request.y ?? 24 };
+    await command("Input.dispatchMouseEvent", { type: "mouseMoved", ...position });
+    if (request.action === "click") {
+      await command("Input.dispatchMouseEvent", { type: "mousePressed", ...position, button: "left", buttons: 1, clickCount: 1 });
+      await command("Input.dispatchMouseEvent", { type: "mouseReleased", ...position, button: "left", buttons: 0, clickCount: 1 });
+    } else if (request.action === "wheel") {
+      await command("Input.dispatchMouseEvent", { type: "mouseWheel", ...position, deltaX: 0, deltaY: -120 });
+    }
+  } else throw new Error(`Unsupported fixture input action: ${request.action}`);
+};
+
 const runBrowser = async () => {
   const profileDirectory = mkdtempSync(
     path.join(tmpdir(), "xframes-wasm-smoke-"),
@@ -252,7 +275,12 @@ const runBrowser = async () => {
         const missingFavicon =
           entry.url === `${serverUrl}/favicon.ico` &&
           entry.text.includes("404");
-        if (!missingFavicon) {
+        const fixtureBase = JSON.parse(process.env.XFRAMES_DIAGNOSTICS_OPTIONS ?? "{}").resourceFixture?.baseUrl;
+        const failureAsset = diagnostics && fixtureBase && entry.url?.startsWith(`${fixtureBase}/asset?`)
+          && new URL(entry.url).searchParams.get("kind") === "failure" && entry.text.includes("404");
+        // These exact controlled 404s are asserted as completed resource failures
+        // by the fixture. All other browser/network errors still fail the smoke.
+        if (!missingFavicon && !failureAsset) {
           const location = entry.url
             ? ` (${entry.url}${entry.lineNumber ? `:${entry.lineNumber}` : ""})`
             : "";
@@ -265,7 +293,7 @@ const runBrowser = async () => {
           .join(" ");
         console.log(`[browser:${message.params.type}] ${text}`);
         pageDiagnostics = `${pageDiagnostics}[${message.params.type}] ${text}\n`.slice(-100_000);
-        if (message.params.type === "error") runtimeErrors.push(text);
+        if (message.params.type === "error" || text.includes("[imgui-error]")) runtimeErrors.push(text);
         if (text === "ready") markReady();
       }
     });
@@ -275,7 +303,10 @@ const runBrowser = async () => {
       command("Runtime.enable"),
       command("Log.enable"),
     ]);
-    if (diagnostics) await command("Emulation.setDeviceMetricsOverride", { width: 900, height: 700, deviceScaleFactor: 1, mobile: false });
+    if (diagnostics) {
+      await command("Emulation.setDeviceMetricsOverride", { width: 900, height: 700, deviceScaleFactor: 1, mobile: false });
+      await command("Page.addScriptToEvaluateOnNewDocument", { source: `(${installListenerAudit.toString()})()` });
+    }
     const navigation = await command("Page.navigate", { url: serverUrl });
     if (navigation.errorText) {
       throw new Error(`Browser navigation failed: ${navigation.errorText}`);
@@ -295,6 +326,10 @@ const runBrowser = async () => {
           const screenshot = await command("Page.captureScreenshot", { format: "png" });
           writeFileSync(outputPath, Buffer.from(screenshot.data, "base64"));
           await command("Runtime.evaluate", { expression: "globalThis.__xframesDiagnostics.captureDone = true" });
+        }
+        if (state?.inputRequest && state.inputDone < state.inputRequest.id) {
+          await dispatchFixtureInput(command, state.inputRequest);
+          await command("Runtime.evaluate", { expression: `globalThis.__xframesDiagnostics.inputDone = ${state.inputRequest.id}` });
         }
         if (state?.status === "failed") throw new Error(`Wasm diagnostics failed: ${state.error ?? state.report?.error}`);
         if (runtimeErrors.length) throw new Error(`Browser runtime errors:\n${runtimeErrors.join("\n")}`);

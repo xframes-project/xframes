@@ -315,6 +315,7 @@ void Element::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
         if (activeStateChanged) {
             ApplyStyle();
+            view->m_frameScheduler.Invalidate(xframes::FrameReason::Layout);
         }
     }
 
@@ -517,6 +518,7 @@ void Element::PostRender(XFrames* view) {
 
     if (hoveredStateChanged) {
         ApplyStyle();
+        view->m_frameScheduler.Invalidate(xframes::FrameReason::Layout);
     }
 };
 

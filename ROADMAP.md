@@ -12,7 +12,7 @@ The strategic basis for this focus is documented in [XFrames and GPUIX: Technica
 
 ## Next Milestone — Runtime Reliability & Measured Streaming Performance (in progress)
 
-Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 adds explicit native destruction and lifetime cleanup. Stage 2 supplied the first shared native transaction path. Stage 3 now replaces that alpha structural API with prospective Fabric descriptions, one atomic final-tree publication and committed ownership. Its local acceptance audit, native/parity/lifetime gates and production comparisons are complete; hosted coverage for these changes remains unverified. Stage 4 scheduling and full Stage 0 benchmark coverage remain open.
+Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 adds explicit native destruction and lifetime cleanup. Stage 2 supplied the first shared native transaction path. Stage 3 now replaces that alpha structural API with prospective Fabric descriptions, one atomic final-tree publication and committed ownership. Stage 4's scheduler MVP is complete with local Windows Node/browser application evidence, native tests on Windows/Linux, and shared resource/lifetime gates. Full Stage 0 benchmark coverage, controlled performance qualification, Linux application execution and current-source hosted CI remain open.
 
 See the [publication record](docs/engineering/fabric-publication-2026-09.md), [historical transaction record](docs/engineering/fabric-transactions-2026-09.md), [cleanup record](docs/engineering/fabric-cleanup-2026-09.md), [historical baseline](docs/engineering/fabric-baseline-2026-09.md), and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). All ten lifetime defect IDs now execute passing gates, including abandonment and same-ID moves. Local verification and hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
 
@@ -241,13 +241,28 @@ run on hosted CI; the last Stage 2 hosted Wasm fixture failed.
 
 ### Stage 4 — Invalidation-Driven Rendering and Instrumentation
 
-- [ ] Add an invalidation generation and frame revision
-- [ ] Audit commits, imperative operations, input, resources, animations, screenshots, and debug state as invalidation sources
-- [ ] Replace desktop `1 / 30` timeout rendering with event/deadline scheduling
-- [ ] Replace the 30 Hz Wasm policy with dirty/active `requestAnimationFrame` scheduling
-- [ ] Correlate data receipt, Fabric commit, native apply, frame construction, submission, and presentation where available
-- [ ] Report p50, p95, p99, maximum, live-object counts, idle frames avoided, and dropped-event counters
-- [ ] Re-run the Stage 0 workloads and ubx-monitor telemetry scenario, reporting baseline comparisons and whether the declared update-rate and latency targets are met
+MVP complete under the revised delivery scope. See the
+[completion boundary and deferred qualification](docs/engineering/fabric-invalidation-2026-09.md#mvp-completion-boundary).
+This closes the scheduler MVP; it does not close the broader milestone below.
+
+- [x] Add an invalidation generation and frame revision
+- [x] Audit commits, imperative operations, input, resources, animations, screenshots, and debug state as invalidation sources
+- [x] Replace desktop `1 / 30` timeout rendering with event/deadline scheduling
+- [x] Replace the 30 Hz Wasm policy with dirty/active `requestAnimationFrame` scheduling
+- [x] Correlate data receipt, Fabric commit, native apply, frame construction, submission, and presentation where available
+- [x] Report p50, p95, p99, maximum, live-object counts, idle frames avoided, and dropped-event counters
+- [x] Re-run the Stage 0 workloads and ubx-monitor telemetry scenario, reporting baseline comparisons and whether the declared update-rate and latency targets are met
+
+Current implementation and acceptance evidence are in the
+[Stage 4 invalidation record](docs/engineering/fabric-invalidation-2026-09.md).
+The shared scheduler, backend loops and owned Image/Map/Canvas completion paths
+pass 378 native tests on Windows/Linux and both complete 1,000-cycle runtime
+lifetime/resource/move fixtures. Correlation ends at backend submission; physical
+serial arrival and presentation remain unavailable. Current-source production
+observations are recorded with shared-host limitations and an extended Node
+post-measurement editor-focus failure. Linux application execution remains
+unverified after its build was stopped at the user's wrap-up instruction; current
+working-tree changes have no hosted CI result. The milestone remains open.
 
 ### Milestone Review Gate — After Stages 0–4
 

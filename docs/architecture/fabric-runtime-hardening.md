@@ -1,6 +1,6 @@
 # Fabric-Compatible Runtime Hardening
 
-- Status: target architecture; Stage 3 publication and local acceptance complete, hosted coverage unverified; Stage 4 remains open
+- Status: target architecture with implemented Stage 3 publication and Stage 4 scheduling boundaries below; current acceptance evidence is tracked separately
 - Last updated: 8 September 2026
 - Related decision: [XFrames and GPUIX assessment](../strategy/gpuix-comparison-2026-08.md)
 
@@ -57,7 +57,44 @@ backend render cadence keep their existing scope. The remainder of this document
 also describes future recording, invalidation, scheduling and automation; the
 schema sketches below are not the accepted publication wire spelling.
 
-The central change is to introduce an XFrames-owned, versioned transaction at Fabric's `completeRoot` publication boundary.
+### Implemented Stage 4 scheduling boundary
+
+The [invalidation implementation record](../engineering/fabric-invalidation-2026-09.md)
+supersedes the scheduler sketches below. Both backends use one shared
+`FrameScheduler`: a monotonic generation, one constructing ticket and one latest
+submitted ticket. Successful publication advances revision and generation under
+the tree visibility locks. Imperative/resource/input work advances generation
+without inventing a structural publication. Construction captures revision and
+generation before consuming render work; submission completes only that ticket.
+Later invalidation remains pending even when it arrives during submission.
+
+Lock order is dispatch → serialized subject → hierarchy → elements → scheduler.
+The scheduler cannot call JS or obtain tree locks. It atomically checks work and
+arms waiting; desktop producers publish before posting a queued GLFW wake. No
+event drain intervenes between arming and waiting. A clean inactive desktop waits
+indefinitely; genuine deadlines use the nearest timeout. Browser rendering owns
+at most one RAF and one deadline timer and cancels both while inactive/hidden.
+Restore retains and covers pending state. Recoverable submission failure uses
+bounded backoff; terminal failure cannot claim healthy coverage.
+
+Image, Map and all three Canvas engines own weak completion mailboxes and
+cancellable requests. Render-thread preparation drains completed uploads before
+the corresponding frame can be submitted, including clipped resources. Canvas
+scripts default to continuous execution while visible; `setContinuous(false)`
+allows static content to settle, and `redraw()` requests an explicit frame.
+Map zoom owns a finite deadline. ImGui cursor, repeat, hover, layout and
+interaction owners reflect actual pending work. Long-idle DeltaTime is capped
+at 100 ms; active/deadline intervals use monotonic elapsed time.
+
+`frameId`, `nativeRevision` and `coveredGeneration` are lossless decimal strings.
+They identify backend submission, not physical presentation. Scheduler counters
+remain available with tree diagnostics disabled; queries never request a frame.
+Disposal cancels owners/wakes/resources without resetting sequence/revision or
+constructing a synthetic final frame. Bounds, failure behavior, executing tests,
+performance limits and current hosted status belong to the implementation record.
+Recording/replay and general automation remain future work.
+
+The central structural change is an XFrames-owned, versioned transaction at Fabric's `completeRoot` publication boundary.
 
 Live Fabric execution and recorded replay should feed the same native transaction application path:
 

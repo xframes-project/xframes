@@ -474,6 +474,9 @@ void StyledWidget::PostRender(XFrames* view) {
 
     if (hoveredStateChanged || activeStateChanged || focusedStateChanged) {
         ApplyStyle();
+        // These styles were selected after drawing this item. Keep the next
+        // frame pending so its pixels/layout represent the new interaction state.
+        view->m_frameScheduler.Invalidate(xframes::FrameReason::Layout);
     }
 };
 

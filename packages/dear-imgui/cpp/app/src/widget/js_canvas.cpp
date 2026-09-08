@@ -2,50 +2,24 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten/fetch.h>
-#else
-#include <fstream>
-#include <GLES3/gl3.h>
-#endif
 
 #include "widget/js_canvas.h"
 #include "canvas2d_shim.h"
 #include "xframes.h"
 #include "imgui_renderer.h"
 
-#ifdef __EMSCRIPTEN__
-struct CanvasFetchContext {
-    JsCanvas* widget;
-    std::string textureId;
-};
-
-struct ScriptFetchContext {
-    JsCanvas* widget;
-};
-#endif
 
 JsCanvas::JsCanvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
     : JsCanvas(view, id, style, getCanvas2DShim()) {}
 
 JsCanvas::JsCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap)
-    : StyledWidget(view, id, style) {
+    : StyledWidget(view, id, style), m_resources(view) {
     m_type = "di-js-canvas";
     try { InitQuickJS(bootstrap); }
     catch (...) { CleanupQuickJS(); throw; }
 }
 
 JsCanvas::~JsCanvas() {
-    for (auto& [id, tex] : m_textures) {
-        if (tex.textureView) {
-#ifdef __EMSCRIPTEN__
-            wgpuTextureViewRelease(tex.textureView);
-#else
-            glDeleteTextures(1, &tex.textureView);
-#endif
-        }
-    }
-    m_textures.clear();
     CleanupQuickJS();
 }
 
@@ -72,17 +46,7 @@ void JsCanvas::InitQuickJS(const std::string& bootstrap) {
     QuickJSDrawBindings::registerDrawBindings(m_context);
 
     // Set textureLookup once — lambda captures `this` which is stable for widget lifetime
-    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID {
-        auto it = m_textures.find(id);
-        if (it != m_textures.end() && it->second.textureView) {
-#ifdef __EMSCRIPTEN__
-            return (ImTextureID)it->second.textureView;
-#else
-            return (ImTextureID)(intptr_t)it->second.textureView;
-#endif
-        }
-        return 0;
-    };
+    m_drawContext.textureLookup = [this](const std::string& id) -> ImTextureID { return m_resources.Lookup(id); };
 
     // Evaluate Canvas 2D API shim — creates globalThis.ctx
     JSValue shimResult = JS_Eval(m_context, bootstrap.c_str(), bootstrap.size(),
@@ -153,65 +117,12 @@ void JsCanvas::SetScriptFromString(const std::string& script) {
     m_hasRenderFunc = true;
 }
 
+void JsCanvas::PrepareFrame(XFrames* view) {
+    m_resources.Prepare([this](const std::string& script) { SetScriptFromString(script); });
+}
+
 void JsCanvas::Render(XFrames* view, const std::optional<ImRect>& viewport) {
-    if (!m_context) return;
-
-    // Process pending texture operations on the render/GL thread
-    {
-        std::lock_guard<std::mutex> lock(m_textureMutex);
-
-        // Process loads first
-        for (auto& pending : m_pendingLoads) {
-            if (m_textures.contains(pending.textureId)) continue;
-
-#ifdef __EMSCRIPTEN__
-            Texture tex;
-            if (view->m_renderer->LoadTexture(
-                    pending.fileData.data(),
-                    static_cast<int>(pending.fileData.size()),
-                    &tex)) {
-                m_textures[pending.textureId] = tex;
-            }
-#else
-            GLuint texId = view->m_renderer->LoadTexture(
-                pending.fileData.data(),
-                static_cast<int>(pending.fileData.size())
-            );
-
-            if (texId != 0) {
-                Texture tex;
-                tex.textureView = texId;
-                tex.width = 0;
-                tex.height = 0;
-                m_textures[pending.textureId] = tex;
-            }
-#endif
-        }
-        m_pendingLoads.clear();
-
-        // Process unloads second (load+unload same frame = no texture)
-        for (auto& pending : m_pendingUnloads) {
-            auto it = m_textures.find(pending.textureId);
-            if (it != m_textures.end()) {
-                if (it->second.textureView) {
-#ifdef __EMSCRIPTEN__
-                    wgpuTextureViewRelease(it->second.textureView);
-#else
-                    glDeleteTextures(1, &it->second.textureView);
-#endif
-                }
-                m_textures.erase(it);
-            }
-        }
-        m_pendingUnloads.clear();
-
-        // Process pending scripts (from WASM async fetch)
-        for (auto& script : m_pendingScripts) {
-            SetScriptFromString(script);
-        }
-        m_pendingScripts.clear();
-    }
-
+    m_resources.SetVisibleScript(m_hasRenderFunc);
     float w = YGNodeLayoutGetWidth(m_layoutNode->m_node);
     float h = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
@@ -263,47 +174,12 @@ void JsCanvas::HandleInternalOp(const json& opDef) {
 
     auto op = opDef["op"].template get<std::string>();
 
+    if (m_resources.Handle(opDef)) return;
     if (op == "setScript") {
+        m_resources.CancelPendingScript();
         if (!opDef.contains("script")) return;
         auto script = opDef["script"].template get<std::string>();
         SetScriptFromString(script);
-    } else if (op == "setScriptFile") {
-        if (!opDef.contains("path")) return;
-        auto path = opDef["path"].template get<std::string>();
-
-#ifdef __EMSCRIPTEN__
-        // Async fetch — callback queues script for evaluation in Render()
-        auto* fetchCtx = new ScriptFetchContext{this};
-
-        emscripten_fetch_attr_t attr;
-        emscripten_fetch_attr_init(&attr);
-        strcpy(attr.requestMethod, "GET");
-        attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
-        attr.userData = fetchCtx;
-
-        attr.onsuccess = [](emscripten_fetch_t* fetch) {
-            auto* ctx = static_cast<ScriptFetchContext*>(fetch->userData);
-            std::string script(fetch->data, fetch->numBytes);
-            ctx->widget->EnqueuePendingScript(std::move(script));
-            delete ctx;
-            emscripten_fetch_close(fetch);
-        };
-
-        attr.onerror = [](emscripten_fetch_t* fetch) {
-            auto* ctx = static_cast<ScriptFetchContext*>(fetch->userData);
-            delete ctx;
-            emscripten_fetch_close(fetch);
-        };
-
-        emscripten_fetch(&attr, path.c_str());
-#else
-        std::ifstream file(path);
-        if (!file.is_open()) return;
-
-        std::string script((std::istreambuf_iterator<char>(file)),
-                            std::istreambuf_iterator<char>());
-        SetScriptFromString(script);
-#endif
     } else if (op == "setData") {
         if (!opDef.contains("data")) return;
 
@@ -317,6 +193,7 @@ void JsCanvas::HandleInternalOp(const json& opDef) {
         }
         JS_FreeValue(m_context, result);
     } else if (op == "clear") {
+        m_resources.CancelPendingScript();
         m_hasRenderFunc = false;
         if (!JS_IsUndefined(m_renderFunc)) {
             JS_FreeValue(m_context, m_renderFunc);
@@ -327,111 +204,5 @@ void JsCanvas::HandleInternalOp(const json& opDef) {
         const char* code = "globalThis.data = undefined;";
         JSValue result = JS_Eval(m_context, code, strlen(code), "<clear>", JS_EVAL_TYPE_GLOBAL);
         JS_FreeValue(m_context, result);
-    } else if (op == "loadTexture") {
-        if (!opDef.contains("textureId") || !opDef.contains("source")) return;
-
-        auto textureId = opDef["textureId"].template get<std::string>();
-        auto source = opDef["source"].template get<std::string>();
-
-        // Skip if already loaded or in-flight
-        {
-            std::lock_guard<std::mutex> lock(m_textureMutex);
-            if (m_textures.contains(textureId)) return;
-#ifdef __EMSCRIPTEN__
-            if (m_inFlightFetches.contains(textureId)) return;
-            m_inFlightFetches.insert(textureId);
-#endif
-        }
-
-#ifdef __EMSCRIPTEN__
-        // Async fetch — callback pushes data into pending queue
-        auto* fetchCtx = new CanvasFetchContext{this, textureId};
-
-        emscripten_fetch_attr_t attr;
-        emscripten_fetch_attr_init(&attr);
-        strcpy(attr.requestMethod, "GET");
-        attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
-        attr.userData = fetchCtx;
-
-        attr.onsuccess = [](emscripten_fetch_t* fetch) {
-            auto* ctx = static_cast<CanvasFetchContext*>(fetch->userData);
-            std::vector<unsigned char> data(fetch->data, fetch->data + fetch->numBytes);
-            ctx->widget->EnqueuePendingLoad(std::move(ctx->textureId), std::move(data));
-            delete ctx;
-            emscripten_fetch_close(fetch);
-        };
-
-        attr.onerror = [](emscripten_fetch_t* fetch) {
-            auto* ctx = static_cast<CanvasFetchContext*>(fetch->userData);
-            ctx->widget->ClearInFlightFetch(ctx->textureId);
-            delete ctx;
-            emscripten_fetch_close(fetch);
-        };
-
-        emscripten_fetch(&attr, source.c_str());
-#else
-        // Read file on JS thread, queue bytes for GPU upload on render thread
-        std::ifstream file(source, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) return;
-
-        auto fileSize = file.tellg();
-        if (fileSize <= 0) return;
-
-        std::vector<unsigned char> fileData(static_cast<size_t>(fileSize));
-        file.seekg(0);
-        file.read(reinterpret_cast<char*>(fileData.data()), fileSize);
-        if (!file) return;
-
-        {
-            std::lock_guard<std::mutex> lock(m_textureMutex);
-            m_pendingLoads.push_back({std::move(textureId), std::move(fileData)});
-        }
-#endif
-    } else if (op == "unloadTexture") {
-        if (!opDef.contains("textureId")) return;
-
-        auto textureId = opDef["textureId"].template get<std::string>();
-
-        {
-            std::lock_guard<std::mutex> lock(m_textureMutex);
-            m_pendingUnloads.push_back({std::move(textureId)});
-        }
-    } else if (op == "reloadTexture") {
-        if (!opDef.contains("textureId") || !opDef.contains("source")) return;
-
-        auto textureId = opDef["textureId"].template get<std::string>();
-        auto source = opDef["source"].template get<std::string>();
-
-        // Queue unload + clear state so the loadTexture guard passes
-        {
-            std::lock_guard<std::mutex> lock(m_textureMutex);
-            m_pendingUnloads.push_back({textureId});
-            m_textures.erase(textureId);
-#ifdef __EMSCRIPTEN__
-            m_inFlightFetches.erase(textureId);
-#endif
-        }
-
-        // Re-use existing loadTexture logic
-        json loadOp = {{"op", "loadTexture"}, {"textureId", textureId}, {"source", source}};
-        HandleInternalOp(loadOp);
     }
 }
-
-#ifdef __EMSCRIPTEN__
-void JsCanvas::EnqueuePendingLoad(std::string textureId, std::vector<unsigned char> data) {
-    std::lock_guard<std::mutex> lock(m_textureMutex);
-    m_inFlightFetches.erase(textureId);
-    m_pendingLoads.push_back({std::move(textureId), std::move(data)});
-}
-
-void JsCanvas::EnqueuePendingScript(std::string script) {
-    std::lock_guard<std::mutex> lock(m_textureMutex);
-    m_pendingScripts.push_back(std::move(script));
-}
-
-void JsCanvas::ClearInFlightFetch(const std::string& textureId) {
-    std::lock_guard<std::mutex> lock(m_textureMutex);
-    m_inFlightFetches.erase(textureId);
-}
-#endif

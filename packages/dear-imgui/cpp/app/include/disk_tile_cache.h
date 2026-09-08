@@ -21,7 +21,7 @@ public:
     void put(int x, int y, int zoom, const void* data, size_t numBytes);
 
 private:
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::filesystem::path m_basePath;
     bool m_enabled = false;
 

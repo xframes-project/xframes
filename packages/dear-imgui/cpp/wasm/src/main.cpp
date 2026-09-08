@@ -12,6 +12,7 @@
 #include "implot_renderer.h"
 
 using json = nlohmann::json;
+extern "C" void xframes_browser_lifetime_dispose();
 
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnInitType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(OnInputTextChangeType);
@@ -222,7 +223,21 @@ class WasmRunner {
         }
 
         void exit() const {
-            emscripten_cancel_main_loop();
+            if (m_renderer) m_renderer->CleanUp();
+            else if (m_xframes) m_xframes->Dispose();
+            xframes_browser_lifetime_dispose();
+            if (m_xframes) {
+                const auto diagnostics = m_xframes->GetDiagnosticsFrame();
+                if (diagnostics.value("enabled", false)) {
+                    // Wasm exports cannot be queried after force-exit. Preserve
+                    // only bounded terminal counters for teardown verification.
+                    const json terminal = {{"scheduler", diagnostics["scheduler"]},
+                        {"platform", diagnostics["platform"]},
+                        {"resourceState", diagnostics["resourceState"]}, {"commit", m_xframes->GetCommitState()}};
+                    const auto serialized = terminal.dump();
+                    EM_ASM({ Module.shutdownDiagnostics = JSON.parse(UTF8ToString($0)); }, serialized.c_str());
+                }
+            }
             emscripten_force_exit(0);
         }
 

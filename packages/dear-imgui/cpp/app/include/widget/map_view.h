@@ -3,6 +3,10 @@
 #include <atomic>
 #include <chrono>
 #include <list>
+#include <deque>
+#include <memory>
+#include "frame_scheduler.h"
+#include "wasm_fetches.h"
 #include <mutex>
 #include <set>
 #include <vector>
@@ -39,6 +43,7 @@ struct TileKeyHash {
 
 class MapView final : public StyledWidget {
 private:
+    friend class XFramesTest;
     // Map state
     double m_centerTileX = 0.0;
     double m_centerTileY = 0.0;
@@ -69,26 +74,43 @@ private:
         TileKey key;
         std::vector<unsigned char> pngData;
     };
-    std::mutex m_pendingMutex;
-    std::vector<PendingTile> m_pendingTiles;
-
-    // Zoom debounce
-    std::chrono::steady_clock::time_point m_lastZoomChangeTime{};
+    struct AsyncState {
+        std::atomic<bool> alive{true};
+        mutable std::mutex mutex;
+        std::vector<PendingTile> pending;
+        std::set<TileKey> inflight, failed;
+        TileCacheStats stats;
+        std::shared_ptr<DiskTileCache> disk = std::make_shared<DiskTileCache>();
+        xframes::FrameScheduler::Source source;
+        size_t prefetchInflight = 0;
+        int prefetchCompleted = 0, prefetchTotal = 0;
+        bool progressPending = false, lastLoadFailed = false;
+    };
+    xframes::FrameScheduler::Owner m_resourceLifetime;
+    std::shared_ptr<AsyncState> m_async;
+#ifdef __EMSCRIPTEN__
+    WasmFetches m_fetches;
+#endif
+    // Input-owned debounce; clipped maps clear the deadline in PrepareFrame.
+    xframes::FrameScheduler::Time m_lastZoomChangeTime{};
     bool m_zoomDebouncing = false;
-
-    // Track in-flight downloads to avoid duplicates
-    std::mutex m_inflightMutex;
-    std::set<TileKey> m_inflightKeys;
-
-    // Disk tile cache + stats
-    DiskTileCache m_diskCache;
-    TileCacheStats m_cacheStats;
     std::string m_cachePath;
+    std::deque<TileKey> m_prefetchQueue;
+    TileCacheStats m_cacheStats; // coherent render-thread snapshot
+    int m_prefetchCompleted = 0, m_prefetchTotal = 0;
+    bool m_prefetching = false;
+    std::set<TileKey> m_requestedKeys;
 
-    // Prefetch state
-    std::atomic<bool> m_prefetching{false};
-    std::atomic<int> m_prefetchCompleted{0};
-    std::atomic<int> m_prefetchTotal{0};
+    void ResetRequests();
+    void CloseRequests();
+    bool StartDownload(TileKey key, bool prefetch);
+    void PumpPrefetch();
+    static void CompleteTile(std::weak_ptr<AsyncState> weak, TileKey key, bool prefetch,
+                             std::vector<unsigned char> bytes, int cacheTier);
+#ifndef __EMSCRIPTEN__
+    static void DownloadTile(std::weak_ptr<AsyncState> weak, TileKey key, bool prefetch,
+                             std::string url, std::unordered_map<std::string, std::string> headers);
+#endif
 
     // Pin markers
     struct MapMarker {
@@ -151,7 +173,7 @@ public:
         }
         if (widgetDef.contains("cachePath") && widgetDef["cachePath"].is_string()) {
             widget->m_cachePath = widgetDef["cachePath"].template get<std::string>();
-            widget->m_diskCache.configure(widget->m_cachePath);
+            widget->m_async->disk->configure(widget->m_cachePath);
         }
 
         return widget;
@@ -160,25 +182,10 @@ public:
     bool HasCustomWidth() override;
     bool HasCustomHeight() override;
 
-    MapView(XFrames* view, const int id, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
-        m_type = "map-view";
-        m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
-    }
-
-    ~MapView() {
-        for (auto& [key, entry] : m_tileTextures) {
-#ifdef __EMSCRIPTEN__
-            if (entry.first.textureView) {
-                wgpuTextureViewRelease(entry.first.textureView);
-            }
-#else
-            if (entry.first.textureView) {
-                glDeleteTextures(1, &entry.first.textureView);
-            }
-#endif
-        }
-        m_tileTextures.clear();
-    }
+    MapView(XFrames* view, int id, std::optional<WidgetStyle>& style);
+    ~MapView();
+    void PrepareFrame(XFrames* view) override;
+    json GetResourceDiagnostics() const override;
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
     void Patch(const json& widgetPatchDef, XFrames* view) override;

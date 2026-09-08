@@ -18,6 +18,8 @@
 #include "imgui_helpers.h"
 #include "texture_helpers.h"
 #include "commit.h"
+#include "frame_scheduler.h"
+#include "map_worker.h"
 
 using json = nlohmann::json;
 
@@ -60,6 +62,7 @@ class XFrames {
         uint64_t m_nativeRevision = 0;
         std::unordered_set<int> m_publicationOwnedIds;
         std::atomic<bool> m_surfaceQuarantined{false};
+        std::atomic<bool> m_runtimeDisposed{false};
         bool m_subjectsReady = false;
         rpp::subjects::serialized_replay_subject<std::weak_ptr<CommitRequest>> m_elementOpSubject;
         rpp::composite_disposable_wrapper m_commitSubscription = rpp::composite_disposable_wrapper::make();
@@ -75,12 +78,19 @@ class XFrames {
         std::mutex m_hierarchy_mutex;
 
         bool m_debug;
+        bool m_debugFocusRequested = false; // consumed on the render thread
 
         std::atomic<bool> m_diagnosticsEnabled{false};
         std::mutex m_diagnosticsMutex;
-        json m_diagnosticsFrame = {{"enabled", false}, {"frame", 0}};
+        json m_diagnosticsFrame = {{"enabled", false}};
         json m_pendingDiagnosticsFrame;
-        uint64_t m_diagnosticsFrameCount = 0; // render-thread owned
+        std::optional<xframes::FrameScheduler::Frame> m_pendingFrame;
+        struct PrefetchEvent { xframes::FrameScheduler::Source source; int id, completed, total; };
+        std::mutex m_resourceEventMutex;
+        std::unordered_map<int, PrefetchEvent> m_prefetchEvents;
+#ifndef __EMSCRIPTEN__
+        MapWorker m_mapWorker;
+#endif
         std::unordered_map<int, double> m_diagnosticsLastInternalOpMs; // element-mutex owned
         json BuildDiagnosticsStateUnlocked();
 
@@ -108,34 +118,31 @@ class XFrames {
         void InvalidateMaxBottomCaches();
 
     public:
-        ImGuiRenderer* m_renderer;
-
-#ifndef __EMSCRIPTEN__
-        std::unordered_map<int, GLuint> m_imageToTextureMap;
-#endif
-
-        std::queue<ImageJob> m_imageJobs;
+        xframes::FrameScheduler m_frameScheduler;
+        ImGuiRenderer* m_renderer = nullptr;
 
         std::unordered_map<int, std::unique_ptr<char[]>> m_floatFormatChars;
 
         ImGuiStyle m_appStyle;
 
-        OnInitCallback m_onInit;
-        OnTextChangedCallback m_onInputTextChange;
-        OnComboChangedCallback m_onComboChange;
-        OnNumericValueChangedCallback m_onNumericValueChange;
-        OnMultipleNumericValuesChangedCallback m_onMultiValueChange;
-        OnBooleanValueChangedCallback m_onBooleanValueChange;
-        OnClickCallback m_onClick;
-        OnTableSortCallback m_onTableSort;
-        OnTableFilterCallback m_onTableFilter;
-        OnTableRowClickCallback m_onTableRowClick;
-        OnTableItemActionCallback m_onTableItemAction;
-        OnPrefetchProgressCallback m_onPrefetchProgress;
-        OnScriptErrorCallback m_onScriptError;
+        OnInitCallback m_onInit = nullptr;
+        OnTextChangedCallback m_onInputTextChange = nullptr;
+        OnComboChangedCallback m_onComboChange = nullptr;
+        OnNumericValueChangedCallback m_onNumericValueChange = nullptr;
+        OnMultipleNumericValuesChangedCallback m_onMultiValueChange = nullptr;
+        OnBooleanValueChangedCallback m_onBooleanValueChange = nullptr;
+        OnClickCallback m_onClick = nullptr;
+        OnTableSortCallback m_onTableSort = nullptr;
+        OnTableFilterCallback m_onTableFilter = nullptr;
+        OnTableRowClickCallback m_onTableRowClick = nullptr;
+        OnTableItemActionCallback m_onTableItemAction = nullptr;
+        OnPrefetchProgressCallback m_onPrefetchProgress = nullptr;
+        std::function<void(xframes::FrameScheduler::Source, int, int, int)> m_onGuardedPrefetchProgress;
+        OnScriptErrorCallback m_onScriptError = nullptr;
 
         XFrames(const char* newWindowId, std::optional<std::string> rawStyleOverridesDefs);
         ~XFrames();
+        void Dispose(); // Render-thread shutdown; ordering metadata remains observable.
 
         void Init(ImGuiRenderer* renderer);
 
@@ -146,6 +153,12 @@ class XFrames {
         json GetDiagnosticsFrame();
         json GetDiagnosticsState(); // CPU-only snapshot for native tests
         void CompleteDiagnosticsFrame();
+        void AbandonFrame();
+        void QueuePrefetchProgress(xframes::FrameScheduler::Source source, int id, int completed, int total);
+        void FlushResourceEvents(); // Called after Render releases tree locks.
+#ifndef __EMSCRIPTEN__
+        MapWorker& GetMapWorker() { return m_mapWorker; }
+#endif
         static double DiagnosticsNowMs();
 
         void ShowDebugWindow();
@@ -170,7 +183,7 @@ class XFrames {
 
         void PrepareForRender();
 
-        void Render(int window_width, int window_height);
+        bool Render(int window_width, int window_height);
 
 
         // Synchronous structural API. uint64 counters use decimal strings on the wire.

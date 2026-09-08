@@ -531,6 +531,20 @@ export class WidgetRegistrationService {
         }
     }
 
+    setCanvasContinuous(id: WidgetId, continuous: boolean) {
+        const fabricWidgetId = this.getNativeId(id);
+        if (fabricWidgetId !== undefined) {
+            this.wasmModule.elementInternalOp(fabricWidgetId, JSON.stringify({ op: "setContinuous", continuous }));
+        }
+    }
+
+    redrawCanvas(id: WidgetId) {
+        const fabricWidgetId = this.getNativeId(id);
+        if (fabricWidgetId !== undefined) {
+            this.wasmModule.elementInternalOp(fabricWidgetId, JSON.stringify({ op: "redraw" }));
+        }
+    }
+
     setCanvasScript(id: WidgetId, script: string) {
         const fabricWidgetId = this.getNativeId(id);
         if (fabricWidgetId !== undefined) {

@@ -9,17 +9,12 @@
 
 struct Texture {
 #ifdef __EMSCRIPTEN__
-    WGPUTextureView textureView;
+    WGPUTextureView textureView = nullptr;
 #else
-	GLuint textureView;
+    GLuint textureView = 0;
 #endif
-    int width;
-    int height;
-};
-
-struct ImageJob {
-    int widgetId;
-    std::string url;
+    int width = 0;
+    int height = 0;
 };
 
 #endif //TEXTURE_HELPERS_H

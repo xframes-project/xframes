@@ -5,21 +5,12 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>
+#include <emscripten/html5.h>
+#include <emscripten/eventloop.h>
 #include <webgpu/webgpu.h>
 #else
 #include "imgui_impl_opengl3.h"
 #include <GLES3/gl3.h>
-#endif
-
-#ifdef __EMSCRIPTEN__
-#include <functional>
-static std::function<void()>            MainLoopForEmscriptenP;
-static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
-#define EMSCRIPTEN_MAINLOOP_BEGIN       MainLoopForEmscriptenP = [&]()
-#define EMSCRIPTEN_MAINLOOP_END         ; emscripten_set_main_loop(MainLoopForEmscripten, 30, true) // 24 frames / second, use 0 for browser's default
-#else
-#define EMSCRIPTEN_MAINLOOP_BEGIN
-#define EMSCRIPTEN_MAINLOOP_END
 #endif
 
 #include "./xframes.h"
@@ -30,6 +21,13 @@ static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
 #include <exception>
 #include <utility>
 #include <vector>
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <limits>
+
+using xframes::FrameReason;
+using xframes::FrameScheduler;
 
 void glfw_error_callback(int error, const char* description)
 {
@@ -197,6 +195,9 @@ void ImGuiRenderer::InitGlfw() {
 #endif
 
     m_glfwWindow = glfwCreateWindow(m_window_width, m_window_height, m_glWindowTitle, nullptr, nullptr);
+    if (!m_glfwWindow) throw std::runtime_error("GLFW window creation failed");
+    // ImGui installs its callbacks later, chaining these on this new window.
+    InstallWindowCallbacks();
 
 #ifdef __EMSCRIPTEN__
     // Initialize the WebGPU environment
@@ -241,14 +242,20 @@ bool ImGuiRenderer::InitWGPU() {
 
     // Request device (synchronous via WaitAny)
     wgpu::DeviceDescriptor device_desc;
+    // The one-shot lost callback owns this weak endpoint until the device ends.
+    // WebGPU stops uncaptured-error callbacks when that device is lost.
+    const auto source = std::make_shared<FrameScheduler::Source>(m_xframes->m_frameScheduler.GetSource());
     device_desc.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous,
-        [](const wgpu::Device&, wgpu::DeviceLostReason reason, wgpu::StringView msg) {
+        [source](const wgpu::Device&, wgpu::DeviceLostReason reason, wgpu::StringView msg) {
+            if (!source->IsAlive()) return; // Intentional shutdown or expired runtime.
             fprintf(stderr, "Device lost (%d): %s\n", (int)reason, msg.data);
+            source->FailBackend();
         });
     device_desc.SetUncapturedErrorCallback(
-        [](const wgpu::Device&, wgpu::ErrorType type, wgpu::StringView msg) {
+        [](const wgpu::Device&, wgpu::ErrorType type, wgpu::StringView msg, FrameScheduler::Source* source) {
             fprintf(stderr, "WebGPU error (%d): %s\n", (int)type, msg.data);
-        });
+            source->FailBackend();
+        }, source.get());
     wgpu::Device acquired_device;
     auto onDevice = [&](wgpu::RequestDeviceStatus status, wgpu::Device device, wgpu::StringView message) {
         if (status == wgpu::RequestDeviceStatus::Success)
@@ -316,6 +323,7 @@ void ImGuiRenderer::SetUp() {
 
 #ifdef __EMSCRIPTEN__
 void ImGuiRenderer::ConfigureSurface(int width, int height) {
+    if (width <= 0 || height <= 0) return;
     m_wgpu_surface_width = width;
     m_wgpu_surface_height = height;
     m_wgpu_surface_config.device = m_device;
@@ -351,43 +359,65 @@ void ImGuiRenderer::RenderDrawData() {
 }
 #endif
 
-void ImGuiRenderer::CleanUp() {
+void ImGuiRenderer::StopScheduling() {
+    if (!m_loopRunning) return;
+    m_xframes->m_frameScheduler.DetachWake();
+    m_loopRunning = false;
+    for (auto& activity : m_imguiActivity) activity.Reset();
 #ifdef __EMSCRIPTEN__
-    ImGui_ImplWGPU_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext(m_imGuiCtx);
+    StopBrowserScheduling();
+#endif
+}
 
-    wgpuSurfaceUnconfigure(m_wgpu_surface);
-    wgpuSurfaceRelease(m_wgpu_surface);
-    wgpuQueueRelease(m_queue);
-    wgpuDeviceRelease(m_device);
-    wgpuInstanceRelease(m_instance.MoveToCHandle());
+void ImGuiRenderer::CleanUp() {
+    StopScheduling();
+    m_xframes->Dispose();
+    if (!m_imGuiCtx) return;
+    ReleaseRetiredTextures();
+    auto& io = m_imGuiCtx->IO;
+#ifdef __EMSCRIPTEN__
+    if (io.BackendRendererUserData) ImGui_ImplWGPU_Shutdown();
+    if (m_wgpu_surface) { wgpuSurfaceUnconfigure(m_wgpu_surface); wgpuSurfaceRelease(m_wgpu_surface); m_wgpu_surface = nullptr; }
+    if (m_queue) { wgpuQueueRelease(m_queue); m_queue = nullptr; }
+    if (m_device) { wgpuDeviceRelease(m_device); m_device = nullptr; }
+    if (m_instance) wgpuInstanceRelease(m_instance.MoveToCHandle());
 #else
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    if (io.BackendRendererUserData) ImGui_ImplOpenGL3_Shutdown();
+#endif
+    if (io.BackendPlatformUserData) ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext(m_imGuiCtx);
-
-    glfwDestroyWindow(m_glfwWindow);
+    m_imGuiCtx = nullptr;
+    m_loadedFonts.clear(); m_fontDefMap.clear();
+    if (m_glfwWindow) glfwDestroyWindow(m_glfwWindow);
     m_glfwWindow = nullptr;
+    m_windowCallbackCount = 0;
     glfwTerminate();
     glfwSetErrorCallback(nullptr);
+#ifdef __EMSCRIPTEN__
+    m_canvasSelector.reset();
+    // Fetch cancellation can invoke a JS callback synchronously. Keep the
+    // runtime alive until every callback/resource/backend owner is closed.
+    if (m_browserKeepalive) { m_browserKeepalive = false; emscripten_runtime_keepalive_pop(); }
 #endif
 }
 
 #ifdef __EMSCRIPTEN__
-void ImGuiRenderer::PerformRendering() {
+bool ImGuiRenderer::PerformRendering() {
     // Get current surface texture
-    WGPUSurfaceTexture surface_texture;
+    WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_wgpu_surface, &surface_texture);
     if (ImGui_ImplWGPU_IsSurfaceStatusError(surface_texture.status)) {
         fprintf(stderr, "Unrecoverable surface texture status=%#.8x\n", surface_texture.status);
-        return;
+        if (surface_texture.texture) wgpuTextureRelease(surface_texture.texture);
+        m_xframes->m_frameScheduler.GetSource().FailBackend();
+        return false;
     }
     if (ImGui_ImplWGPU_IsSurfaceStatusSubOptimal(surface_texture.status)) {
         if (surface_texture.texture)
             wgpuTextureRelease(surface_texture.texture);
-        return;
+        return false;
     }
+    if (!surface_texture.texture) return false;
 
     // Create view from surface texture
     WGPUTextureViewDescriptor view_desc = {};
@@ -397,6 +427,10 @@ void ImGuiRenderer::PerformRendering() {
     view_desc.arrayLayerCount = WGPU_ARRAY_LAYER_COUNT_UNDEFINED;
     view_desc.aspect = WGPUTextureAspect_All;
     WGPUTextureView texture_view = wgpuTextureCreateView(surface_texture.texture, &view_desc);
+    if (!texture_view) {
+        wgpuTextureRelease(surface_texture.texture);
+        return false;
+    }
 
     WGPURenderPassColorAttachment color_attachments = {};
     color_attachments.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
@@ -412,31 +446,50 @@ void ImGuiRenderer::PerformRendering() {
 
     WGPUCommandEncoderDescriptor enc_desc = {};
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, &enc_desc);
+    if (!encoder) {
+        wgpuTextureViewRelease(texture_view);
+        wgpuTextureRelease(surface_texture.texture);
+        return false;
+    }
     WGPURenderPassEncoder pass = wgpuCommandEncoderBeginRenderPass(encoder, &render_pass_desc);
+    if (!pass) {
+        wgpuCommandEncoderRelease(encoder);
+        wgpuTextureViewRelease(texture_view);
+        wgpuTextureRelease(surface_texture.texture);
+        return false;
+    }
     RenderDrawData(pass);
     wgpuRenderPassEncoderEnd(pass);
 
     WGPUCommandBufferDescriptor cmd_buffer_desc = {};
     WGPUCommandBuffer cmd_buffer = wgpuCommandEncoderFinish(encoder, &cmd_buffer_desc);
-    wgpuQueueSubmit(m_queue, 1, &cmd_buffer);
-    m_xframes->CompleteDiagnosticsFrame();
+    if (cmd_buffer) wgpuQueueSubmit(m_queue, 1, &cmd_buffer);
 
     // Release resources
     wgpuTextureViewRelease(texture_view);
     wgpuRenderPassEncoderRelease(pass);
     wgpuCommandEncoderRelease(encoder);
-    wgpuCommandBufferRelease(cmd_buffer);
+    if (cmd_buffer) wgpuCommandBufferRelease(cmd_buffer);
+    wgpuTextureRelease(surface_texture.texture);
+    return cmd_buffer && m_xframes->m_frameScheduler.GetStatus() == FrameScheduler::Status::Running;
 }
 #else
-void ImGuiRenderer::PerformRendering() {
+bool ImGuiRenderer::PerformRendering() {
     int display_w, display_h;
     glfwGetFramebufferSize(m_glfwWindow, &display_w, &display_h);
+    if (display_w <= 0 || display_h <= 0) return false;
     glViewport(0, 0, display_w, display_h);
     glClearColor(m_clearColor.x * m_clearColor.w, m_clearColor.y * m_clearColor.w, m_clearColor.z * m_clearColor.w, m_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT);
 
     RenderDrawData();
-    m_xframes->CompleteDiagnosticsFrame();
+    const auto error = glGetError();
+    if (error != GL_NO_ERROR) {
+        fprintf(stderr, "OpenGL submission failed: %#x\n", error);
+        m_xframes->m_frameScheduler.GetSource().FailBackend();
+        return false;
+    }
+    return true;
 }
 #endif
 
@@ -444,60 +497,72 @@ void ImGuiRenderer::SetCurrentContext() {
     ImGui::SetCurrentContext(m_imGuiCtx);
 }
 
+void ImGuiRenderer::RetireTexture(Texture texture) {
+    if (!texture.textureView) return;
+    const std::lock_guard lock(m_retiredTextureMutex);
+    m_retiredTextures.push_back(texture);
+}
+
+void ImGuiRenderer::ReleaseRetiredTextures() {
+    std::vector<Texture> retired;
+    {
+        const std::lock_guard lock(m_retiredTextureMutex);
+        retired.swap(m_retiredTextures);
+        m_liveResourceTextures -= retired.size();
+    }
+    for (auto& texture : retired) {
+#ifdef __EMSCRIPTEN__
+        wgpuTextureViewRelease(texture.textureView);
+#else
+        glDeleteTextures(1, &texture.textureView);
+#endif
+    }
+}
+
+json ImGuiRenderer::GetResourceDiagnostics() {
+    const std::lock_guard lock(m_retiredTextureMutex);
+    return {{"liveTextures", m_liveResourceTextures}, {"retiredTextures", m_retiredTextures.size()}};
+}
+
 #ifndef __EMSCRIPTEN__
-void ImGuiRenderer::HandleNextImageJob() {
-    auto& [widgetId, url] = m_xframes->m_imageJobs.front();
-
-    auto pathToFile = fmt::format("{}/{}", m_assetsBasePath, url);
-
-    FILE* f = fopen(pathToFile.c_str(), "rb");
-    if (f == NULL) {
-        printf("Unable to open file\n");
-        return;
-    }
-
-    fseek(f, 0, SEEK_END);
-
-    size_t file_size = (size_t)ftell(f);
-
-    if (file_size == -1) {
-        printf("Unable to determine file size of image\n");
-    }
-
-    fseek(f, 0, SEEK_SET);
-
-    void* file_data = IM_ALLOC(file_size);
-
-    fread(file_data, 1, file_size, f);
-
-    fclose(f);
-
-    m_xframes->m_imageToTextureMap[widgetId] = LoadTexture(file_data, file_size);
-
-    IM_FREE(file_data);
-
-    m_xframes->m_imageJobs.pop();
-};
+bool ImGuiRenderer::LoadTextureFile(const std::string& url, Texture* texture) {
+    std::ifstream file(fmt::format("{}/{}", m_assetsBasePath, url), std::ios::binary | std::ios::ate);
+    if (!file) return false;
+    const auto size = file.tellg();
+    if (size <= 0 || size > std::numeric_limits<int>::max()) return false;
+    std::vector<unsigned char> data(static_cast<size_t>(size));
+    file.seekg(0);
+    file.read(reinterpret_cast<char*>(data.data()), size);
+    if (!file) return false;
+    texture->textureView = LoadTexture(data.data(), static_cast<int>(size));
+    if (!texture->textureView) return false;
+    stbi_info_from_memory(data.data(), static_cast<int>(size), &texture->width, &texture->height, nullptr);
+    return true;
+}
 
 void ImGuiRenderer::RequestScreenshot(
     std::string path,
     std::function<void(std::optional<std::string>)> callback
 ) {
-    bool accepted = false;
+    std::optional<std::string> error;
     {
         const std::lock_guard<std::mutex> lock(m_screenshotMutex);
-        if (m_acceptScreenshotRequests) {
+        if (!m_acceptScreenshotRequests || !m_xframes->m_frameScheduler.CanInvalidate()) {
+            error = "Renderer is not ready for screenshot capture";
+        } else if (m_screenshotRequests.size() >= 32) {
+            error = "Screenshot request limit reached (32)";
+        } else {
             m_screenshotRequests.push(ScreenshotRequest{std::move(path), std::move(callback)});
-            accepted = true;
+            m_screenshotRequests.back().generation = m_xframes->m_frameScheduler.Invalidate(FrameReason::Screenshot);
         }
     }
 
-    if (!accepted) {
-        callback("Renderer is not ready for screenshot capture");
+    if (error) {
+        callback(std::move(error));
         return;
     }
 
-    glfwPostEmptyEvent();
+    m_xframes->m_frameScheduler.Notify();
 }
 
 void ImGuiRenderer::StartScreenshotRequests() {
@@ -520,11 +585,29 @@ void ImGuiRenderer::StopScreenshotRequests(const std::string& errorMessage) {
     }
 }
 
+void ImGuiRenderer::FailScreenshotRequests(const std::string& errorMessage) {
+    std::queue<ScreenshotRequest> requests;
+    {
+        const std::lock_guard lock(m_screenshotMutex);
+        requests.swap(m_screenshotRequests);
+    }
+    while (!requests.empty()) {
+        auto request = std::move(requests.front());
+        requests.pop();
+        request.callback(errorMessage);
+    }
+}
+
 void ImGuiRenderer::FlushScreenshotRequests() {
     std::queue<ScreenshotRequest> requests;
     {
         const std::lock_guard<std::mutex> lock(m_screenshotMutex);
-        std::swap(requests, m_screenshotRequests);
+        const auto covered = m_xframes->m_frameScheduler.CoveredGeneration();
+        // Requests racing draw construction need a subsequent submission.
+        while (!m_screenshotRequests.empty() && m_screenshotRequests.front().generation <= covered) {
+            requests.push(std::move(m_screenshotRequests.front()));
+            m_screenshotRequests.pop();
+        }
     }
 
     while (!requests.empty()) {
@@ -587,71 +670,71 @@ std::optional<std::string> ImGuiRenderer::CaptureScreenshotToPng(const std::stri
 
 void ImGuiRenderer::BeginRenderLoop() {
     SetUp();
-
-#ifdef __EMSCRIPTEN__
     LoadFontsFromDefs();
-#else
-    LoadFontsFromDefs();
-    // printf("Adding default font\n");
-    // m_imGuiCtx->IO.Fonts->AddFontDefault();
-
-    // m_imGuiCtx->IO.FontDefault = m_imGuiCtx->IO.Fonts->Fonts[0];
-
-    // printf("Default font added\n");
-#endif
-
+    m_loopRunning = true;
+    const FrameReason reasons[] = {FrameReason::Layout, FrameReason::Interaction,
+        FrameReason::Cursor, FrameReason::KeyRepeat, FrameReason::Hover};
+    for (size_t i = 0; i < m_imguiActivity.size(); ++i)
+        m_imguiActivity[i] = m_xframes->m_frameScheduler.Register(reasons[i]);
 #ifndef __EMSCRIPTEN__
     StartScreenshotRequests();
+#else
+    // A paused RAF loop still owns a live native runtime. Returning from init
+    // must not run Emscripten's exit path while waiting for the next producer.
+    emscripten_runtime_keepalive_push();
+    m_browserKeepalive = true;
 #endif
-
+    m_xframes->m_frameScheduler.AttachWake(WakeRenderer, this);
     m_xframes->Init(this);
-
-    // Main loop
 #ifdef __EMSCRIPTEN__
-    EMSCRIPTEN_MAINLOOP_BEGIN
+    EmscriptenVisibilityChangeEvent visibility{};
+    emscripten_get_visibility_status(&visibility);
+    m_browserHidden = visibility.hidden;
+    emscripten_set_visibilitychange_callback(this, false,
+        [](int, const EmscriptenVisibilityChangeEvent* event, void* data) -> bool {
+            auto* self = static_cast<ImGuiRenderer*>(data);
+            self->m_browserHidden = event->hidden;
+            self->UpdateSurfaceAvailability();
+            if (event->hidden) {
+                if (self->m_browserFrame) emscripten_cancel_animation_frame(std::exchange(self->m_browserFrame, 0));
+                if (self->m_browserTimer) emscripten_clear_timeout(std::exchange(self->m_browserTimer, 0));
+                self->m_resumingFromIdle = true;
+                self->m_xframes->m_frameScheduler.PlanNext();
+            } else {
+                self->Invalidate(FrameReason::Window);
+                // Hidden tabs cancel the queued wake callback. Restoration must
+                // restart it even when its scheduler notification was latched.
+                self->RequestBrowserFrame();
+            }
+            return false;
+        });
+    m_visibilityListener = true;
+    ScheduleBrowserNext();
 #else
     while (!glfwWindowShouldClose(m_glfwWindow))
-#endif
     {
-#ifndef __EMSCRIPTEN__
-        glfwWaitEventsTimeout(1.0 / 30.0);
-#else
         glfwPollEvents();
-#endif
-        glfwGetWindowSize(m_glfwWindow, &m_window_width, &m_window_height);
-
-        HandleScreenSizeChanged();
-
-#ifdef __EMSCRIPTEN__
-        ImGui_ImplWGPU_NewFrame();
-#else
-        ImGui_ImplOpenGL3_NewFrame();
-#endif
-
-        ImGui_ImplGlfw_NewFrame();
-
-#ifndef __EMSCRIPTEN__
-        if (!m_xframes->m_imageJobs.empty()) {
-            HandleNextImageJob();
+        ProcessWindowRequests();
+        const bool available = UpdateSurfaceAvailability();
+        if (glfwWindowShouldClose(m_glfwWindow)) break;
+        const auto next = m_xframes->m_frameScheduler.TakeOpportunity();
+        if (next.render) {
+            DrawFrame();
+        } else {
+            if (next.terminal) StopScreenshotRequests("Renderer cannot submit: terminal native state");
+            else if (!available) FailScreenshotRequests("Framebuffer is unavailable");
+            if (!next.deadline) m_resumingFromIdle = true;
+            // No event drain between the atomic wait arm and platform wait.
+            // A racing producer's posted event remains queued for this wait.
+            if (next.deadline) {
+                const double seconds = std::chrono::duration<double>(*next.deadline - m_xframes->m_frameScheduler.Now()).count();
+                if (seconds > 0) glfwWaitEventsTimeout(std::max(seconds, 0.001));
+            } else glfwWaitEvents();
         }
-#endif
-
-        m_xframes->Render(m_window_width, m_window_height);
-
-        PerformRendering();
-
-#ifndef __EMSCRIPTEN__
-        FlushScreenshotRequests();
-        glfwSwapBuffers(m_glfwWindow);
-#endif
     }
-#ifdef __EMSCRIPTEN__
-    EMSCRIPTEN_MAINLOOP_END;
-#else
     StopScreenshotRequests("Renderer stopped before the screenshot could be captured");
-#endif
-
     CleanUp();
+#endif
 }
 
 json ImGuiRenderer::GetDiagnosticsBackendInfo() const {
@@ -669,12 +752,13 @@ json ImGuiRenderer::GetDiagnosticsBackendInfo() const {
 }
 
 void ImGuiRenderer::SetWindowSize(int width, int height) {
-    m_window_width = width;
-    m_window_height = height;
-
-    if (m_glfwWindow) {
-        glfwSetWindowSize(m_glfwWindow, width, height);
+    if (width < 0 || height < 0) throw std::invalid_argument("Window dimensions must be nonnegative");
+    {
+        const std::lock_guard lock(m_windowRequestMutex);
+        m_requestedSize = std::pair(width, height);
+        m_xframes->m_frameScheduler.Invalidate(FrameReason::Window);
     }
+    m_xframes->m_frameScheduler.Notify();
 }
 
 
@@ -696,11 +780,12 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
     if (data == nullptr)
         return false;
 
-    int width;
-    int height;
+    int width = 0;
+    int height = 0;
 
     // TODO: figure out why we need the STB library to load image data for us, seems like I'm missing a step when using leptonica
     const auto stbiData = stbi_load_from_memory(static_cast<const stbi_uc*>(data), numBytes, &width, &height, nullptr, 4);
+    if (!stbiData) return false;
 
     WGPUTextureView view;
     {
@@ -716,6 +801,7 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
         tex_desc.usage = WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding;
 
         auto tex = wgpuDeviceCreateTexture(m_device, &tex_desc);
+        if (!tex) { stbi_image_free(stbiData); return false; }
 
         WGPUTextureViewDescriptor tex_view_desc = {};
         tex_view_desc.format = WGPUTextureFormat_RGBA8Unorm;
@@ -726,6 +812,7 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
         tex_view_desc.arrayLayerCount = 1;
         tex_view_desc.aspect = WGPUTextureAspect_All;
         view = wgpuTextureCreateView(tex, &tex_view_desc);
+        if (!view) { wgpuTextureRelease(tex); stbi_image_free(stbiData); return false; }
 
         WGPUTexelCopyTextureInfo dst_view = {};
         dst_view.texture = tex;
@@ -739,6 +826,7 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
         const WGPUExtent3D size = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1 };
 
         wgpuQueueWriteTexture(m_queue, &dst_view, stbiData, static_cast<uint32_t>(width * 4 * height), &layout, &size);
+        wgpuTextureRelease(tex); // The view retains the texture for drawing.
     }
 
     texture->textureView = view;
@@ -747,6 +835,7 @@ bool ImGuiRenderer::LoadTexture(const void* data, const int numBytes, Texture* t
 
     stbi_image_free(stbiData);
 
+    { const std::lock_guard lock(m_retiredTextureMutex); ++m_liveResourceTextures; }
     return true;
 }
 #else
@@ -775,16 +864,20 @@ GLuint ImGuiRenderer::LoadTexture(const void* data, int numBytes) {
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         printf("OpenGL Error: %d\n", error);
+        glDeleteTextures(1, &image_texture);
+        stbi_image_free(image_data);
         return 0;
     }
 
     stbi_image_free(image_data);
 
+    { const std::lock_guard lock(m_retiredTextureMutex); ++m_liveResourceTextures; }
     return image_texture;
 }
 #endif
 
 json ImGuiRenderer::GetAvailableFonts() {
+    if (!m_imGuiCtx) return json::array();
     ImGuiIO& io = m_imGuiCtx->IO;
     json fonts = json::array();
 

@@ -30,9 +30,11 @@ setTimeout(() => {
       if (!ReactNativePrivateInterface.nativeFabricUIManager.getDiagnostics().subscriptionClosed)
         throw new Error("App wrapper did not dispose its bridge");
       const deadline = performance.now() + 10000;
+      const target = JSON.parse(native.getDiagnostics()).scheduler.generation;
       for (;;) {
         const frame = JSON.parse(native.getDiagnostics());
-        if (frame.frame > populated.frame && frame.elementCount === 0 && frame.internalSubjectCount === 0) break;
+        if (frame.coveredGeneration && BigInt(frame.coveredGeneration) >= BigInt(target)
+            && frame.elementCount === 0 && frame.internalSubjectCount === 0) break;
         if (performance.now() > deadline) throw new Error("Populated App unmount did not reach an empty native frame");
         await new Promise(resolve => setTimeout(resolve, 20));
       }

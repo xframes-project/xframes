@@ -269,6 +269,35 @@ must use the same schema and revision checks; hand off only after acknowledged
 empty publication and bridge disposal. Mixing writers does not silently rebase a
 stale Fabric snapshot. Native acknowledgment is not a presented-frame guarantee.
 
+The Stage 4 working tree uses one invalidation scheduler on both backends. Applied
+publications invalidate once at the native visibility boundary. Imperative data,
+input, resources and window changes invalidate without advancing structural
+revision. Native draw construction captures revision/generation under the tree
+locks; only successful backend submission completes that captured ticket. Late
+work stays pending. Clean inactive desktop windows wait for events or the nearest
+real deadline; inactive browser modules pause their animation callbacks. Canvas
+handles expose `setContinuous(false)` for static scripts and `redraw()` for an
+explicit frame. Initialization/ready and synchronous schema-v2 publication remain
+unchanged. See [the invalidation record](../../../docs/engineering/fabric-invalidation-2026-09.md)
+for current verification and open acceptance work.
+
+Observation code must compare lossless decimal `frameId`, `nativeRevision` and
+`coveredGeneration` using `BigInt`. Capture the operation's target generation and
+revision, then accept any submitted frame covering both; several publications
+can share a frame. Unchanged state may already be covered. Do not wait for an
+arbitrary newer frame after a query or rejection: inactivity intentionally stops
+frame construction. Imperative samples additionally need a data assertion.
+Diagnostic reads remain pure, and always-readable scheduler metadata works with
+expensive tree snapshots disabled. Enabling snapshots requests one bounded sample.
+
+Hidden/zero-sized surfaces retain work until restoration. Screenshot requests on
+an unavailable native surface fail explicitly. Runtime disposal is terminal and
+preserves the last sequence/revision; it is distinct from ordinary acknowledged
+empty publication and cannot stand in for lifecycle cleanup evidence. Resource
+owners, timers, RAF handles and listeners are released at their actual lifetime
+boundary. The Wasm module remains reusable across ordinary wrapper unmounts until
+the application explicitly invokes its terminal `exit` endpoint.
+
 The August verification above and September's
 [Stage 1 cleanup record](../../../docs/engineering/fabric-cleanup-2026-09.md) and
 [Stage 2 transaction record](../../../docs/engineering/fabric-transactions-2026-09.md)
@@ -283,4 +312,4 @@ rewrite by themselves.
 - The repository-wide common ESLint command has a pre-existing backlog (356 findings at verification time). The new extraction scripts lint cleanly, but this upgrade does not hide or mass-rewrite unrelated legacy findings.
 - An online npm install reported 70 dependency advisories in the legacy development dependency graph. No uncontrolled `npm audit fix --force` was applied. Production exposure and dependency-toolchain modernization need a separate audit.
 - macOS hardware and Safari are untested. The technologies are portable, but portability is not a substitute for a real platform build and runtime test.
-- Stage 3 publication acceptance is tracked in the [publication record](../../../docs/engineering/fabric-publication-2026-09.md). Invalidation scheduling, frame correlation, replay and automation remain separate in the [runtime hardening design](../../../docs/architecture/fabric-runtime-hardening.md).
+- Stage 3 publication acceptance is tracked in the [publication record](../../../docs/engineering/fabric-publication-2026-09.md); current scheduling and frame-correlation evidence is in the [invalidation record](../../../docs/engineering/fabric-invalidation-2026-09.md). Replay and automation remain future work in the [runtime hardening design](../../../docs/architecture/fabric-runtime-hardening.md).

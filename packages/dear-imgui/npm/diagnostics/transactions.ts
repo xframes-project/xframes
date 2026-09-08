@@ -1,7 +1,7 @@
 import type { NativeCommit, NativeCommitOperation, NativeCommitResult, NativeCommitState } from "@xframes/common";
 import { check, waitFor } from "./assertions";
 import { observeBinding, type NativeBinding } from "./bridge";
-import type { NativeFrame } from "./runtime";
+import { observeNativeFrame, waitForNativeIdle, readDiagnostics, type NativeFrame } from "./frames";
 
 const root = 1900000001, plot = 1900000002, table = 1900000003, second = 1900000004, probe = 1900000005;
 const create = (id: number, elementType: string, props: Record<string, unknown> = {}): NativeCommitOperation => ({ op: "create", id, elementType, props });
@@ -30,9 +30,7 @@ export async function verifyTransactions(native: NativeBinding, moveCycles = 1) 
     const semanticResults: unknown[] = [], timings: unknown[] = [];
     let frame = JSON.parse(binding.getDiagnostics()) as NativeFrame;
     const observe = async (predicate: (frame: NativeFrame) => boolean, label: string) => {
-        const previous = frame.frame;
-        frame = await waitFor(() => JSON.parse(binding.getDiagnostics()) as NativeFrame,
-            next => next.enabled && next.frame > previous && predicate(next), `publication: ${label}`);
+        frame = await observeNativeFrame(binding, predicate, `publication: ${label}`);
         return frame;
     };
     const project = (value: NativeFrame) => ({ elementCount: value.elementCount, hierarchyCount: value.hierarchyCount,
@@ -208,16 +206,34 @@ export async function verifyTransactions(native: NativeBinding, moveCycles = 1) 
     apply("repeated-empty-unmount", JSON.stringify(batch()));
     roots = [root]; relationships = [[root, [probe, probe + 1, probe + 2]], [probe, []], [probe + 1, []], [probe + 2, []]];
     apply("canvas-bootstrap-create", JSON.stringify(batch([
-        create(root, "node", { root: true }), create(probe, "di-js-canvas"),
-        create(probe + 1, "di-lua-canvas"), create(probe + 2, "di-janet-canvas"),
+        create(root, "node", { root: true }), create(probe, "di-js-canvas", { style: { width: 200, height: 80 } }),
+        create(probe + 1, "di-lua-canvas", { style: { width: 200, height: 80 } }),
+        create(probe + 2, "di-janet-canvas", { style: { width: 200, height: 80 } }),
     ])));
     for (const id of [probe, probe + 1, probe + 2]) binding.elementInternalOp(id, JSON.stringify({ op: "setData", data: { value: 42 } }));
     await observe(next => next.elementCount === 4 && next.internalSubjectCount === 3
         && next.elements.filter(node => [probe, probe + 1, probe + 2].includes(node.id)).every(node => node.lastInternalOpMs !== null),
         "all Canvas engines initialize and accept data");
+    const canvasRevision = state().nativeRevision;
+    for (const id of [probe, probe + 1, probe + 2]) binding.elementInternalOp(id, JSON.stringify({ op: "setScript", script: "" }));
+    await observe(next => next.scheduler.reasons.canvas.activeOwners === 3, "Canvas animation activity");
+    const activeStart = BigInt(readDiagnostics(binding).scheduler.submitted);
+    await waitFor(() => readDiagnostics(binding), next => BigInt(next.scheduler.submitted) >= activeStart + 3n,
+        "active Canvas engines advance on backend cadence");
+    for (const id of [probe, probe + 1, probe + 2]) binding.elementInternalOp(id, JSON.stringify({ op: "setContinuous", continuous: false }));
+    await observe(next => next.scheduler.reasons.canvas.activeOwners === 0, "Canvas static activity");
+    await waitForNativeIdle(binding, "static Canvas engines settle");
+    for (const id of [probe, probe + 1, probe + 2]) {
+        binding.elementInternalOp(id, JSON.stringify({ op: "setData", data: { value: 43 } }));
+        binding.elementInternalOp(id, JSON.stringify({ op: "redraw" }));
+        await observe(next => next.scheduler.reasons.canvas.activeOwners === 0, `static Canvas redraw ${id}`);
+        await waitForNativeIdle(binding, `static Canvas settles after redraw ${id}`);
+    }
+    check(state().nativeRevision === canvasRevision, "Canvas activity must not create structural publications");
+    semanticResults.push({ name: "canvas-continuous-static-redraw", engines: 3, activeOwners: 0, structuralRevisionUnchanged: true });
     roots = []; relationships = [];
     apply("canvas-bootstrap-cleanup", JSON.stringify(batch()), undefined, null, [probe, probe + 1, probe + 2, root]);
     await observe(next => next.elementCount === 0 && next.internalSubjectCount === 0 && next.hierarchyCount === 1, "final cleanup");
     return { status: "passed", schemaVersion: 2, moveCycles, initial, final: state(), semanticResults, timings, overhead, boundary: observer.snapshot(),
-        mounted, finalState: project(frame), completion: "Synchronous result, then a newer observed native frame; no presented-frame/revision claim" };
+        mounted, finalState: project(frame), completion: "Synchronous result, then a submitted frame covering the requested generation and revision; no physical presentation claim" };
 }

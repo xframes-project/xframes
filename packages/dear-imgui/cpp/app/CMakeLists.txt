@@ -107,7 +107,11 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/commit.cpp
         ${XFRAMES_BASE_PATH}/src/commit_props.cpp
         ${XFRAMES_BASE_PATH}/src/xframes_commit.cpp
+        ${XFRAMES_BASE_PATH}/src/frame_scheduler.cpp
+        ${XFRAMES_BASE_PATH}/src/canvas_resources.cpp
+        ${XFRAMES_BASE_PATH}/src/map_worker.cpp
         ${XFRAMES_BASE_PATH}/src/imgui_renderer.cpp
+        ${XFRAMES_BASE_PATH}/src/imgui_scheduler.cpp
         ${XFRAMES_BASE_PATH}/src/implot_renderer.cpp
         ${XFRAMES_BASE_PATH}/src/shared.cpp
         ${XFRAMES_BASE_PATH}/src/color_helpers.cpp

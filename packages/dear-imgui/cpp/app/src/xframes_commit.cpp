@@ -1,6 +1,5 @@
 #include "xframes.h"
 #include "element/element.h"
-#include <GLFW/glfw3.h>
 #include <limits>
 
 using namespace xframes;
@@ -14,6 +13,7 @@ CommitResult XFrames::ApplyCommit(std::string_view serializedCommit) {
     result.nativeRevision = m_nativeRevision;
     double parsedAt = start;
     try {
+        if (m_runtimeDisposed) throw CommitError("runtime_disposed", "Native runtime has been disposed");
         auto batch = ParseCommit(json::parse(serializedCommit));
         parsedAt = diagnostics ? DiagnosticsNowMs() : 0;
         result = DispatchCommit(std::move(batch));
@@ -43,11 +43,11 @@ CommitResult XFrames::DispatchCommit(CommitBatch batch) {
     auto request = std::make_shared<CommitRequest>();
     request->batch = std::move(batch);
     m_elementOpSubject.get_observer().on_next(std::weak_ptr<CommitRequest>(request));
+    // Also notify terminal failures whose error receipt could not be allocated.
+    // Tree visibility locks have been released by the subject handler.
+    if (request->exception || request->result.status != "rejected") m_frameScheduler.Notify();
     if (request->exception) std::rethrow_exception(request->exception);
     if (!request->completed) throw std::logic_error("Structural subject did not complete synchronously");
-#ifndef __EMSCRIPTEN__
-    if (request->result.status != "rejected") glfwPostEmptyEvent();
-#endif
     return std::move(request->result);
 }
 
@@ -71,6 +71,8 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                 throw CommitError("surface_quarantined", "Publication failed; recreate the native runtime");
             if (m_nativeSequence == std::numeric_limits<uint64_t>::max() || m_nativeRevision == std::numeric_limits<uint64_t>::max())
                 throw CommitError("counter_overflow", "Native sequence/revision exhausted; create a new runtime");
+            if (!m_frameScheduler.CanInvalidate())
+                throw CommitError("counter_overflow", "Rendering ordering is unavailable; create a new runtime");
             ValidationTree tree;
             tree.children = m_hierarchy;
             for (const auto& [id, element] : m_elements)
@@ -120,16 +122,22 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                 // destruction never recursively follows the newly published tree.
                 for (int id : plan.destroyedIds) DestroyElementUnlocked(id, &result.destroyedIds);
                 m_publicationOwnedIds.swap(plan.ownedIds);
+                // Revision and generation become visible with exactly this tree.
+                // Capture never reads a later publication's generation after drawing.
+                if (!m_frameScheduler.Invalidate(FrameReason::Publication))
+                    throw std::overflow_error("Invalidation generation exhausted during publication");
                 result.nativeRevision = ++m_nativeRevision;
                 result.status = "applied";
             } catch (const std::exception& error) {
                 // Quarantine is established under the visibility locks even if
                 // constructing an error acknowledgment itself cannot allocate.
                 m_surfaceQuarantined = true;
+                m_frameScheduler.Quarantine();
                 result.status = "failed";
                 result.error.emplace("application_error", std::string(error.what()).substr(0, 512), operationIndex);
             } catch (...) {
                 m_surfaceQuarantined = true;
+                m_frameScheduler.Quarantine();
                 result.status = "failed";
                 result.error.emplace("application_error", "Unexpected native publication failure", operationIndex);
             }
@@ -149,9 +157,9 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
 
 json XFrames::GetCommitState() {
     const std::lock_guard<std::mutex> lock(m_commitMutex);
-    json state = {{"schemaVersion", 2}, {"surfaceId", 0}, {"initialized", true}, {"nativeSequence", std::to_string(m_nativeSequence)},
+    json state = {{"schemaVersion", 2}, {"surfaceId", 0}, {"initialized", !m_runtimeDisposed}, {"nativeSequence", std::to_string(m_nativeSequence)},
         {"nativeRevision", std::to_string(m_nativeRevision)},
-        {"surfaceStatus", m_surfaceQuarantined ? "quarantined" : "healthy"}, {"managedCount", m_publicationOwnedIds.size()}};
+        {"surfaceStatus", m_runtimeDisposed ? "disposed" : m_surfaceQuarantined ? "quarantined" : "healthy"}, {"managedCount", m_publicationOwnedIds.size()}};
     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) state["lastTransaction"] = m_lastCommitDiagnostics;
     return state;
 }

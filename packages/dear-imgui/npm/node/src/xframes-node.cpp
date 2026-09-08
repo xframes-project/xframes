@@ -278,17 +278,12 @@ class Runner {
             }
         }
 
-        static void OnPrefetchProgress(int id, int completed, int total) {
+        static void OnGuardedPrefetchProgress(xframes::FrameScheduler::Source source, int id, int completed, int total) {
             auto pRunner = getInstance();
-            auto callback = [id, completed, total](Napi::Env env, Napi::Function jsCallback) {
-                jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, completed), Napi::Number::New(env, total)});
+            auto callback = [source, id, completed, total](Napi::Env env, Napi::Function jsCallback) {
+                if (source.IsAlive()) jsCallback.Call({Napi::Number::New(env, id), Napi::Number::New(env, completed), Napi::Number::New(env, total)});
             };
-
-            napi_status status = pRunner->m_tsfnOnPrefetchProgress.NonBlockingCall(callback);
-
-            if (status != napi_ok) {
-                // Handle error
-            }
+            pRunner->m_tsfnOnPrefetchProgress.NonBlockingCall(callback);
         }
 
         static void OnScriptError(int id, const std::string& errorMessage) {
@@ -458,9 +453,10 @@ class Runner {
                 OnTableFilter,
                 OnTableRowClick,
                 OnTableItemAction,
-                OnPrefetchProgress,
+                nullptr,
                 OnScriptError
             );
+            m_xframes->m_onGuardedPrefetchProgress = OnGuardedPrefetchProgress;
         }
 
         void run() {
@@ -813,6 +809,16 @@ static Napi::Value init(const Napi::CallbackInfo& info) {
 }
 
 static Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports["resizeWindow"] = Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
+        if (info.Length() != 2 || !info[0].IsNumber() || !info[1].IsNumber())
+            throw Napi::TypeError::New(info.Env(), "Expected integer window width and height");
+        const auto width = info[0].As<Napi::Number>().DoubleValue();
+        const auto height = info[1].As<Napi::Number>().DoubleValue();
+        if (!(width >= 0 && width <= 32768 && height >= 0 && height <= 32768)
+            || width != static_cast<int>(width) || height != static_cast<int>(height))
+            throw Napi::RangeError::New(info.Env(), "Window dimensions must be integers between 0 and 32768");
+        Runner::getInstance()->resizeWindow(static_cast<int>(width), static_cast<int>(height));
+    });
     exports["isElementAlive"] = Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
         if (info.Length() < 1 || !info[0].IsNumber()) {
             throw Napi::TypeError::New(info.Env(), "Expected a numeric native ID");

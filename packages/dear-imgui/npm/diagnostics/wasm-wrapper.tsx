@@ -4,7 +4,7 @@ import { createReactNativeHost } from "@xframes/common";
 import { ReactNativeWrapper } from "../wasm/src/lib/ReactNativeWrapper";
 import { Fixture, makeHandles, makeRows } from "./fixture";
 import { check, waitFor } from "./assertions";
-import type { NativeFrame } from "./runtime";
+import { observeNativeFrame, type NativeFrame } from "./frames";
 
 /** Exercise the published wrapper's update and teardown path in a real DOM root. */
 export async function verifyWasmWrapper(native: any) {
@@ -34,7 +34,7 @@ export async function verifyWasmWrapper(native: any) {
         host.nativeFabricUIManager.enqueueEvent(station, "onClick", {});
         await waitFor(() => clicks, count => count === 1, "wrapper deferred event");
         root.render(tree(true));
-        await waitFor(read, frame => frame.frame > mounted.frame && frame.elements.some(node =>
+        await waitFor(read, frame => BigInt(frame.nativeRevision) > BigInt(mounted.nativeRevision) && frame.elements.some(node =>
             node.id === tableId && node.state.rowCount === 2), "wrapper update preserves table identity and state");
         check(!unmounted, "Strict Mode cleanup shut down a live wrapper");
         const saved = handles.table.current!;
@@ -44,7 +44,7 @@ export async function verifyWasmWrapper(native: any) {
         check(host.nativeFabricUIManager.getDiagnostics().subscriptionClosed, "Wrapper did not dispose its bridge");
         saved.setTableData(makeRows(1));
         host.nativeFabricUIManager.enqueueEvent(station, "onClick", {});
-        const empty = await waitFor(read, frame => frame.frame > mounted.frame && frame.elementCount === 0,
+        const empty = await observeNativeFrame(native, frame => frame.elementCount === 0,
             "wrapper populated root destruction");
         check(empty.hierarchyCount === 1 && empty.internalSubjectCount === 0 && clicks === 1,
             "Wrapper retained native state or delivered a stale event");

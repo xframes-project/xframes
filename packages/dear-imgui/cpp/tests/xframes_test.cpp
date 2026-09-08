@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <barrier>
 #include <future>
+#include <filesystem>
 #include <latch>
 #include <tuple>
 #include <nlohmann/json.hpp>
@@ -15,6 +16,7 @@
 #include "widget/js_canvas.h"
 #include "widget/lua_canvas.h"
 #include "widget/janet_canvas.h"
+#include "widget/map_view.h"
 
 using json = nlohmann::json;
 namespace {
@@ -70,6 +72,15 @@ protected:
     }
     Element* ElementAt(int id) { return xf->m_elements.at(id).get(); }
     auto CopyInternalSubject(int id) { return xf->m_elementInternalOpsSubject.at(id); }
+    auto MapProgressCompletion(int id) {
+        auto* map = static_cast<MapView*>(ElementAt(id));
+        const std::lock_guard lock(map->m_async->mutex);
+        ++map->m_async->prefetchInflight;
+        ++map->m_async->prefetchTotal;
+        return [weak = std::weak_ptr(map->m_async)] {
+            MapView::CompleteTile(weak, TileKey{0, 0, 1}, true, {}, 0);
+        };
+    }
     void Internal(int id, const json& operation) { auto payload = operation.dump(); xf->QueueElementInternalOp(id, payload); }
     void SetCounters(uint64_t sequence, uint64_t revision) { xf->m_nativeSequence = sequence; xf->m_nativeRevision = revision; }
     bool LastRequestExpired() {
@@ -299,10 +310,102 @@ protected:
         Publish({{0, {1}}, {1, {}}}, {Create(1, "node", {{"root", true}, {"style", {{"width", 850}, {"height", 650}}}})});
     }
     void TearDown() override {
-        xf.reset(); ImPlot::DestroyContext(); ImGui::DestroyContext(renderer->m_imGuiCtx); renderer.reset();
+        xf.reset();
+        if (ImPlot::GetCurrentContext()) ImPlot::DestroyContext();
+        if (renderer->m_imGuiCtx) ImGui::DestroyContext(renderer->m_imGuiCtx);
+        renderer.reset();
     }
     void Frame() { xf->Render(900, 700); xf->CompleteDiagnosticsFrame(); }
 };
+
+namespace {
+class ActivityProbeRenderer final : public ImPlotRenderer {
+public:
+    using ImPlotRenderer::ImPlotRenderer;
+    void RegisterActivity() {
+        const xframes::FrameReason reasons[] = {xframes::FrameReason::Layout, xframes::FrameReason::Interaction,
+            xframes::FrameReason::Cursor, xframes::FrameReason::KeyRepeat, xframes::FrameReason::Hover};
+        for (size_t i = 0; i < std::size(reasons); ++i) m_imguiActivity[i] = m_xframes->m_frameScheduler.Register(reasons[i]);
+    }
+    void ObserveActivity() { UpdateImGuiActivity(); }
+};
+}
+class ImGuiActivityTest : public ::testing::Test {
+protected:
+    std::unique_ptr<XFrames> xf;
+    std::unique_ptr<ActivityProbeRenderer> renderer;
+    void SetUp() override {
+        xf = std::make_unique<XFrames>("activity-test", std::nullopt);
+        std::string fonts = "{}";
+        renderer = std::make_unique<ActivityProbeRenderer>(xf.get(), "activity-test", "activity-test", fonts, std::nullopt);
+        renderer->RegisterActivity();
+        auto& io = ImGui::GetIO(); io.DisplaySize = ImVec2(900, 700);
+        io.FontDefault = io.Fonts->AddFontDefault();
+        unsigned char* pixels; int width, height; io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+        io.IniFilename = nullptr;
+    }
+    void TearDown() override {
+        xf.reset(); ImPlot::DestroyContext(); ImGui::DestroyContext(renderer->m_imGuiCtx); renderer.reset();
+    }
+    void Frame(const std::function<void()>& draw, float delta = 0.1f) {
+        ImGui::GetIO().DeltaTime = delta;
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos(ImVec2(0, 0)); ImGui::SetNextWindowSize(ImVec2(900, 700));
+        ImGui::Begin("activity-test", nullptr, ImGuiWindowFlags_NoTitleBar);
+        draw();
+        ImGui::End(); ImGui::Render();
+        renderer->ObserveActivity();
+        const auto frame = xf->m_frameScheduler.Capture(0);
+        ASSERT_TRUE(frame); ASSERT_TRUE(xf->m_frameScheduler.Complete(*frame));
+    }
+    json State() { return xf->m_frameScheduler.GetState(); }
+};
+
+TEST_F(ImGuiActivityTest, RealHoveredButtonHasFiniteDeadlinesAndThenSettles) {
+    const auto button = [] { ImGui::Button("Button", ImVec2(120, 30)); };
+    Frame(button); Frame(button);
+    ImGui::GetIO().AddMousePosEvent(30, 20);
+    Frame(button);
+    ASSERT_NE(ImGui::GetCurrentContext()->HoveredId, 0);
+    EXPECT_GT(State()["deadlines"].get<int>(), 0);
+    for (int i = 0; i < 8; ++i) Frame(button);
+    EXPECT_EQ(State()["activeOwners"], 0);
+    EXPECT_EQ(State()["deadlines"], 0);
+    EXPECT_FALSE(xf->m_frameScheduler.PlanNext().render);
+}
+
+TEST_F(ImGuiActivityTest, FocusedInputBlinksByDeadlineWithoutContinuousFrames) {
+    char text[64] = "text";
+    bool focus = true;
+    const auto input = [&] {
+        if (focus) { ImGui::SetKeyboardFocusHere(); focus = false; }
+        ImGui::InputText("Input", text, sizeof(text));
+    };
+    for (int i = 0; i < 4; ++i) Frame(input);
+    const auto& g = *ImGui::GetCurrentContext();
+    ASSERT_NE(g.InputTextState.ID, 0);
+    ASSERT_EQ(g.ActiveId, g.InputTextState.ID);
+    EXPECT_EQ(State()["reasons"]["cursor"]["deadlines"], 1);
+    EXPECT_EQ(State()["activeOwners"], 0);
+    Frame(input, 0.801f);
+    EXPECT_EQ(State()["reasons"]["cursor"]["deadlines"], 1);
+    ImGui::ClearActiveID();
+    Frame(input);
+    EXPECT_EQ(State()["reasons"]["cursor"]["deadlines"], 0);
+}
+
+TEST_F(ImGuiActivityTest, RealKeyRepeatDeadlineIsReleasedOnKeyUp) {
+    const auto draw = [] { ImGui::Button("Button"); };
+    Frame(draw); Frame(draw);
+    ImGui::GetIO().AddKeyEvent(ImGuiKey_A, true);
+    Frame(draw);
+    EXPECT_EQ(State()["reasons"]["keyRepeat"]["deadlines"], 1);
+    Frame(draw, 0.4f);
+    EXPECT_EQ(State()["reasons"]["keyRepeat"]["deadlines"], 1);
+    ImGui::GetIO().AddKeyEvent(ImGuiKey_A, false);
+    Frame(draw);
+    EXPECT_EQ(State()["reasons"]["keyRepeat"]["deadlines"], 0);
+}
 
 TEST_F(XFramesQueueTest, PublicationPreservesImperativeDataAndDestroysSubjects) {
     xf->SetDiagnosticsEnabled(true);
@@ -464,31 +567,218 @@ TEST_F(XFramesQueueTest, PublicationVisibilityLocksExcludeCoordinatedReaderAndRe
 
 TEST_F(XFramesQueueTest, FrameDiagnosticsAreOptInAndPublishTheConstructedState) {
     Frame();
-    EXPECT_EQ(xf->GetDiagnosticsFrame()["frame"], 0);
+    EXPECT_FALSE(xf->GetDiagnosticsFrame().contains("frameId"));
     xf->SetDiagnosticsEnabled(true);
     xf->Render(900, 700);
     // Mutations after construction must not be misattributed to that frame.
     Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2)});
-    EXPECT_EQ(xf->GetDiagnosticsFrame()["frame"], 0);
+    EXPECT_FALSE(xf->GetDiagnosticsFrame().contains("frameId"));
     xf->CompleteDiagnosticsFrame();
     auto frame = xf->GetDiagnosticsFrame();
-    EXPECT_EQ(frame["frame"], 1);
+    EXPECT_EQ(frame["frameId"], "2");
     EXPECT_EQ(frame["elementCount"], 1);
     EXPECT_GE(frame["submittedAtMs"].get<double>(), frame["constructedAtMs"].get<double>());
     Frame();
     frame = xf->GetDiagnosticsFrame();
-    EXPECT_EQ(frame["frame"], 2);
+    EXPECT_EQ(frame["frameId"], "3");
     EXPECT_EQ(frame["elementCount"], 2);
     xf->SetDiagnosticsEnabled(false);
     Frame();
-    EXPECT_EQ(xf->GetDiagnosticsFrame()["frame"], 2);
+    EXPECT_EQ(xf->GetDiagnosticsFrame()["frameId"], "3");
     EXPECT_EQ(xf->GetDiagnosticsFrame()["enabled"], false);
     // An unsubmitted frame must not be published after disabling diagnostics.
     xf->SetDiagnosticsEnabled(true);
     xf->Render(900, 700);
     xf->SetDiagnosticsEnabled(false);
     Frame();
-    EXPECT_EQ(xf->GetDiagnosticsFrame()["frame"], 2);
+    EXPECT_EQ(xf->GetDiagnosticsFrame()["frameId"], "3");
+}
+
+TEST_F(XFramesTest, PublicationInvalidatesOnceWhileRejectionsAndQueriesAreObservational) {
+    const auto initial = xf->m_frameScheduler.GetState();
+    EXPECT_EQ(initial["generation"], "1");
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    auto scheduled = xf->m_frameScheduler.GetState();
+    EXPECT_EQ(scheduled["generation"], "2");
+    EXPECT_EQ(scheduled["reasons"]["publication"]["invalidations"], "1");
+    auto invalid = Wire(); invalid["schemaVersion"] = 1;
+    Reject(invalid, "unsupported_version");
+    for (int i = 0; i < 100; ++i) {
+        xf->GetDiagnosticsFrame(); xf->GetDiagnosticsState(); xf->GetCommitState();
+        xf->IsElementAlive(1); xf->GetChildren(0);
+    }
+    EXPECT_EQ(xf->m_frameScheduler.GetState(), scheduled);
+    Publish({{0, {1}}, {1, {}}}); // Identical accepted publication still invalidates.
+    Publish();
+    Publish(); // Accepted empty publication also advances exactly once.
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["generation"], "5");
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "4");
+}
+
+TEST_F(XFramesQueueTest, SubjectPublicationAfterDrawCaptureStaysPendingUntilItsOwnCoveringFrame) {
+    xf->SetDiagnosticsEnabled(true);
+    const auto revision = xf->GetCommitState()["nativeRevision"];
+    const auto generation = xf->m_frameScheduler.GetState()["generation"];
+    std::latch captured(1), published(1);
+    auto next = Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2)});
+    std::thread publisher([&] {
+        captured.wait();
+        EXPECT_EQ(xf->ApplyCommit(next.dump()).status, "applied");
+        published.count_down();
+    });
+    const bool constructed = xf->Render(900, 700);
+    captured.count_down();
+    published.wait();
+    publisher.join();
+    ASSERT_TRUE(constructed);
+    xf->CompleteDiagnosticsFrame();
+    const auto earlier = xf->GetDiagnosticsFrame();
+    EXPECT_EQ(earlier["nativeRevision"], revision);
+    EXPECT_EQ(earlier["coveredGeneration"], generation);
+    EXPECT_EQ(earlier["elementCount"], 1);
+    EXPECT_TRUE(earlier["scheduler"]["dirty"]);
+    ASSERT_TRUE(xf->m_frameScheduler.TakeOpportunity().render);
+    Frame();
+    const auto later = xf->GetDiagnosticsFrame();
+    EXPECT_EQ(later["nativeRevision"], xf->GetCommitState()["nativeRevision"]);
+    EXPECT_EQ(later["coveredGeneration"], later["scheduler"]["generation"]);
+    EXPECT_EQ(later["elementCount"], 2);
+    EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+}
+
+TEST_F(XFramesQueueTest, ImperativeCoverageAdvancesWithoutStructuralRevisionOrDiagnostics) {
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "plot-bar")});
+    Frame();
+    const auto revision = xf->GetCommitState()["nativeRevision"];
+    auto before = xf->m_frameScheduler.GetState();
+    EXPECT_FALSE(before["dirty"]);
+    ASSERT_TRUE(xf->Render(900, 700));
+    Internal(2, {{"op", "appendData"}, {"x", 42}, {"y", 21}});
+    const auto after = xf->m_frameScheduler.GetState();
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], revision);
+    EXPECT_NE(after["generation"], before["generation"]);
+    xf->CompleteDiagnosticsFrame();
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["coveredGeneration"], before["generation"]);
+    EXPECT_TRUE(xf->m_frameScheduler.TakeOpportunity().render);
+    Frame();
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["coveredGeneration"], after["generation"]);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"]["series"][0]["lastX"], 42);
+    EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+    EXPECT_FALSE(xf->GetDiagnosticsFrame()["enabled"]);
+    EXPECT_FALSE(xf->GetDiagnosticsFrame().contains("frameId")); // Expensive samples stayed off.
+}
+
+TEST_F(XFramesQueueTest, CanvasAnimationStaticRedrawAndSameIdMoveUseLifetimeOwnedActivity) {
+    for (const auto* type : {"di-js-canvas", "di-lua-canvas", "di-janet-canvas"}) {
+        Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}}, {Create(2, type), Create(3)});
+        Internal(2, {{"op", "setScript"}, {"script", ""}});
+        Frame();
+        const auto* identity = ElementAt(2);
+        EXPECT_EQ(xf->m_frameScheduler.GetState()["reasons"]["canvas"]["activeOwners"], 1) << type;
+        EXPECT_TRUE(xf->m_frameScheduler.TakeOpportunity().render);
+        Internal(2, {{"op", "setContinuous"}, {"continuous", false}});
+        Frame();
+        EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render) << type;
+        const auto revision = xf->GetCommitState()["nativeRevision"];
+        Internal(2, {{"op", "redraw"}});
+        EXPECT_TRUE(xf->m_frameScheduler.TakeOpportunity().render);
+        Frame();
+        EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+        EXPECT_EQ(xf->GetCommitState()["nativeRevision"], revision);
+        Publish({{0, {1}}, {1, {3}}, {3, {2}}, {2, {}}});
+        Frame();
+        EXPECT_EQ(ElementAt(2), identity);
+        EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 1);
+        EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render); // Static policy survived move.
+        Internal(2, {{"op", "setContinuous"}, {"continuous", true}});
+        Frame();
+        EXPECT_TRUE(xf->m_frameScheduler.TakeOpportunity().render);
+        Publish({{0, {1}}, {1, {}}});
+        Frame();
+        EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 0);
+        EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+    }
+}
+
+TEST_F(XFramesQueueTest, AllDesktopImageJobsDrainIncludingFailuresAndClippedElements) {
+    Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
+        Create(2, "di-image", {{"url", "missing-first.png"}, {"style", {{"width", 80}, {"height", 60}}}}),
+        Create(3, "di-image", {{"url", "missing-second.png"}, {"style", {{"width", 80}, {"height", 60}}}}),
+        Create(4, "di-image", {{"url", "missing-clipped.png"}, {"style", {{"display", "none"}}}})
+    });
+    auto state = xf->GetDiagnosticsState();
+    for (int id : {2, 3, 4}) EXPECT_EQ(Node(state, id)["resources"]["queuedLoads"], 1);
+    Frame();
+    state = xf->GetDiagnosticsState();
+    EXPECT_EQ(ImGui::GetCurrentContext()->ErrorCountCurrentFrame, 0);
+    for (int id : {2, 3, 4}) {
+        EXPECT_EQ(Node(state, id)["resources"]["queuedLoads"], 0);
+        EXPECT_TRUE(Node(state, id)["resources"]["lastLoadFailed"]);
+    }
+    EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+    Publish({{0, {1}}, {1, {}}}); Frame();
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 0);
+}
+
+TEST_F(XFramesQueueTest, CanvasFileScriptsAndTextureCancellationAreSharedAcrossAllEngines) {
+    const auto script = (std::filesystem::path(__FILE__).parent_path() / "fixtures/canvas-script.txt").string();
+    for (const auto* type : {"di-js-canvas", "di-lua-canvas", "di-janet-canvas"}) {
+        Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, type)});
+        Internal(2, {{"op", "setScriptFile"}, {"path", script}});
+        EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["queuedLoads"], 1) << type;
+        Frame();
+        EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["queuedLoads"], 0);
+        EXPECT_EQ(xf->m_frameScheduler.GetState()["reasons"]["canvas"]["activeOwners"], 1);
+        Internal(2, {{"op", "clear"}});
+        Internal(2, {{"op", "loadTexture"}, {"textureId", "pending"}, {"source", __FILE__}});
+        EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["queuedLoads"], 1);
+        Internal(2, {{"op", "unloadTexture"}, {"textureId", "pending"}});
+        EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["queuedLoads"], 0);
+        Frame();
+        EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+        Publish({{0, {1}}, {1, {}}}); Frame();
+        EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 0);
+    }
+}
+
+TEST_F(XFramesQueueTest, PendingImageMovesRetainOwnershipAndRemovalCannotFeedAReusedId) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}},
+        {Create(2, "di-image", {{"url", "missing-before-move.png"}}), Create(3)});
+    const auto* image = ElementAt(2);
+    Publish({{0, {1}}, {1, {3}}, {3, {2}}, {2, {}}});
+    EXPECT_EQ(ElementAt(2), image);
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 1);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["queuedLoads"], 1);
+    Publish({{0, {1}}, {1, {}}});
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 0);
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "di-image", {{"url", "missing-new-lifetime.png"}})});
+    Internal(2, {{"op", "reloadImage"}});
+    Frame();
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["queuedLoads"], 0);
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 1);
+    EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+}
+
+TEST_F(XFramesQueueTest, DiagnosticTogglesPreserveCoverageAndOnlyEnablingRequestsWork) {
+    Frame();
+    auto before = xf->m_frameScheduler.GetState();
+    xf->SetDiagnosticsEnabled(false);
+    xf->SetUpSubjects();
+    EXPECT_EQ(xf->m_frameScheduler.GetState(), before);
+    xf->SetDiagnosticsEnabled(true);
+    auto enabled = xf->m_frameScheduler.GetState();
+    EXPECT_NE(enabled["generation"], before["generation"]);
+    EXPECT_EQ(enabled["coveredGeneration"], before["coveredGeneration"]);
+    xf->SetDiagnosticsEnabled(true);
+    EXPECT_EQ(xf->m_frameScheduler.GetState(), enabled);
+    Frame();
+    auto frame = xf->GetDiagnosticsFrame();
+    EXPECT_EQ(frame["coveredGeneration"], enabled["generation"]);
+    EXPECT_EQ(frame["nativeRevision"], xf->GetCommitState()["nativeRevision"]);
+    xf->SetDiagnosticsEnabled(false);
+    before = xf->m_frameScheduler.GetState();
+    EXPECT_EQ(xf->GetDiagnosticsFrame()["frameId"], frame["frameId"]);
+    EXPECT_EQ(xf->m_frameScheduler.GetState(), before);
 }
 
 
@@ -511,4 +801,112 @@ TEST_F(XFramesQueueTest, TableRenderAppliesNumericSortAndTypedFilters) {
     Internal(2, {{"op", "setColumnFilter"}, {"columnIndex", 0}, {"filterText", "20"}});
     Frame();
     EXPECT_EQ(Node(xf->GetDiagnosticsFrame(), 2)["state"]["filteredCount"], 1);
+}
+
+TEST_F(XFramesQueueTest, MapCompletionAfterCaptureRemainsPendingAndDispatchesOutsideTreeLocks) {
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "map-view")});
+    Frame();
+    EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+    auto complete = MapProgressCompletion(2);
+    xf->Render(900, 700);
+    std::latch released(1);
+    auto worker = std::async(std::launch::async, [&] { released.wait(); complete(); });
+    released.count_down(); worker.get();
+    const auto generation = xf->m_frameScheduler.GetState()["generation"];
+    xf->CompleteDiagnosticsFrame();
+    EXPECT_NE(xf->m_frameScheduler.GetState()["coveredGeneration"], generation);
+    EXPECT_TRUE(xf->m_frameScheduler.TakeOpportunity().render);
+    int callbacks = 0;
+    xf->m_onGuardedPrefetchProgress = [&](auto source, int id, int done, int total) {
+        EXPECT_TRUE(source.IsAlive()); EXPECT_EQ(id, 2); EXPECT_EQ(done, 1); EXPECT_EQ(total, 1);
+        EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 2); // requires released tree locks
+        ++callbacks;
+    };
+    Frame(); xf->FlushResourceEvents();
+    EXPECT_EQ(callbacks, 1);
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["coveredGeneration"], generation);
+    EXPECT_FALSE(xf->m_frameScheduler.TakeOpportunity().render);
+}
+
+TEST_F(XFramesQueueTest, MapMovesPreserveRequestsAndRemovedCompletionsCannotReachReusedIds) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}}, {Create(2, "map-view"), Create(3)});
+    auto* map = ElementAt(2);
+    auto complete = MapProgressCompletion(2);
+    Publish({{0, {1}}, {1, {3}}, {3, {2}}, {2, {}}});
+    EXPECT_EQ(ElementAt(2), map);
+    complete(); Frame(); // queues an event owned by the old Map lifetime
+    auto late = MapProgressCompletion(2);
+    Publish({{0, {1}}, {1, {}}});
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "map-view")});
+    Frame();
+    int callbacks = 0;
+    xf->m_onGuardedPrefetchProgress = [&](auto, int, int, int) { ++callbacks; };
+    const auto before = xf->m_frameScheduler.GetState();
+    late(); xf->FlushResourceEvents();
+    EXPECT_EQ(xf->m_frameScheduler.GetState(), before);
+    EXPECT_EQ(callbacks, 0);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["resources"]["pendingRequests"], 0);
+    Publish({{0, {1}}, {1, {}}}); Frame();
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 0);
+}
+
+TEST(MapWorkerTest, QueueIsBoundedAndCancellationReleasesQueuedLifetimesWithoutJoiningActiveCalls) {
+    MapWorker worker;
+    auto owner = std::make_shared<int>(1);
+    std::latch running(MapWorker::WorkerCount), release(1), completed(MapWorker::WorkerCount);
+    for (size_t i = 0; i < MapWorker::WorkerCount; ++i)
+        EXPECT_TRUE(worker.Submit(owner, [&] { running.count_down(); release.wait(); completed.count_down(); }));
+    running.wait();
+    bool queuedRan = false;
+    for (size_t i = 0; i < MapWorker::MaxQueued; ++i)
+        EXPECT_TRUE(worker.Submit(owner, [&] { queuedRan = true; }));
+    EXPECT_FALSE(worker.Submit(owner, [] {}));
+    EXPECT_EQ(worker.Diagnostics()["queued"], MapWorker::MaxQueued);
+    worker.Cancel(owner);
+    EXPECT_EQ(worker.Diagnostics()["queued"], 0);
+    worker.Stop();
+    EXPECT_FALSE(worker.Submit(owner, [] {}));
+    release.count_down(); completed.wait();
+    EXPECT_FALSE(queuedRan);
+}
+
+TEST_F(XFramesQueueTest, RuntimeDisposalClosesResourcesWithoutInventingARevision) {
+    Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
+        Create(2, "di-image", {{"url", "missing-on-shutdown.png"}}), Create(3, "di-js-canvas"), Create(4, "map-view")});
+    auto oldSubject = CopyInternalSubject(3);
+    auto complete = MapProgressCompletion(4);
+    complete(); Frame();
+    auto late = MapProgressCompletion(4);
+    const auto before = xf->GetCommitState();
+    const auto generation = xf->m_frameScheduler.GetState()["generation"];
+    xf->Dispose();
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], before["nativeRevision"]);
+    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], before["nativeSequence"]);
+    EXPECT_EQ(xf->GetCommitState()["initialized"], false);
+    EXPECT_EQ(xf->GetCommitState()["surfaceStatus"], "disposed");
+    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 0);
+    EXPECT_EQ(xf->GetDiagnosticsState()["hierarchyCount"], 1);
+    EXPECT_EQ(xf->GetDiagnosticsState()["internalSubjectCount"], 0);
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["ownerCount"], 0);
+    EXPECT_EQ(xf->m_frameScheduler.GetStatus(), xframes::FrameScheduler::Status::Disposed);
+    EXPECT_EQ(xf->GetDiagnosticsFrame()["resourceState"]["queuedPrefetchEvents"], 0);
+    oldSubject.get_observer().on_next({{"op", "redraw"}});
+    late(); xf->FlushResourceEvents(); xf->Dispose();
+    EXPECT_EQ(xf->m_frameScheduler.GetState()["generation"], generation);
+    auto result = xf->ApplyCommit(Wire().dump());
+    ASSERT_TRUE(result.error); EXPECT_EQ(result.status, "rejected");
+    EXPECT_EQ(result.error->code, "runtime_disposed");
+    EXPECT_EQ(result.nativeRevision, std::stoull(before["nativeRevision"].get<std::string>()));
+    EXPECT_FALSE(xf->Render(900, 700));
+}
+
+TEST_F(XFramesQueueTest, RendererCleanupIsPolymorphicAndIdempotent) {
+    ImGuiRenderer* base = renderer.get();
+    base->CleanUp();
+    EXPECT_EQ(ImPlot::GetCurrentContext(), nullptr);
+    EXPECT_EQ(renderer->m_imGuiCtx, nullptr);
+    EXPECT_EQ(xf->GetCommitState()["surfaceStatus"], "disposed");
+    EXPECT_TRUE(base->GetAvailableFonts().empty());
+    base->CleanUp();
+    EXPECT_EQ(base->GetResourceDiagnostics()["liveTextures"], 0);
 }

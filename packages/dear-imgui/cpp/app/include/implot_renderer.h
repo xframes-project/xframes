@@ -22,7 +22,7 @@ class ImPlotRenderer : public ImGuiRenderer {
 
         void SetCurrentContext();
 
-        void CleanUp();
+        void CleanUp() override;
 };
 
 #endif

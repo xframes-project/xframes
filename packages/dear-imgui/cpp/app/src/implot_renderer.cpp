@@ -2,6 +2,7 @@
 #include "implot_internal.h"
 
 #include "implot_renderer.h"
+#include "xframes.h"
 
 #include <utility>
 
@@ -22,7 +23,8 @@ void ImPlotRenderer::SetCurrentContext() {
 };
 
 void ImPlotRenderer::CleanUp() {
+    StopScheduling();
+    m_xframes->Dispose();
+    if (m_imPlotCtx) { ImPlot::DestroyContext(m_imPlotCtx); m_imPlotCtx = nullptr; }
     ImGuiRenderer::CleanUp();
-
-    ImPlot::DestroyContext(m_imPlotCtx);
 };

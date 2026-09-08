@@ -215,6 +215,37 @@ and verify Yoga ownership in newer frames. --stress runs 1,000 ordinary cycles a
 1,000 native move cycles in the same runtime process.
 
 `getCommitState` exposes always-current sequence/revision with diagnostics off.
+
+The Stage 4 working tree replaces numeric `frame` with decimal-string `frameId`,
+`nativeRevision` and `coveredGeneration`. The always-readable `scheduler` reports
+the live invalidation generation, completed coverage, submitted/constructed frame
+counts, wake/opportunity counts and fixed activity/deadline reasons. Queries do
+not request a frame. `observeNativeFrame` captures the target generation and
+revision after an operation and accepts any submitted snapshot covering both;
+several publications can share a frame. Unchanged or rejected state can already
+be covered. Imperative sample assertions still verify the actual data, since a
+structural revision alone cannot prove data inclusion. These fields describe
+backend submission, not GPU completion or physical presentation.
+
+`waitForNativeIdle` requires clean, renderable state with no active owner or real
+deadline. Pending HTTP work can coexist with inactivity. Resource gates separately
+wait for actual requests to start, prove inactivity, release deterministic local
+responses, and require their completed upload/failure state in a covering frame.
+`diagnostics/run.mjs` owns that server and copies the repository fonts and generated
+test assets into the ignored report directory. The Node fixture uses local files
+for Image/Canvas and controlled HTTP for Map; the browser uses controlled HTTP
+for all three producers. No public tile service participates. `resourceState`
+exposes live/retired widget textures, queued prefetch events and desktop worker
+activity even when expensive snapshots are disabled. Current verification status
+is recorded in [the invalidation record](../../../../docs/engineering/fabric-invalidation-2026-09.md).
+
+QuickJS, Lua and Janet Canvas scripts default to continuous execution while
+visible. `setContinuous(false)` lets static content settle; script/data/texture
+changes still invalidate, and `redraw()` explicitly requests another frame.
+Clipped or cleared scripts do not retain continuous activity. Map zoom uses a
+finite 150-ms deadline; failed tiles settle until another view request permits
+retry. Neither resource downloads nor focused/hovered widgets alone imply a
+permanent render loop.
 When enabled, its bounded `lastTransaction` is the last enabled sample and may
 precede current counters after disabled calls. It is not a durable recorder or
 a frame/revision correlation. The native subject retains a weak reference to one
@@ -259,3 +290,70 @@ CI fails missing/invalid required observations, correctness changes, crashes, an
 hangs. Hosted timing remains informational. The manual workflow's `extended`
 input enables large-table and stress cases. Check the engineering record for
 which environments actually ran; workflow configuration is not hosted-run proof.
+
+## Stage 4 platform, resource lifetime and measurements
+
+The complete fixture drives real text, held-key repeat, wheel zoom, minimize,
+restore, exposure and idle close through a PID-scoped Windows helper or an owned
+X11 display/window manager. Linux requires `xvfb`, `xdotool`, `openbox` and
+`wmctrl`; run `bash diagnostics/x11-run.sh npm run diagnostics:node`. Browser
+input/window state uses Chromium CDP. Native registrations, RAF/deadline handles,
+visibility listeners and pending screenshots must return to zero on terminal
+cleanup. A bounded DOM audit independently verifies native browser listeners.
+
+`--stress` now runs 1,000 ordinary lifecycle/abandonment cycles and resource
+removals, then 1,000 original and resource/activity same-ID moves. Each resource
+cycle owns held HTTP completions, all three Canvas engines and texture work.
+Acknowledged removal plus an empty covering frame must restore owner, texture,
+event and platform counts; late completion cannot invalidate a deleted owner.
+Successful runtime termination is a separate gate after those checks.
+
+Use optimized current-source native artifacts and production React. The Node
+full-App source entry loads `node/src/lib/xframes.node`; after a manual CMake
+build, run `npm run copy-artifacts-to-lib-folder --workspace @xframes/node` before
+its smoke. The diagnostics runner loads `node/build/Release/xframes.node`.
+
+Historical comparison parameters remain exact and separate from extra tests:
+
+```powershell
+$env:XFRAMES_DIAGNOSTICS_OPTIONS='{"rows":1000,"points":128,"rates":[20,60,120],"durationMs":3000,"warmupMs":1000,"idleMs":2000,"cycles":0}'
+npm run diagnostics:node -- --baseline
+# Repeat with diagnostics:wasm, in a separate output directory.
+$env:XFRAMES_DIAGNOSTICS_OPTIONS='{"rows":100000,"points":128,"rates":[20,60,120],"durationMs":1000,"warmupMs":200,"idleMs":1000,"cycles":0}'
+npm run diagnostics:node -- --baseline --extended
+# Additional idle/activity and diagnostics-off/on cost observation:
+$env:XFRAMES_DIAGNOSTICS_OPTIONS='{"durationMs":1000,"warmupMs":200,"idleMs":10000,"cycles":0,"activityMs":10000}'
+npm run diagnostics:node -- --baseline
+```
+
+Set `XFRAMES_DIAGNOSTICS_DIR` for every run and run measurement workloads
+sequentially without task-owned builds. `activityMs` adds two separate intervals
+of a visible moving-rectangle QuickJS Canvas, diagnostics off then on. Reports
+distinguish submitted cadence, CPU, opportunities and inactive browser handles;
+off/on order and host variation limit instrumentation-cost attribution. Streaming
+stage timings cover three imperative calls, diagnostic query/parse, and native
+constructed-to-submitted time. The last duration starts after draw construction
+and snapshot collection and ends after backend submission; it excludes preceding
+preparation/construction and is not GPU execution or presentation.
+
+## Isolated ubx-monitor telemetry
+
+Read the external checkout's `AGENTS.md`; clone it into an ignored validation
+directory and install locally packed current-source `@xframes/common` and
+`@xframes/node` with React 19.2.3. Keep its original settings and dependency graph
+unchanged. The validation harness requires matching application React/native
+packages, not the original React 18 published-package graph. The engineering
+record lists the narrow style/config/typecheck migrations used by this checkout.
+
+```powershell
+$env:NODE_ENV='production'
+$env:TSX_TSCONFIG_PATH='diagnostics/tsconfig.json'
+$env:XFRAMES_UBX_APP_DIR='C:/path/to/isolated/ubx-monitor'
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/ignored/evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-telemetry.ts
+```
+
+Synthetic checksummed NAV-SAT bytes pass through the actual SerialManager,
+UbxParser, `useNavSat` and `SignalStrengthPanel`. Sustained four-band CNO updates,
+idle/resume, populated capture and listener cleanup are asserted. No physical
+serial device is opened; this evidence does not establish hardware validation.

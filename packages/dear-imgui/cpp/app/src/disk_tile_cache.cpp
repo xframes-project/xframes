@@ -10,6 +10,7 @@ void DiskTileCache::configure(const std::string& basePath) {
 }
 
 bool DiskTileCache::isEnabled() const {
+    const std::lock_guard lock(m_mutex);
     return m_enabled;
 }
 

@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <imgui.h>
-#include <thread>
+#include <climits>
 #include <yoga/YGNodeLayout.h>
 
 #ifndef __EMSCRIPTEN__
@@ -62,189 +62,251 @@ std::string MapView::BuildTileUrl(int x, int y, int zoom) {
     });
 }
 
-void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
-    int maxTiles = 1 << m_zoom;
+MapView::MapView(XFrames* view, int id, std::optional<WidgetStyle>& style)
+    : StyledWidget(view, id, style) {
+    m_type = "map-view";
+#ifndef __EMSCRIPTEN__
+    m_tileRequestHeaders["User-Agent"] = "xframes/1.0";
+#endif
+    ResetRequests();
+}
 
-    std::vector<TileKey> toFetch;
-
+void MapView::CloseRequests() {
+    if (!m_async) return;
     {
-        std::lock_guard<std::mutex> lock(m_inflightMutex);
-        for (int x = xMin; x < xMax; x++) {
-            for (int y = yMin; y < yMax; y++) {
-                if (y < 0 || y >= maxTiles) continue;
-
-                int wrappedX = ((x % maxTiles) + maxTiles) % maxTiles;
-                TileKey key{wrappedX, y, m_zoom};
-
-                if (m_tileTextures.contains(key)) continue;
-                if (m_inflightKeys.contains(key)) continue;
-
-                m_inflightKeys.insert(key);
-                toFetch.push_back(key);
-            }
-        }
+        const std::lock_guard lock(m_async->mutex);
+        m_async->alive = false;
+        m_async->pending.clear();
+        m_async->inflight.clear();
+        m_resourceLifetime.Reset();
     }
-
-    if (toFetch.empty()) return;
-
 #ifdef __EMSCRIPTEN__
-    auto headers = m_tileRequestHeaders;
-    for (const auto& key : toFetch) {
-        std::string url = BuildTileUrl(key.x, key.y, key.zoom);
-        fetchTile(url, headers, [this, key](bool success, std::vector<uint8_t> data) {
-            if (success && !data.empty()) {
-                std::lock_guard<std::mutex> lock(m_pendingMutex);
-                m_pendingTiles.push_back(PendingTile{key, {data.begin(), data.end()}});
-            }
-            std::lock_guard<std::mutex> lock(m_inflightMutex);
-            m_inflightKeys.erase(key);
-        });
-    }
+    m_fetches.CancelAll();
 #else
-    auto headers = m_tileRequestHeaders;
-    auto tileUrlTemplate = m_tileUrlTemplate;
-    int zoom = m_zoom;
-    bool diskCacheEnabled = m_diskCache.isEnabled();
+    m_view->GetMapWorker().Cancel(m_async);
+#endif
+    m_prefetchQueue.clear();
+}
 
-    std::thread([this, toFetch = std::move(toFetch), headers, tileUrlTemplate, zoom, diskCacheEnabled]() {
+void MapView::ResetRequests() {
+    CloseRequests();
+    m_resourceLifetime = m_view->m_frameScheduler.Register(xframes::FrameReason::Map);
+    m_async = std::make_shared<AsyncState>();
+    m_async->source = m_resourceLifetime.GetSource();
+    if (!m_cachePath.empty()) m_async->disk->configure(m_cachePath);
+    m_requestedKeys.clear();
+    m_cacheStats = {};
+    m_prefetching = false;
+    m_prefetchCompleted = m_prefetchTotal = 0;
+}
+
+MapView::~MapView() {
+    CloseRequests();
+    for (auto& [key, entry] : m_tileTextures)
+        if (m_view->m_renderer) m_view->m_renderer->RetireTexture(entry.first);
+}
+
+void MapView::CompleteTile(std::weak_ptr<AsyncState> weak, TileKey key, bool prefetch,
+                           std::vector<unsigned char> bytes, int cacheTier) {
+    auto state = weak.lock();
+    if (!state) return;
+    {
+        const std::lock_guard lock(state->mutex);
+        if (!state->alive) return;
+        state->lastLoadFailed = bytes.empty();
+        if (!bytes.empty()) {
+            if (cacheTier == 1) ++state->stats.memoryHits;
+            else if (cacheTier == 2) ++state->stats.diskHits;
+            else ++state->stats.networkFetches;
+        }
+        if (prefetch) {
+            --state->prefetchInflight;
+            ++state->prefetchCompleted;
+            state->progressPending = true;
+        } else {
+            state->inflight.erase(key);
+            if (!bytes.empty()) state->pending.push_back({key, std::move(bytes)});
+            else state->failed.insert(key);
+        }
+        // Resource visibility and its generation are published together. A
+        // callback racing frame capture always leaves its generation pending.
+        state->source.Invalidate(xframes::FrameReason::Resource);
+    }
+    state->source.Notify();
+}
+
+#ifndef __EMSCRIPTEN__
+void MapView::DownloadTile(std::weak_ptr<AsyncState> weak, TileKey key, bool prefetch,
+                           std::string url, std::unordered_map<std::string, std::string> headers) {
+    auto state = weak.lock();
+    if (!state || !state->alive) return;
+    std::vector<unsigned char> bytes;
+    int tier = 0;
+    try {
         auto& cache = TileCache::getGlobalInstance();
-
-        for (const auto& key : toFetch) {
-            std::string url = replaceTokens(tileUrlTemplate, [&](const std::string& token) -> std::optional<std::string> {
-                if (token == "z") return std::to_string(key.zoom);
-                if (token == "x") return std::to_string(key.x);
-                if (token == "y") return std::to_string(key.y);
-                return std::nullopt;
-            });
-
-            std::vector<unsigned char> pngData;
-
-            // Three-tier cache: memory → disk → network
-            auto cached = cache.get(url);
-            if (cached) {
-                pngData = std::move(*cached);
-                m_cacheStats.memoryHits++;
-            } else if (diskCacheEnabled) {
-                auto diskCached = m_diskCache.get(key.x, key.y, key.zoom);
-                if (diskCached) {
-                    pngData = std::move(*diskCached);
-                    cache.put(url, pngData.data(), pngData.size());
-                    m_cacheStats.diskHits++;
-                }
-            }
-
-            if (pngData.empty()) {
-                fetchTile(url, headers, [&](bool success, std::vector<uint8_t> data) {
-                    if (success) {
-                        pngData.assign(data.begin(), data.end());
-                    }
-                });
-                if (!pngData.empty()) {
-                    cache.put(url, pngData.data(), pngData.size());
-                    if (diskCacheEnabled) {
-                        m_diskCache.put(key.x, key.y, key.zoom, pngData.data(), pngData.size());
-                    }
-                    m_cacheStats.networkFetches++;
-                }
-            }
-
-            if (!pngData.empty()) {
-                std::lock_guard<std::mutex> lock(m_pendingMutex);
-                m_pendingTiles.push_back(PendingTile{key, std::move(pngData)});
-            }
-
-            // Remove from inflight regardless of success
-            {
-                std::lock_guard<std::mutex> lock(m_inflightMutex);
-                m_inflightKeys.erase(key);
+        if (auto cached = cache.get(url)) { bytes = std::move(*cached); tier = 1; }
+        else if (state->disk->isEnabled()) {
+            if (auto cached = state->disk->get(key.x, key.y, key.zoom)) {
+                bytes = std::move(*cached); tier = 2;
             }
         }
-    }).detach();
+        if (bytes.empty() && state->alive) {
+            fetchTile(url, headers, [&](bool success, std::vector<uint8_t> data) {
+                if (success) bytes.assign(data.begin(), data.end());
+            });
+        }
+        if (!bytes.empty() && state->alive) {
+            cache.put(url, bytes.data(), bytes.size());
+            if (state->disk->isEnabled()) state->disk->put(key.x, key.y, key.zoom, bytes.data(), bytes.size());
+        }
+    } catch (const std::exception& error) {
+        fprintf(stderr, "Map tile failed: %s\n", error.what());
+        bytes.clear();
+    }
+    CompleteTile(weak, key, prefetch, std::move(bytes), tier);
+}
+#endif
+
+bool MapView::StartDownload(TileKey key, bool prefetch) {
+    const auto weak = std::weak_ptr<AsyncState>(m_async);
+    const auto url = BuildTileUrl(key.x, key.y, key.zoom);
+    {
+        const std::lock_guard lock(m_async->mutex);
+        if (prefetch) ++m_async->prefetchInflight;
+        else m_async->inflight.insert(key);
+    }
+#ifdef __EMSCRIPTEN__
+    // Browser cache lookups are synchronous, but still go through the same
+    // mailbox. The next frame consumes their bytes before completing coverage.
+    auto& cache = TileCache::getGlobalInstance();
+    if (auto cached = cache.get(url)) {
+        if (prefetch && m_async->disk->isEnabled())
+            m_async->disk->put(key.x, key.y, key.zoom, cached->data(), cached->size());
+        CompleteTile(weak, key, prefetch, std::move(*cached), 1);
+    } else if (auto cached = m_async->disk->isEnabled() ? m_async->disk->get(key.x, key.y, key.zoom) : std::nullopt) {
+        CompleteTile(weak, key, prefetch, std::move(*cached), 2);
+    } else {
+        const auto requestKey = std::string(prefetch ? "prefetch:" : "tile:") + url;
+        m_fetches.Get(requestKey, url, [weak, key, prefetch, url](bool success, WasmFetches::Bytes bytes) {
+            auto state = weak.lock();
+            if (!state || !state->alive) return;
+            try {
+                if (success && !bytes.empty()) {
+                    TileCache::getGlobalInstance().put(url, bytes.data(), bytes.size());
+                    if (state->disk->isEnabled()) state->disk->put(key.x, key.y, key.zoom, bytes.data(), bytes.size());
+                }
+            } catch (const std::exception& error) {
+                fprintf(stderr, "Map cache failed: %s\n", error.what());
+                success = false;
+            }
+            CompleteTile(weak, key, prefetch, success ? std::move(bytes) : WasmFetches::Bytes{}, 0);
+        }, m_tileRequestHeaders);
+    }
+    return true;
+#else
+    if (m_view->GetMapWorker().Submit(weak, [weak, key, prefetch, url, headers = m_tileRequestHeaders] {
+        DownloadTile(weak, key, prefetch, url, headers);
+    })) return true;
+    const std::lock_guard lock(m_async->mutex);
+    if (prefetch) --m_async->prefetchInflight;
+    else m_async->inflight.erase(key);
+    return false;
 #endif
 }
 
-void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
-    // Upload pending tiles to GPU (render thread)
+void MapView::PumpPrefetch() {
+    // Four outstanding requests per Map; remaining requested tiles stay owned
+    // until actual completions wake preparation or the Map is removed.
+    for (int started = 0; started < 4 && !m_prefetchQueue.empty(); ++started) {
+        {
+            const std::lock_guard lock(m_async->mutex);
+            if (m_async->prefetchInflight >= 4) break;
+        }
+        if (!StartDownload(m_prefetchQueue.front(), true)) break;
+        m_prefetchQueue.pop_front();
+    }
+}
+
+void MapView::FetchMissingTiles(int xMin, int xMax, int yMin, int yMax) {
+    const int maxTiles = 1 << m_zoom;
+    std::set<TileKey> requested;
+    for (int x = xMin; x < xMax; ++x) {
+        for (int y = std::max(0, yMin); y < std::min(maxTiles, yMax); ++y)
+            requested.insert({((x % maxTiles) + maxTiles) % maxTiles, y, m_zoom});
+    }
+    if (requested != m_requestedKeys) {
+        const std::lock_guard lock(m_async->mutex);
+        // A finite viewport attempt does not retry failures on each completion.
+        // A subsequent view request permits retry, without periodic activity.
+        m_async->failed.clear();
+        m_requestedKeys = requested;
+    }
+    for (const auto& key : requested) {
+        if (m_tileTextures.contains(key)) continue;
+        {
+            const std::lock_guard lock(m_async->mutex);
+            if (m_async->inflight.size() + m_async->pending.size() >= 64) break;
+            if (m_async->inflight.contains(key) || m_async->failed.contains(key)) continue;
+        }
+        if (!StartDownload(key, false)) break;
+    }
+}
+
+void MapView::PrepareFrame(XFrames* view) {
+    m_resourceLifetime.Set(false);
+    std::vector<PendingTile> pending;
+    {
+        const std::lock_guard lock(m_async->mutex);
+        pending.swap(m_async->pending);
+        m_cacheStats = m_async->stats;
+        m_prefetchCompleted = m_async->prefetchCompleted;
+        m_prefetchTotal = m_async->prefetchTotal;
+        m_prefetching = m_prefetchCompleted < m_prefetchTotal;
+        if (m_async->progressPending) {
+            view->QueuePrefetchProgress(m_async->source, m_id, m_prefetchCompleted, m_prefetchTotal);
+            m_async->progressPending = false;
+        }
+    }
+    for (auto& tile : pending) {
+        if (m_tileTextures.contains(tile.key)) continue;
+        Texture texture;
+        bool loaded = false;
+        if (tile.pngData.size() <= INT_MAX) {
 #ifdef __EMSCRIPTEN__
-    {
-        std::lock_guard<std::mutex> lock(m_pendingMutex);
-        for (auto& pending : m_pendingTiles) {
-            if (m_tileTextures.contains(pending.key)) continue;
-
-            Texture tex;
-            if (view->m_renderer->LoadTexture(
-                    pending.pngData.data(),
-                    static_cast<int>(pending.pngData.size()),
-                    &tex)) {
-                // Evict LRU tiles if over budget
-                while (m_tileTextures.size() >= MAX_GPU_TILES) {
-                    auto& oldestKey = m_textureLruOrder.back();
-                    auto evictIt = m_tileTextures.find(oldestKey);
-                    if (evictIt != m_tileTextures.end()) {
-                        wgpuTextureViewRelease(evictIt->second.first.textureView);
-                        m_tileTextures.erase(evictIt);
-                    }
-                    m_textureLruOrder.pop_back();
-                }
-
-                m_textureLruOrder.push_front(pending.key);
-                m_tileTextures[pending.key] = { tex, m_textureLruOrder.begin() };
-            }
-        }
-        m_pendingTiles.clear();
-    }
+            loaded = view->m_renderer->LoadTexture(tile.pngData.data(), static_cast<int>(tile.pngData.size()), &texture);
 #else
-    {
-        std::lock_guard<std::mutex> lock(m_pendingMutex);
-        for (auto& pending : m_pendingTiles) {
-            // Skip if we already have this tile (e.g. from a duplicate fetch)
-            if (m_tileTextures.contains(pending.key)) continue;
-
-            int w = 0, h = 0;
-            unsigned char* pixels = stbi_load_from_memory(
-                pending.pngData.data(),
-                static_cast<int>(pending.pngData.size()),
-                &w, &h, nullptr, 4
-            );
-
-            if (pixels) {
-                GLuint texId = 0;
-                glGenTextures(1, &texId);
-                glBindTexture(GL_TEXTURE_2D, texId);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-                stbi_image_free(pixels);
-
-                if (glGetError() == GL_NO_ERROR) {
-                    // Evict LRU tiles if over budget
-                    while (m_tileTextures.size() >= MAX_GPU_TILES) {
-                        auto& oldestKey = m_textureLruOrder.back();
-                        auto evictIt = m_tileTextures.find(oldestKey);
-                        if (evictIt != m_tileTextures.end()) {
-                            glDeleteTextures(1, &evictIt->second.first.textureView);
-                            m_tileTextures.erase(evictIt);
-                        }
-                        m_textureLruOrder.pop_back();
-                    }
-
-                    Texture tex;
-                    tex.textureView = texId;
-                    tex.width = w;
-                    tex.height = h;
-                    m_textureLruOrder.push_front(pending.key);
-                    m_tileTextures[pending.key] = { tex, m_textureLruOrder.begin() };
-                } else {
-                    glDeleteTextures(1, &texId);
-                }
-            }
-        }
-        m_pendingTiles.clear();
-    }
+            texture.textureView = view->m_renderer->LoadTexture(tile.pngData.data(), static_cast<int>(tile.pngData.size()));
+            loaded = texture.textureView != 0;
 #endif
+        }
+        if (loaded) {
+            while (m_tileTextures.size() >= MAX_GPU_TILES) {
+                auto oldest = m_tileTextures.find(m_textureLruOrder.back());
+                view->m_renderer->RetireTexture(oldest->second.first);
+                m_tileTextures.erase(oldest);
+                m_textureLruOrder.pop_back();
+            }
+            m_textureLruOrder.push_front(tile.key);
+            m_tileTextures[tile.key] = {texture, m_textureLruOrder.begin()};
+        } else {
+            const std::lock_guard lock(m_async->mutex);
+            m_async->failed.insert(tile.key);
+            m_async->lastLoadFailed = true;
+        }
+    }
+    PumpPrefetch();
+}
 
+json MapView::GetResourceDiagnostics() const {
+    const std::lock_guard lock(m_async->mutex);
+    return {{"loadedTextures", m_tileTextures.size()}, {"queuedLoads", m_async->pending.size()},
+        {"pendingRequests", m_async->inflight.size() + m_async->prefetchInflight},
+        {"queuedPrefetch", m_prefetchQueue.size()}, {"prefetchCompleted", m_async->prefetchCompleted},
+        {"prefetchTotal", m_async->prefetchTotal}, {"failedTiles", m_async->failed.size()},
+        {"lastLoadFailed", m_async->lastLoadFailed}, {"zoomDebouncing", m_zoomDebouncing}};
+}
+
+void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (!m_initialized) return;
 
     float viewW = YGNodeLayoutGetWidth(m_layoutNode->m_node);
@@ -304,7 +366,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
             double mouseLat = yToLat(mouseTileY, m_zoom);
 
             m_zoom = newZoom;
-            m_lastZoomChangeTime = std::chrono::steady_clock::now();
+            m_lastZoomChangeTime = view->m_frameScheduler.Now();
             m_zoomDebouncing = true;
 
             double newMouseTileX = lonToX(mouseLon, m_zoom);
@@ -339,7 +401,7 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
                 double mouseLat = yToLat(mouseTileY, m_zoom);
 
                 m_zoom = newZoom;
-                m_lastZoomChangeTime = std::chrono::steady_clock::now();
+                m_lastZoomChangeTime = view->m_frameScheduler.Now();
                 m_zoomDebouncing = true;
 
                 // Recompute at new zoom
@@ -441,51 +503,6 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         }
     }
 
-    // GPU texture eviction: keep current-zoom nearby tiles + old-zoom tiles overlapping viewport
-    // Desktop only — on WASM, upload-time LRU eviction is sufficient;
-    // post-render eviction would release texture views still pending in ImGui's draw list.
-#ifndef __EMSCRIPTEN__
-    {
-        std::set<TileKey> nearbyKeys;
-        for (int x = xMin - 2; x < xMax + 2; x++) {
-            for (int y = std::max(0, yMin - 2); y < std::min(maxTiles, yMax + 2); y++) {
-                int wrappedX = ((x % maxTiles) + maxTiles) % maxTiles;
-                nearbyKeys.insert(TileKey{wrappedX, y, m_zoom});
-            }
-        }
-
-        // Only keep old-zoom tiles if current zoom has missing tiles
-        if (!allCurrentTilesLoaded) {
-            for (const auto& [key, entry] : m_tileTextures) {
-                if (key.zoom == m_zoom) continue;
-                double scale = pow(2.0, m_zoom - key.zoom);
-                double tileX = key.x * scale;
-                double tileY = key.y * scale;
-                if (tileX + scale > xMin && tileX < xMax &&
-                    tileY + scale > yMin && tileY < yMax) {
-                    nearbyKeys.insert(key);
-                }
-            }
-        }
-
-        std::vector<TileKey> toEvict;
-        for (const auto& [key, entry] : m_tileTextures) {
-            if (!nearbyKeys.count(key)) {
-                toEvict.push_back(key);
-            }
-        }
-
-        for (const auto& key : toEvict) {
-            auto it = m_tileTextures.find(key);
-            if (it != m_tileTextures.end()) {
-                glDeleteTextures(1, &it->second.first.textureView);
-                m_textureLruOrder.erase(it->second.second);
-                m_tileTextures.erase(it);
-            }
-        }
-    }
-#endif
-
     // Expand fetch range in pan direction for prefetching
     int fetchXMin = xMin + std::min(m_panDirX, 0);
     int fetchXMax = xMax + std::max(m_panDirX, 0);
@@ -494,10 +511,12 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
 
     // Debounce tile fetches during rapid zoom (150ms after last scroll)
     if (m_zoomDebouncing) {
-        auto elapsed = std::chrono::steady_clock::now() - m_lastZoomChangeTime;
+        auto elapsed = view->m_frameScheduler.Now() - m_lastZoomChangeTime;
         if (elapsed >= std::chrono::milliseconds(150)) {
             m_zoomDebouncing = false;
             FetchMissingTiles(fetchXMin, fetchXMax, fetchYMin, fetchYMax);
+        } else {
+            m_resourceLifetime.Set(false, m_lastZoomChangeTime + std::chrono::milliseconds(150));
         }
     } else {
         FetchMissingTiles(fetchXMin, fetchXMax, fetchYMin, fetchYMax);
@@ -519,8 +538,10 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     }
 
     // Loading indicator
+    bool tilesFailed;
+    { const std::lock_guard lock(m_async->mutex); tilesFailed = !m_async->failed.empty(); }
     if (!allCurrentTilesLoaded) {
-        const char* loadingText = "Loading...";
+        const char* loadingText = tilesFailed ? "Some tiles unavailable" : "Loading...";
         ImFont* font = ImGui::GetIO().FontDefault;
         float fontSize = font->LegacySize;
         ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, loadingText);
@@ -535,15 +556,15 @@ void MapView::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     }
 
     // Cache stats overlay (top-right, only when disk cache is enabled)
-    if (m_diskCache.isEnabled()) {
+    if (m_async->disk->isEnabled()) {
         std::string statsText = "GPU: " + std::to_string(m_tileTextures.size()) + "/" + std::to_string(MAX_GPU_TILES) +
                                 " Mem: " + std::to_string(m_cacheStats.memoryHits) +
                                 " Disk: " + std::to_string(m_cacheStats.diskHits) +
                                 " Net: " + std::to_string(m_cacheStats.networkFetches);
 
-        if (m_prefetching.load()) {
-            statsText += "  Prefetching " + std::to_string(m_prefetchCompleted.load()) +
-                         "/" + std::to_string(m_prefetchTotal.load());
+        if (m_prefetching) {
+            statsText += "  Prefetching " + std::to_string(m_prefetchCompleted) +
+                         "/" + std::to_string(m_prefetchTotal);
         }
 
         ImFont* font = ImGui::GetIO().FontDefault;
@@ -672,13 +693,9 @@ void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
 
     if (widgetPatchDef.contains("tileUrlTemplate") && widgetPatchDef["tileUrlTemplate"].is_string()) {
         m_tileUrlTemplate = widgetPatchDef["tileUrlTemplate"].template get<std::string>();
-        for (auto& [key, entry] : m_tileTextures) {
-#ifdef __EMSCRIPTEN__
-            wgpuTextureViewRelease(entry.first.textureView);
-#else
-            glDeleteTextures(1, &entry.first.textureView);
-#endif
-        }
+        ResetRequests();
+        for (auto& [key, entry] : m_tileTextures)
+            if (view->m_renderer) view->m_renderer->RetireTexture(entry.first);
         m_tileTextures.clear();
         m_textureLruOrder.clear();
     }
@@ -703,7 +720,7 @@ void MapView::Patch(const json& widgetPatchDef, XFrames* view) {
         auto newPath = widgetPatchDef["cachePath"].template get<std::string>();
         if (newPath != m_cachePath) {
             m_cachePath = newPath;
-            m_diskCache.configure(m_cachePath);
+            m_async->disk->configure(m_cachePath);
         }
     }
 }
@@ -728,13 +745,17 @@ void MapView::HandleInternalOp(const json& opDef) {
             m_centerLon = lon;
             m_centerLat = lat;
             m_zoom = std::clamp(zoom, m_minZoom, m_maxZoom);
-            m_centerTileX = lonToX(lon, zoom);
-            m_centerTileY = latToY(lat, zoom);
+            m_centerTileX = lonToX(lon, m_zoom);
+            m_centerTileY = latToY(lat, m_zoom);
 
             if (!m_initialized) {
                 TileCache::getGlobalInstance().configure(1024, 3600000);
             }
             m_initialized = true;
+
+            m_zoomDebouncing = false;
+            m_resourceLifetime.Set(false);
+            { const std::lock_guard lock(m_async->mutex); m_async->failed.clear(); }
 
             // Compute visible tile range
             float viewW = YGNodeLayoutGetWidth(m_layoutNode->m_node);
@@ -759,8 +780,9 @@ void MapView::HandleInternalOp(const json& opDef) {
             && opDef.contains("minZoom") && opDef["minZoom"].is_number_integer()
             && opDef.contains("maxZoom") && opDef["maxZoom"].is_number_integer()) {
 
-            if (!m_diskCache.isEnabled()) return;
-            if (m_prefetching.load()) return;
+            if (!m_async->disk->isEnabled()) return;
+            { const std::lock_guard lock(m_async->mutex);
+              if (m_async->prefetchCompleted < m_async->prefetchTotal) return; }
 
             auto minLon = opDef["minLon"].template get<double>();
             auto minLat = opDef["minLat"].template get<double>();
@@ -789,71 +811,22 @@ void MapView::HandleInternalOp(const json& opDef) {
                         if (y < 0 || y >= maxTile) continue;
                         int wrappedX = ((x % maxTile) + maxTile) % maxTile;
                         // Skip tiles already on disk
-                        if (m_diskCache.get(wrappedX, y, z).has_value()) continue;
+                        if (m_async->disk->get(wrappedX, y, z).has_value()) continue;
+                        if (tilesToFetch.size() >= 65536) throw std::length_error("Map prefetch supports at most 65536 uncached tiles per request");
                         tilesToFetch.push_back({wrappedX, y, z});
                     }
                 }
             }
 
-            int total = static_cast<int>(tilesToFetch.size());
-            if (total == 0) {
-                // All tiles already cached, fire completion
-                m_view->m_onPrefetchProgress(m_id, 0, 0);
-                return;
+            {
+                const std::lock_guard lock(m_async->mutex);
+                m_async->prefetchCompleted = 0;
+                m_async->prefetchTotal = static_cast<int>(tilesToFetch.size());
+                m_async->progressPending = true;
             }
-
-            m_prefetching = true;
-            m_prefetchCompleted = 0;
-            m_prefetchTotal = total;
-
-#ifndef __EMSCRIPTEN__
-            auto headers = m_tileRequestHeaders;
-            auto tileUrlTemplate = m_tileUrlTemplate;
-            auto onProgress = m_view->m_onPrefetchProgress;
-            int widgetId = m_id;
-
-            std::thread([this, tilesToFetch = std::move(tilesToFetch), headers, tileUrlTemplate, onProgress, widgetId, total]() {
-                auto& cache = TileCache::getGlobalInstance();
-                int completed = 0;
-
-                for (const auto& tile : tilesToFetch) {
-                    std::string url = replaceTokens(tileUrlTemplate, [&](const std::string& token) -> std::optional<std::string> {
-                        if (token == "z") return std::to_string(tile.zoom);
-                        if (token == "x") return std::to_string(tile.x);
-                        if (token == "y") return std::to_string(tile.y);
-                        return std::nullopt;
-                    });
-
-                    std::vector<unsigned char> pngData;
-
-                    // Check memory cache first
-                    auto cached = cache.get(url);
-                    if (cached) {
-                        pngData = std::move(*cached);
-                    }
-
-                    if (pngData.empty()) {
-                        fetchTile(url, headers, [&](bool success, std::vector<uint8_t> data) {
-                            if (success) {
-                                pngData.assign(data.begin(), data.end());
-                            }
-                        });
-                    }
-
-                    if (!pngData.empty()) {
-                        cache.put(url, pngData.data(), pngData.size());
-                        m_diskCache.put(tile.x, tile.y, tile.zoom, pngData.data(), pngData.size());
-                        m_cacheStats.networkFetches++;
-                    }
-
-                    completed++;
-                    m_prefetchCompleted = completed;
-                    onProgress(widgetId, completed, total);
-                }
-
-                m_prefetching = false;
-            }).detach();
-#endif
+            m_prefetching = !tilesToFetch.empty();
+            for (const auto& tile : tilesToFetch) m_prefetchQueue.push_back({tile.x, tile.y, tile.zoom});
+            PumpPrefetch();
         } else if (op == "setMarkers" && opDef.contains("markers") && opDef["markers"].is_array()) {
             m_markers.clear();
             for (auto& [key, item] : opDef["markers"].items()) {

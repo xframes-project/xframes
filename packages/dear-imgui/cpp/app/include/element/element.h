@@ -92,6 +92,11 @@ class Element {
 
         virtual void PreRender(XFrames* view);
 
+        // Runs once after coherent capture, even when this element is clipped.
+        // Drain render-thread resources and clear activity before visible draw.
+        virtual void PrepareFrame(XFrames* view) {}
+        virtual json GetResourceDiagnostics() const { return nullptr; }
+
         virtual void Render(XFrames* view, const std::optional<ImRect>& viewport);
 
         virtual void PostRender(XFrames* view);

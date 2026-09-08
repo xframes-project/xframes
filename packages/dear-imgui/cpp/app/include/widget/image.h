@@ -1,16 +1,34 @@
+#pragma once
+
 #include <optional>
+#include <memory>
+#include <mutex>
+#include "frame_scheduler.h"
+#include "wasm_fetches.h"
 #include "ada.h"
 #include "styled_widget.h"
 #include "texture_helpers.h"
 #include <nlohmann/json.hpp>
-
-using fetchImageCallback = std::function<void(void*, size_t)>;
 
 class Image final : public StyledWidget {
 private:
     std::string m_url;
     std::optional<ImVec2> m_size;
     Texture m_texture;
+    xframes::FrameScheduler::Owner m_resourceLifetime;
+    struct CompletionState {
+        explicit CompletionState(xframes::FrameScheduler::Source source) : source(std::move(source)) {}
+        std::mutex mutex;
+        bool alive = true, pending = false, success = false;
+        std::vector<unsigned char> data;
+        xframes::FrameScheduler::Source source;
+    };
+    std::shared_ptr<CompletionState> m_completion;
+    bool m_loadRequested = false, m_lastLoadFailed = false;
+#ifdef __EMSCRIPTEN__
+    WasmFetches m_fetches;
+#endif
+    void RequestImage();
 
 public:
     static std::unique_ptr<Image> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
@@ -40,24 +58,10 @@ public:
 
     bool HasCustomHeight() override;
 
-    Image(XFrames* view, const int id, const std::string& url, const std::optional<ImVec2>& size, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style), m_texture() {
-        m_type = "di-image";
-        m_url = url;
-
-        m_size = size;
-    }
-
-    ~Image() {
-#ifdef __EMSCRIPTEN__
-        if (m_texture.textureView) {
-            wgpuTextureViewRelease(m_texture.textureView);
-        }
-#else
-        if (m_texture.textureView) {
-            glDeleteTextures(1, &m_texture.textureView);
-        }
-#endif
-    }
+    Image(XFrames* view, int id, const std::string& url, const std::optional<ImVec2>& size, std::optional<WidgetStyle>& style);
+    ~Image();
+    void PrepareFrame(XFrames* view) override;
+    json GetResourceDiagnostics() const override;
 
     void Render(XFrames* view, const std::optional<ImRect>& viewport) override;
 
@@ -67,24 +71,12 @@ public:
 
     void HandleInternalOp(const json& opDef) override;
 
-#ifdef __EMSCRIPTEN__
-    void FetchImage();
-    void HandleFetchImageSuccess(emscripten_fetch_t *fetch);
-    void HandleFetchImageFailure(emscripten_fetch_t *fetch);
-#else
-    void QueueFetchImage();
-#endif
-
     void Init(const json& elementDef) override {
         Element::Init(elementDef);
 
         YGNodeSetContext(m_layoutNode->m_node, this);
         YGNodeSetMeasureFunc(m_layoutNode->m_node, Measure);
 
-#ifdef __EMSCRIPTEN__
-        FetchImage();
-#else
-        QueueFetchImage();
-#endif
+        RequestImage();
     }
 };

@@ -143,3 +143,5 @@ export {
 };
 export type { NativeCommit, NativeCommitOperation, NativeCommitResult, NativeCommitError,
     NativeCommitErrorCode, NativeCommitState, NativeCounter, NativeTransactionBinding } from "./nativeCommit";
+export type { NativeDiagnostics, NativeDiagnosticsBinding, NativeFrameCorrelation, NativeFrameSnapshot,
+    NativeFrameSchedulerState, NativeFrameReason } from "./nativeDiagnostics";

@@ -128,7 +128,11 @@ set(XFRAMES_SRC
     ${XFRAMES_BASE_PATH}/src/commit.cpp
     ${XFRAMES_BASE_PATH}/src/commit_props.cpp
     ${XFRAMES_BASE_PATH}/src/xframes_commit.cpp
+    ${XFRAMES_BASE_PATH}/src/frame_scheduler.cpp
+    ${XFRAMES_BASE_PATH}/src/canvas_resources.cpp
+    ${XFRAMES_BASE_PATH}/src/map_worker.cpp
     ${XFRAMES_BASE_PATH}/src/imgui_renderer.cpp
+    ${XFRAMES_BASE_PATH}/src/imgui_scheduler.cpp
     ${XFRAMES_BASE_PATH}/src/implot_renderer.cpp
 )
 
@@ -171,6 +175,8 @@ if (DEFINED EMSCRIPTEN)
     endif()
     set_target_properties(xframes PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/../../assets@/assets ${OPT_LEVEL} -lembind --use-port=libjpeg --use-port=libpng ${WEBGPU_FLAG} -lhtml5.js -lhtml5_webgl.js -lglfw.js -s ENVIRONMENT='web' -s MODULARIZE=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3 -sFETCH -s NO_EXIT_RUNTIME=0 -s EXIT_RUNTIME=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 -s DISABLE_EXCEPTION_CATCHING=0 -s SINGLE_FILE=1 -sASYNCIFY")
     set_target_properties(xframes PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../npm/wasm/src/lib)
+    target_link_options(xframes PRIVATE "--js-library=${CMAKE_CURRENT_SOURCE_DIR}/src/browser_lifetime.js")
+    set_property(TARGET xframes APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/browser_lifetime.js")
 
     # Reinstate line below once ReactivePlusPlus 2.1.2 gets released (preferably in the vcpkg repo)
     # target_link_libraries(xframes PRIVATE imgui::imgui implot::implot nlohmann_json::nlohmann_json RPP::rpp RPP::rppqt)

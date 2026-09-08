@@ -4,12 +4,16 @@ import { check, waitFor } from "./assertions";
 import { Fixture, makeHandles, makeRows } from "./fixture";
 import { verifyTransactions } from "./transactions";
 import { measureFabricPublications } from "./publications";
+import { verifyScheduling } from "./scheduling";
+import { verifyResources, type ResourceFixtureOptions } from "./resources";
+import { verifyInput, type FixtureInput, type FixtureEvent } from "./input";
+import { verifyVisibility } from "./visibility";
+import { resourceStressCycle, resourceMoveStress } from "./resource-stress";
+import { measureActivity } from "./activity";
 
-export type NativeFrame = { enabled: boolean; frame: number; sampledAtMs: number; constructedAtMs: number; submittedAtMs: number;
-    elementCount: number; hierarchyCount: number; internalSubjectCount: number; unreachableCount: number; vertices: number;
-    elements: { id: number; type: string; children: number[]; yogaChildren: number[]; yogaParent: number | null;
-        lastInternalOpMs: number | null; bounds: number[]; state?: any }[] };
-export type RunOptions = { rows: number; points: number; rates: number[]; durationMs: number; warmupMs: number; idleMs: number; cycles: number; repetitions: number };
+import { observeNativeFrame, waitForNativeIdle, counterDelta, type NativeFrame } from "./frames";
+export type { NativeFrame } from "./frames";
+export type RunOptions = { rows: number; points: number; rates: number[]; durationMs: number; warmupMs: number; idleMs: number; cycles: number; repetitions: number; activityMs?: number; resourceFixture?: ResourceFixtureOptions };
 export const defaults: RunOptions = { rows: 1000, points: 128, rates: [20, 60, 120], durationMs: 1000, warmupMs: 200, idleMs: 500, cycles: 3, repetitions: 1 };
 export function validateOptions(options: RunOptions) {
     for (const name of ["rows", "points", "durationMs", "idleMs", "repetitions"] as const)
@@ -18,6 +22,7 @@ export function validateOptions(options: RunOptions) {
         check(Number.isInteger(options[name]) && options[name] >= 0, `${name} must be a nonnegative integer`);
     check(Array.isArray(options.rates) && options.rates.length > 0 && options.rates.every(rate => Number.isFinite(rate) && rate > 0), "rates must contain positive finite numbers");
     check(options.cycles <= 1000 && options.rows <= 100000 && options.points <= 100000, "Bounded fixture limits: 1000 cycles, 100000 rows/points");
+    check(options.activityMs === undefined || (Number.isInteger(options.activityMs) && options.activityMs >= 1000 && options.activityMs <= 30000), "activityMs must be 1000–30000 when requested");
 }
 export const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, Math.max(0, ms)));
 export function distribution(values: number[]) {
@@ -27,7 +32,9 @@ export function distribution(values: number[]) {
 }
 
 export async function runRuntime(binding: NativeBinding, options: RunOptions,
-    hooks: { capture: () => Promise<void>; report: (value: any) => void; resources: () => any; metadata: any }) {
+    hooks: { capture: () => Promise<void>; report: (value: any) => void; resources: () => any; metadata: any;
+        prefetchEvents: () => { id: number; completed: number; total: number }[];
+        input: (request: FixtureInput) => Promise<void>; events: () => FixtureEvent[] }) {
     validateOptions(options);
     const runtimeStartMs = performance.now();
     const report: any = { schemaVersion: 1, status: "running", options, metadata: hooks.metadata, stages: [], streams: [], knownFailures: [],
@@ -41,8 +48,8 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
     let lastFrame: NativeFrame | undefined;
     const expectedOrphans = 0;
     const publish = () => { report.bridge = bridge.snapshot(); report.lastFrame = lastFrame; hooks.report(report); };
-    const observe = async (predicate: (frame: NativeFrame) => boolean, label: string, after = lastFrame?.frame ?? -1) => {
-        lastFrame = await waitFor(read, frame => frame.enabled && frame.frame > after && predicate(frame)
+    const observe = async (predicate: (frame: NativeFrame) => boolean, label: string) => {
+        lastFrame = await observeNativeFrame(binding, frame => predicate(frame)
             && frame.unreachableCount === expectedOrphans, label);
         check([lastFrame.constructedAtMs, lastFrame.submittedAtMs, lastFrame.sampledAtMs].every(Number.isFinite)
             && lastFrame.constructedAtMs <= lastFrame.submittedAtMs && lastFrame.submittedAtMs <= lastFrame.sampledAtMs,
@@ -102,17 +109,23 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
         await hooks.capture();
         report.screenshotCaptured = true;
 
+        await waitForNativeIdle(binding, "settled fixture before idle measurement");
         const idleBefore = read();
         const resourceBefore = hooks.resources();
         const idleStart = performance.now();
         await delay(options.idleMs);
         const idleAfter = read();
-        report.idle = { elapsedMs: performance.now() - idleStart, frames: idleAfter.frame - idleBefore.frame,
+        report.idle = { elapsedMs: performance.now() - idleStart, frames: counterDelta(idleAfter.scheduler.submitted, idleBefore.scheduler.submitted),
+            constructed: counterDelta(idleAfter.scheduler.constructed, idleBefore.scheduler.constructed),
+            opportunities: counterDelta(idleAfter.scheduler.opportunities, idleBefore.scheduler.opportunities),
+            platformBefore: idleBefore.platform, platformAfter: idleAfter.platform,
+            schedulerBefore: idleBefore.scheduler, schedulerAfter: idleAfter.scheduler,
             before: resourceBefore, after: hooks.resources() };
         const cpuBefore = report.idle.before.cpuMicroseconds, cpuAfter = report.idle.after.cpuMicroseconds;
         report.idle.cpuPercentOfOneCore = cpuBefore && cpuAfter
             ? ((cpuAfter.user - cpuBefore.user + cpuAfter.system - cpuBefore.system) / 1000) / report.idle.elapsedMs * 100 : null;
         publish();
+        check(report.idle.frames === 0 && report.idle.constructed === 0, "Settled fixture constructed or submitted frames while idle");
 
         let sequence = options.rows;
         let expectedRows = options.rows;
@@ -127,22 +140,26 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
                 await delay(1000 / rate);
             }
             const start = performance.now();
-            const startFrame = read().frame;
+            const startFrame = read().scheduler.submitted;
             const beforeOperations = bridge.observer.snapshot();
             const beforeResources = hooks.resources();
             const sent = new Map<number, number>();
             const observed = new Set<number>();
             const coalesced = new Set<number>();
-            const latency: number[] = [], nativeLatency: number[] = [];
+            const latency: number[] = [], nativeLatency: number[] = [], producerCosts: number[] = [], queryCosts: number[] = [], frameCosts: number[] = [];
+            const requestedSleeps: number[] = [], actualSleeps: number[] = [];
             const inputCount = Math.max(1, Math.floor(rate * options.durationMs / 1000));
             let endProduction = false;
             let pollError: unknown;
             const poll = (async () => {
-                let frameNumber = startFrame;
+                let frameNumber = read().frameId;
                 while (!endProduction || observed.size + coalesced.size < sent.size) {
+                    const queryStart = performance.now();
                     const frame = read();
-                    if (frame.frame > frameNumber) {
-                        frameNumber = frame.frame;
+                    queryCosts.push(performance.now() - queryStart);
+                    if (BigInt(frame.frameId) > BigInt(frameNumber)) {
+                        frameCosts.push(frame.submittedAtMs - frame.constructedAtMs);
+                        frameNumber = frame.frameId;
                         lastFrame = frame;
                         const plot = frame.elements.find(node => node.type === "plot-bar");
                         const sample = plot?.state.series[0].lastX as number | undefined;
@@ -159,13 +176,19 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
             })().catch(error => { pollError = error; });
             let produced = 0;
             for (; produced < inputCount; produced++) {
-                await delay(start + produced * 1000 / rate - performance.now());
+                const requestedSleep = Math.max(0, start + produced * 1000 / rate - performance.now());
+                const sleepStart = performance.now();
+                await delay(requestedSleep);
+                requestedSleeps.push(requestedSleep);
+                actualSleeps.push(performance.now() - sleepStart);
                 if (pollError) break;
                 const sample = sequence++;
                 sent.set(sample, performance.now());
+                const producerStart = performance.now();
                 handles.plot.current!.appendSeriesData(0, sample, 20 + produced % 40);
                 handles.plot.current!.appendSeriesData(1, sample, 25 + produced % 35);
                 handles.table.current!.appendDataToTable([{ sequence: sample, signal: produced % 40, used: produced % 2 === 0 }]);
+                producerCosts.push(performance.now() - producerStart);
                 expectedRows++;
             }
             const productionMs = performance.now() - start;
@@ -175,8 +198,11 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
             report.streams.push({ repetition, requestedHz: rate, produced, productionMs, observationMs: performance.now() - start,
                 achievedHz: produced > 1 ? (produced - 1) * 1000 / productionMs : null,
                 observedUpdates: observed.size, coalescedUpdates: coalesced.size, timedOutUpdates: sent.size - observed.size - coalesced.size,
-                frames: read().frame - startFrame, dataToObservedFrameMs: distribution(latency),
+                frames: counterDelta(read().scheduler.submitted, startFrame), dataToObservedFrameMs: distribution(latency),
                 applyToConstructedMs: distribution(nativeLatency), serializedBytes: afterOperations.serializedBytes - beforeOperations.serializedBytes,
+                stageTimingsMs: { threeImperativeCalls: distribution(producerCosts), diagnosticsQueryAndParse: distribution(queryCosts),
+                    constructedToSubmitted: distribution(frameCosts), requestedProducerSleep: distribution(requestedSleeps),
+                    actualProducerSleep: distribution(actualSleeps) },
                 operationCounts: Object.fromEntries(Object.entries(afterOperations.counts).map(([method, count]) => [method, count - (beforeOperations.counts[method] ?? 0)])),
                 beforeResources, afterResources: hooks.resources() });
             publish();
@@ -186,7 +212,7 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
                 && node.state.lastRow.used === String((produced - 1) % 2 === 0))
                 && frame.elements.some(node => node.type === "plot-bar" && node.state.series.length === 2
                     && node.state.series.every((series: any) => series.lastX === sequence - 1 && series.count > 0 && series.count <= options.points)
-                    && node.state.series[0].lastY === 20 + (produced - 1) % 40 && node.state.series[1].lastY === 25 + (produced - 1) % 35), "final streamed table and both plot series", startFrame);
+                    && node.state.series[0].lastY === 20 + (produced - 1) % 40 && node.state.series[1].lastY === 25 + (produced - 1) % 35), "final streamed table and both plot series");
             check(latency.length > 0 && nativeLatency.length === latency.length && latency.every(value => Number.isFinite(value) && value >= 0)
                 && nativeLatency.every(value => Number.isFinite(value) && value >= 0), "Invalid streaming timings");
             check(observed.size + coalesced.size === sent.size, "Unaccounted streaming updates");
@@ -215,6 +241,7 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
         };
         requireEmpty();
         const stressBaseline = counts();
+        const stressOwners = (await waitForNativeIdle(binding, "stress owner baseline")).scheduler.ownerCount;
         report.emptyContainerMetadata = { hierarchyEntries: 1, elementCount: 0, containerId: 0 };
         for (let cycle = 0; cycle < options.cycles; cycle++) {
             await mount();
@@ -260,6 +287,10 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
             }
             await bridge.render(null); // odd cycles unmount both populated widgets directly
             await observe(frame => frame.elementCount === 0 && frame.internalSubjectCount === 0, `stress cycle ${cycle}`);
+            check(options.resourceFixture, "Stress requires the controlled resource server");
+            report.resourceStress = { completedCycles: cycle + 1,
+                last: await resourceStressCycle(binding, bridge, options.resourceFixture, cycle, stressOwners) };
+            await observe(frame => frame.elementCount === 0 && frame.internalSubjectCount === 0, `resource stress cleanup ${cycle}`);
             requireEmpty();
             const calls = bridge.observer.snapshot().counts.elementInternalOp;
             const beforeClicks = clicks;
@@ -307,6 +338,13 @@ export async function runRuntime(binding: NativeBinding, options: RunOptions,
         await bridge.dispose(); // Explicit writer handoff after acknowledged empty Fabric publication.
         check(bridge.rendererErrors.length === 0, "Unexpected Fabric renderer error");
         report.transactions = await verifyTransactions(binding, Math.max(1, options.cycles));
+        report.scheduling = await verifyScheduling(binding, typeof binding.captureScreenshot === "function" ? hooks.capture : undefined);
+        check(options.resourceFixture, "Resource fixture server is required; run diagnostics/run.mjs");
+        report.resourceProducers = await verifyResources(binding, options.resourceFixture, hooks.prefetchEvents);
+        report.resourceMoves = await resourceMoveStress(binding, options.resourceFixture, Math.max(1, options.cycles));
+        if (options.activityMs) report.activity = await measureActivity(binding, options.activityMs, hooks.resources);
+        report.nativeInput = await verifyInput(binding, hooks.input, hooks.events, options.resourceFixture);
+        report.visibility = await verifyVisibility(binding, hooks.input);
         report.status = "passed";
     } catch (error) {
         report.status = "failed";

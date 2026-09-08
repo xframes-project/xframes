@@ -26,7 +26,7 @@ export type NativeCommitErrorCode =
     | "duplicate_id" | "duplicate_child" | "missing_target" | "duplicate_assignment" | "missing_children"
     | "ownership_conflict" | "stale_revision" | "unreachable_operation" | "surface_quarantined"
     | "cycle" | "multiple_parents" | "invalid_relationship" | "counter_overflow"
-    | "application_error" | "runtime_not_ready";
+    | "application_error" | "runtime_not_ready" | "runtime_disposed";
 
 interface NativeCommitResultBase {
     schemaVersion: 2;
@@ -49,7 +49,7 @@ export interface NativeCommitState {
     schemaVersion: 2;
     surfaceId: 0;
     initialized: boolean;
-    surfaceStatus: "uninitialized" | "healthy" | "quarantined";
+    surfaceStatus: "uninitialized" | "healthy" | "quarantined" | "disposed";
     managedCount: number;
     nativeSequence: NativeCounter;
     nativeRevision: NativeCounter;

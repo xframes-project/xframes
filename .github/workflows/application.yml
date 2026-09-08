@@ -74,7 +74,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build build-essential libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev autoconf automake autoconf-archive libtool nasm bison flex pkg-config xvfb mesa-utils
+          sudo apt-get install -y ninja-build build-essential libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev autoconf automake autoconf-archive libtool nasm bison flex pkg-config xvfb mesa-utils xdotool openbox wmctrl
       - run: npm ci --ignore-scripts
       - run: npm run build:common
       - name: VS2022 native unit build and all tests
@@ -105,12 +105,26 @@ jobs:
       - run: npm run copy-artifacts-to-lib-folder --workspace @xframes/node
       # Linux/Xvfb with Mesa is the CI rendering gate. Windows supplies VS2022
       # compilation and native unit coverage; hosted Windows desktop GL varies.
-      - name: Node OpenGL publication, abandonment, moves, lifecycle and production baseline (Mesa)
+      - name: Node scheduling, producers, visibility, publication and lifetime (Mesa)
         if: runner.os == 'Linux'
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           XFRAMES_TOOLCHAIN: GCC / Ubuntu 24.04 (see build logs)
-        run: xvfb-run -a npm run diagnostics:node -- --baseline --stress
+        run: bash diagnostics/x11-run.sh npm run diagnostics:node -- --baseline --stress
+      - name: Node ten-second inactivity and active diagnostic-cost gate
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          XFRAMES_DIAGNOSTICS_DIR: build/diagnostics/node-idle-activity
+          XFRAMES_DIAGNOSTICS_OPTIONS: '{"cycles":0,"idleMs":10000,"activityMs":10000}'
+        run: bash diagnostics/x11-run.sh npm run diagnostics:node -- --baseline
+      - name: Preserve full-App Node development smoke
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          NODE_ENV: development
+          XFRAMES_APP_SCREENSHOT_PATH: ./build/app-development.png
+        run: xvfb-run -a npm run smoke:app --workspace @xframes/node
       - name: Preserve full-App Node smoke
         if: runner.os == 'Linux'
         env:
@@ -122,8 +136,8 @@ jobs:
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
-          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/node-stress xvfb-run -a npm run diagnostics:node -- --stress
-          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/node-extended xvfb-run -a npm run diagnostics:node -- --baseline --extended
+          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/node-stress bash diagnostics/x11-run.sh npm run diagnostics:node -- --stress
+          XFRAMES_DIAGNOSTICS_DIR=build/diagnostics/node-extended bash diagnostics/x11-run.sh npm run diagnostics:node -- --baseline --extended
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -157,11 +171,18 @@ jobs:
           bash ../cpp/wasm/build-wasm-docker.sh 2>&1 | tee build/diagnostics/wasm-build.log
       - run: npm run build:wasm
       - run: npm run diagnostics:typecheck
-      - name: Wasm publication, abandonment, moves, lifecycle and production baseline
+      - name: Wasm scheduling, producers, visibility, publication and lifetime
         env:
           XFRAMES_BROWSER: /usr/bin/google-chrome
           XFRAMES_WEBGPU_ADAPTER: swiftshader
         run: npm run diagnostics:wasm -- --baseline --stress
+      - name: Wasm ten-second inactivity and active diagnostic-cost gate
+        env:
+          XFRAMES_BROWSER: /usr/bin/google-chrome
+          XFRAMES_WEBGPU_ADAPTER: swiftshader
+          XFRAMES_DIAGNOSTICS_DIR: build/diagnostics/wasm-idle-activity
+          XFRAMES_DIAGNOSTICS_OPTIONS: '{"cycles":0,"idleMs":10000,"activityMs":10000}'
+        run: npm run diagnostics:wasm -- --baseline
       - name: Preserve full-App browser smoke
         env:
           XFRAMES_BROWSER: /usr/bin/google-chrome

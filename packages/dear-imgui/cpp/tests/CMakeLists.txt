@@ -195,9 +195,13 @@ add_executable(Google_Tests_run
         ../app/src/commit.cpp
         ../app/src/commit_props.cpp
         ../app/src/xframes_commit.cpp
+        ../app/src/frame_scheduler.cpp
+        ../app/src/canvas_resources.cpp
+        ../app/src/map_worker.cpp
         ../app/src/disk_tile_cache.cpp
         ../app/src/screenshot_writer.cpp
         ../app/src/imgui_renderer.cpp
+        ../app/src/imgui_scheduler.cpp
         ../app/src/implot_renderer.cpp
 
         shared_functions_test.cpp
@@ -207,6 +211,7 @@ add_executable(Google_Tests_run
         element/layout_node_test.cpp
         element/element_test.cpp
         xframes_test.cpp
+        frame_scheduler_test.cpp
         screenshot_writer_test.cpp
         quickjs_test.cpp
         canvas_test.cpp

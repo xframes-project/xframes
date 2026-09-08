@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 import { cpus, platform, release } from "node:os";
 import { execFileSync } from "node:child_process";
 import { defaults, runRuntime, validateOptions, type RunOptions } from "./runtime";
-import { check } from "./assertions";
+import { check, waitFor } from "./assertions";
+import { nativeInput } from "./node-input";
+import type { FixtureEvent } from "./input";
+import { verifyShutdown } from "./shutdown";
 
 const native = require("../node/build/Release/xframes.node");
 const options: RunOptions = { ...defaults, ...JSON.parse(process.env.XFRAMES_DIAGNOSTICS_OPTIONS ?? "{}") };
@@ -13,6 +16,13 @@ const write = (value: unknown) => writeFileSync(resolve(output, "result.json"), 
 const processStartMs = performance.now();
 const callbacks = ["onTextChange", "onComboChange", "onNumericValueChange", "onBooleanValueChange", "onMultiValueChange",
     "onClick", "onTableSort", "onTableFilter", "onTableRowClick", "onTableItemAction", "onPrefetchProgress", "onScriptError"];
+const prefetchEvents: { id: number; completed: number; total: number }[] = [];
+const inputEvents: FixtureEvent[] = [];
+let expectedClose = false, closed = false;
+const recordInput = (event: FixtureEvent) => {
+    if (inputEvents.length === 256) throw new Error("Input fixture event capacity exceeded");
+    inputEvents.push(event);
+};
 const timeout = setTimeout(() => { console.error("Native diagnostics process watchdog expired"); process.exit(1); },
     Math.max(60_000, options.cycles * 1500 + options.repetitions * options.rates.length * (options.durationMs + options.warmupMs + 10_000)));
 
@@ -20,9 +30,17 @@ async function main() {
     validateOptions(options);
     check(typeof native.getDiagnostics === "function", "Rebuild the Node addon: diagnostics exports are absent");
     await new Promise<void>((resolveReady, reject) => {
-        native.init({ assetsBasePath: resolve("../assets"), fontDefs: JSON.stringify({ defs: [{ name: "roboto-regular", size: 16 }] }), theme: "{}",
+        native.init({ assetsBasePath: options.resourceFixture?.assets ?? resolve("../assets"), fontDefs: JSON.stringify({ defs: [{ name: "roboto-regular", size: 16 }] }), theme: "{}",
             ...Object.fromEntries(callbacks.map(name => [name, name === "onScriptError" ? (...args: unknown[]) => reject(new Error(JSON.stringify(args))) : () => {}])),
-            onInit: resolveReady, onBeforeExit: () => { console.error("Window closed before diagnostics completed"); process.exit(1); } });
+            onPrefetchProgress: (id: number, completed: number, total: number) => {
+                if (prefetchEvents.length === 256) throw new Error("Prefetch fixture event capacity exceeded");
+                prefetchEvents.push({ id, completed, total });
+            }, onTextChange: (id: number, value: string) => recordInput({ kind: "text", id, value }),
+            onNumericValueChange: (id: number, value: number) => recordInput({ kind: "number", id, value }),
+            onInit: resolveReady, onBeforeExit: () => {
+                if (expectedClose) closed = true;
+                else { console.error("Window closed before diagnostics completed"); process.exit(1); }
+            } });
     });
     const readyMs = performance.now() - processStartMs;
     const sourceRevision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -30,6 +48,8 @@ async function main() {
         capture: () => new Promise<void>((resolveCapture, reject) => native.captureScreenshot(resolve(output, "fixture.png"),
             (error: string | null) => error ? reject(new Error(error)) : resolveCapture())),
         report: write,
+        prefetchEvents: () => prefetchEvents,
+        input: nativeInput, events: () => inputEvents,
         resources: () => ({ sampledAtMs: performance.now(), rssBytes: process.memoryUsage().rss, cpuMicroseconds: process.cpuUsage() }),
         metadata: { runtime: "Node/OpenGL", sourceRevision, sourceDirty: execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim().length > 0,
             node: process.version, os: `${platform()} ${release()}`, cpu: cpus()[0]?.model,
@@ -37,6 +57,12 @@ async function main() {
             gpu: "Actual GL vendor/renderer/version in each native frame's backend field", readyMs, startupClock: "process performance.now at runner entry to native onInit; excludes module loading",
             assets: "repository roboto-regular.ttf, size 16", display: "900x700 initial GLFW window" },
     });
+    report.shutdown = await verifyShutdown(native, options.resourceFixture!, async () => {
+        expectedClose = true;
+        await nativeInput({ action: "close" });
+        await waitFor(() => closed, Boolean, "native idle window close callback");
+    }, () => ({ ...JSON.parse(native.getDiagnostics()), commit: JSON.parse(native.getCommitState()) }));
+    write(report);
     console.log(`Node diagnostics: ${report.status}; ${report.streams.length} streaming runs; ${options.cycles} stress cycles`);
 }
 
