@@ -14,7 +14,10 @@ extern "C" {
 
 class JanetCanvas final : public StyledWidget {
 private:
+    friend class XFramesTest;
+    JanetCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap);
     static int s_janetRefCount;
+    bool m_ownsJanetRuntime = false;
 
     JanetTable* m_env = nullptr;
     Janet m_renderFuncValue = janet_wrap_nil();
@@ -44,7 +47,8 @@ private:
     std::unordered_set<std::string> m_inFlightFetches; // guarded by m_textureMutex
 #endif
 
-    void InitJanet();
+    void InitJanet(const std::string& bootstrap);
+    void CleanupJanet();
     void SetScriptFromString(const std::string& script);
 
 public:

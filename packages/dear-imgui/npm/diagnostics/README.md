@@ -1,8 +1,10 @@
 # Fabric lifecycle and streaming diagnostics
 
 The shared React PlotBar/Table fixture runs through Fabric and both real native
-bindings. Runs require Stage 1 cleanup invariants and the shared Stage 2
-transaction checks. See the [transaction record](../../../../docs/engineering/fabric-transactions-2026-09.md),
+bindings. Runs require all ten lifetime defect gates, prospective Fabric
+publication, final-tree wire checks and native visibility tests. See the
+[publication record](../../../../docs/engineering/fabric-publication-2026-09.md),
+[historical transaction record](../../../../docs/engineering/fabric-transactions-2026-09.md),
 [cleanup record](../../../../docs/engineering/fabric-cleanup-2026-09.md)
 and the [historical Stage 0 baseline](../../../../docs/engineering/fabric-baseline-2026-09.md).
 
@@ -147,34 +149,37 @@ existing binding's process-exit shutdown convention; the browser closes its
 dedicated process and removes only its generated temporary profile. Neither
 process exit nor OS memory reclamation is evidence that unmount cleanup works.
 
-Expected failures execute the intended invariant and then require a specific
-known defect signature. XPASS, a changed signature, timeout, or any unexpected
-assertion fails the run. The C++ same-ID reparent characterization avoids drawing
-a known dangling hierarchy and is distinct from React's cross-parent remount.
-No crash-prone case runs inside the shared rendering process.
-
-The remaining executing characterizations are XF-LIFE-004 (early publication),
-005 (same-ID reparent destruction), 008 (incomplete cross-parent clone staging)
-and 009 (abandoned Suspense work). Ordinary runtime reports use `status: passed`;
-report tooling still accepts historical Stage 0 reports for comparison.
+All ten XF-LIFE defect IDs execute passing invariants. The Fabric harness covers
+speculative host isolation, interleaved clones, callback-only updates, pending
+Suspense callbacks and public IDs, reveal, abandonment, explicit failure, Strict
+Mode and cleanup. Unexpected React commit errors fail the harness. Native tests
+prove same-ID Element/Yoga/subject/data survival separately from React's
+cross-parent remount, which creates a new lifetime. Historical Stage 0 report
+comparison remains available; no expected-failure gate preserves the old defects.
 
 ## Lifetime ordering
 
-`setChildren(id, childrenJson)` returns a JSON array of actual destroyed native
-IDs in both Node and Wasm. The current ReactivePlusPlus subject applies on the
-calling thread before returning. IDs include descendants in destruction order;
-each actual element destruction appears once. Results are created under tree
-locks and returned only after those locks are released. Existing direct callers
-can ignore the added return value; no initialization callback was added.
+Both bindings accept only schema-v2 final-tree publication through applyCommit.
+The old setElement, patchElement, setChildren and appendChild exports are removed.
+A matching baseRevision prevents stale writers; rootChildren and every reachable
+node's child assignment describe the full result. Preflight and application hold
+one visibility boundary shared with rendering and synchronous native readers.
+The actual destroyedIds array follows previous-tree postorder, filtered to IDs
+that do not survive in the final tree. Synchronous subject delivery and cleanup
+finish before the acknowledgment leaves native tree locks.
 
-The adapter consumes each result synchronously. React's render completion callback
-therefore follows native deletion and JS mapping cleanup for that work; a later
-observed frame proves rendering has caught up. Independent native event queues
-are not assumed to share this completion order. Dispatch checks both the Fiber
-mapping and native liveness. Wasm handlers enqueue at most 256 events per drain
-and dispatch in a microtask after the native render callback returns, avoiding
-re-entry into native tree locks. Dead, unknown, disposed and overflow events are
-dropped and counted. The queue is cleared on bridge disposal.
+The host installs committed mappings and immutable event-prop snapshots after
+acknowledgment. React completion checks reject publication failure. The bridge
+then invalidates all usable targets; native runtime failure quarantines partial
+state. React may release an empty host tree after terminal failure, counted as
+terminalTeardowns rather than a successful publication. That teardown never
+reports native recovery or an acknowledged unmount. Disposal is distinct from
+successful publication.
+
+Events use committed ancestry and callbacks while speculative work is pending.
+Wasm handlers enqueue at most 256 events per drain and dispatch in a microtask
+after the native render callback returns. Dead, unknown, disposed and overflow
+events are dropped and counted. The queue is cleared on disposal/failure.
 
 Component imperative handles capture a native lifetime token at layout setup.
 Deleted handles are no-ops with a saturating diagnostic counter; they never look
@@ -187,16 +192,27 @@ Unrelated serialization and native errors propagate normally.
 
 ## Measurement contract
 
-The transaction fixture adds a bounded three-repetition comparison after streaming:
-400 plot patches per mode, either 100 four-operation batches or 400 compatibility
-calls. Reports include actual UTF-8 payload bytes, JS serialization/boundary
-intervals and native preflight/application intervals. Direct-batch `parseMs`
-includes JSON and envelope decoding. Compatibility `envelopeMs` measures owned
-envelope conversion after legacy JSON decoding; that earlier decode is included
-in boundary time but has no isolated sample. State-query calls used to collect
-samples are excluded from the microbenchmark's structural call/byte totals.
-Diagnostics overhead and different batch sizes prevent interpreting these as pure
-widget costs or an automatic Fabric batching benefit.
+The structural React workload uses 40 cycles per repetition. Each cycle requests
+mount, same-element bailout, prop update, reorder, keyed replacement and unmount:
+240 requested updates produce 200 completeRoot publications and 40 bailouts.
+Every accepted publication must make one actual structural call and advance the
+native revision once. Reports include UTF-8 bytes, staging/diff/serialization,
+boundary and native parse/validation/application/visibility-lock distributions.
+Native validation includes reachability. No native presentation latency is inferred.
+
+The direct wire fixture separately measures three repetitions of 100 publications,
+each with four plot patches and full child assignments. It verifies removed-version
+rejection, stale revisions, final ownership, moves and actual cleanup across both
+bindings. The removed mutation engine is not retained as a benchmark mode; compare
+against stored Stage 2 evidence. State queries are excluded from boundary totals.
+
+Stress runs add a pending candidate with conflicting public ID and callback in
+every ordinary lifecycle cycle, abandon it, and assert zero growth across the ten
+original lifetime fields plus bridge-owned descriptions. After the acknowledged
+empty Fabric publication, the bridge is disposed before direct wire fixtures
+assume ownership. Native same-ID move cycles preserve populated PlotBar/Table data
+and verify Yoga ownership in newer frames. --stress runs 1,000 ordinary cycles and
+1,000 native move cycles in the same runtime process.
 
 `getCommitState` exposes always-current sequence/revision with diagnostics off.
 When enabled, its bounded `lastTransaction` is the last enabled sample and may

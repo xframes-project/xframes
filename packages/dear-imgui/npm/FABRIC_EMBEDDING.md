@@ -246,31 +246,35 @@ The current software-adapter flags come from Chromium's official [WebGPU test co
 
 ## Known gaps and deliberate non-hacks
 
-The September [Stage 2 transaction record](../../../docs/engineering/fabric-transactions-2026-09.md)
-specifies the shared native `applyCommit(payload: string): string` and
-`getCommitState(): string` exports; public types are exported from
-`@xframes/common`. Existing `setElement`, `patchElement`, `setChildren` and
-`appendChild` calls now use the same native preflight/application path as single
-operations, with unchanged successful return shapes and ready-callback setup.
-`setChildren` still returns its destroyed-ID JSON array. The adapter's explicit
-`applyCommit` consumes `destroyedIds` through the existing lifetime cleanup.
-Public string IDs remain JS mappings and cannot overwrite native identity.
+The [Stage 3 publication record](../../../docs/engineering/fabric-publication-2026-09.md)
+specifies schema version 2, the only accepted structural wire protocol. XFrames
+has always been alpha; schema v1 and the setElement, patchElement, setChildren and
+appendChild binding exports are removed. Migrate direct callers to applyCommit
+with baseRevision, complete rootChildren and per-node child assignments. Shared
+TypeScript types are exported by @xframes/common. getCommitState supplies the
+current native revision and healthy/quarantined surface status.
 
-Direct transactions can contain multiple operations. They use schema version 1
-and surface 0, with native sequence/revision returned as decimal strings. Check
-`status` before treating a result as applied: validation rejection changes no
-live state; an unrelated runtime failure may leave a prefix applied. Diagnostics
-are not required to obtain ordering state. Native revisions do not identify a
-Fabric commit or a presented frame. Ordinary wrappers still publish each host
-operation immediately; Stage 3 must stage until `completeRoot`.
+The owned host stages create/clone/append work until completeRoot. Each
+publication makes exactly one structural call, then installs committed Fiber,
+public-ID and handle ownership after native acknowledgment. Prospective callbacks
+are carried in non-enumerable attribute-payload metadata, including callback-only
+updates. Committed event targets never read the renderer's prospectively mutated
+canonical.currentProps. Generated renderer snapshots remain unchanged.
 
-The August verification below is historical. September's
-[Stage 1 cleanup record](../../../docs/engineering/fabric-cleanup-2026-09.md)
-documents explicit destruction results, mapping/registration cleanup, stale-target
-guards, wrapper teardown and passing 1,000-cycle Node/Wasm lifetime runs. The
-generated Fabric renderer snapshots and React/RN versions remain unchanged.
-Atomic publication, speculative-work isolation, reparent-safe reachability and
-render scheduling remain subsequent slices.
+Both ordinary Node render and Wasm ReactNativeWrapper use this path. Completion
+checks reject terminal publication failure. Native runtime failure quarantines
+the surface; a failed JS bridge invalidates usable targets. Initialization/ready
+callbacks and imperative widget APIs retain their existing roles. A direct writer
+must use the same schema and revision checks; hand off only after acknowledged
+empty publication and bridge disposal. Mixing writers does not silently rebase a
+stale Fabric snapshot. Native acknowledgment is not a presented-frame guarantee.
+
+The August verification above and September's
+[Stage 1 cleanup record](../../../docs/engineering/fabric-cleanup-2026-09.md) and
+[Stage 2 transaction record](../../../docs/engineering/fabric-transactions-2026-09.md)
+are historical evidence. Current Stage 3 coverage and unfinished acceptance are
+tracked in the publication record; those earlier results do not validate this
+rewrite by themselves.
 
 - Fabric implementation files are private React Native internals. Hashes and AST invariants detect source drift, but runtime smokes are still mandatory after every upgrade.
 - Both development and production renderers are currently present in the `@xframes/common` CJS artifact (about 1.11 MB uncompressed). Runtime selection is correct, but CJS consumers may not eliminate the unused variant. Separate production/development entry points are a future size optimization, not a correctness blocker.
@@ -279,4 +283,4 @@ render scheduling remain subsequent slices.
 - The repository-wide common ESLint command has a pre-existing backlog (356 findings at verification time). The new extraction scripts lint cleanly, but this upgrade does not hide or mass-rewrite unrelated legacy findings.
 - An online npm install reported 70 dependency advisories in the legacy development dependency graph. No uncontrolled `npm audit fix --force` was applied. Production exposure and dependency-toolchain modernization need a separate audit.
 - macOS hardware and Safari are untested. The technologies are portable, but portability is not a substitute for a real platform build and runtime test.
-- Atomic publication, final-reachability destruction, replay, invalidation, and automation remain separate in the [runtime hardening design](../../../docs/architecture/fabric-runtime-hardening.md). The Stage 2 native transaction path does not implement prospective Fabric staging.
+- Stage 3 publication acceptance is tracked in the [publication record](../../../docs/engineering/fabric-publication-2026-09.md). Invalidation scheduling, frame correlation, replay and automation remain separate in the [runtime hardening design](../../../docs/architecture/fabric-runtime-hardening.md).

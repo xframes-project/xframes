@@ -43,6 +43,7 @@ export const ReactNativeWrapper: React.ComponentType<ReactNativeWrapperProps> =
       current.renderer.render(null, 0, () => {
         // Strict Mode may have set up the same still-mounted surface again.
         if (current.generation !== generation) return;
+        manager.assertPublicationHealthy();
         current.renderer.stopSurface(0);
         manager.destroy();
         if (session.current === current) session.current = undefined;
@@ -57,7 +58,7 @@ export const ReactNativeWrapper: React.ComponentType<ReactNativeWrapperProps> =
       <WidgetRegistrationServiceContext.Provider value={current.service}>
         {children}
       </WidgetRegistrationServiceContext.Provider>,
-      0, () => {}, 1, undefined,
+      0, () => host.nativeFabricUIManager.assertPublicationHealthy(), 1, undefined,
     );
   }, [wasmModule, host, children]);
 

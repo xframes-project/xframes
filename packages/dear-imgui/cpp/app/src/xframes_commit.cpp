@@ -39,22 +39,6 @@ CommitResult XFrames::ApplyCommit(std::string_view serializedCommit) {
     return result;
 }
 
-CommitResult XFrames::ApplyCompatibility(json operation) {
-    const std::lock_guard<std::mutex> lock(m_commitMutex);
-    const bool diagnostics = m_diagnosticsEnabled.load(std::memory_order_relaxed);
-    const auto start = diagnostics ? DiagnosticsNowMs() : 0;
-    auto batch = ParseCommit({{"schemaVersion", 1}, {"surfaceId", 0}, {"operations", json::array({std::move(operation)})}});
-    batch.compatibility = true;
-    const auto envelopeEnd = diagnostics ? DiagnosticsNowMs() : 0;
-    auto result = DispatchCommit(std::move(batch));
-    if (diagnostics) {
-        m_lastCommitDiagnostics["envelopeMs"] = envelopeEnd - start;
-        m_lastCommitDiagnostics["dispatchMs"] = DiagnosticsNowMs() - start;
-    }
-    if (result.error) throw *result.error;
-    return result;
-}
-
 CommitResult XFrames::DispatchCommit(CommitBatch batch) {
     auto request = std::make_shared<CommitRequest>();
     request->batch = std::move(batch);
@@ -73,83 +57,101 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
     result.correlationId = batch.correlationId;
     const bool diagnostics = m_diagnosticsEnabled.load(std::memory_order_relaxed);
     const auto start = diagnostics ? DiagnosticsNowMs() : 0;
-    try {
-        if (m_nativeSequence == std::numeric_limits<uint64_t>::max() || m_nativeRevision == std::numeric_limits<uint64_t>::max())
-            throw CommitError("counter_overflow", "Native sequence/revision exhausted; create a new runtime");
-        ValidationTree tree;
-        {
-            const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
-            const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
+    double lockedAt = start, validatedAt = start, appliedAt = start;
+    {
+        // Dispatch -> serialized subject -> hierarchy -> elements. All public
+        // structural writers use dispatch; render/getters participate in these
+        // same tree locks. No operation drops them or calls back into JavaScript.
+        const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
+        const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
+        lockedAt = diagnostics ? DiagnosticsNowMs() : 0;
+        PublicationPlan plan;
+        try {
+            if (m_surfaceQuarantined)
+                throw CommitError("surface_quarantined", "Publication failed; recreate the native runtime");
+            if (m_nativeSequence == std::numeric_limits<uint64_t>::max() || m_nativeRevision == std::numeric_limits<uint64_t>::max())
+                throw CommitError("counter_overflow", "Native sequence/revision exhausted; create a new runtime");
+            ValidationTree tree;
             tree.children = m_hierarchy;
             for (const auto& [id, element] : m_elements)
                 tree.nodes.emplace(id, ValidationNode{element->m_type, element->m_isRoot,
                     YGNodeHasMeasureFunc(element->m_layoutNode->m_node)});
+            plan = ValidatePublication(batch, std::move(tree), m_publicationOwnedIds, m_nativeRevision);
+            // Reserve acknowledgment storage before touching resources/live state.
+            result.destroyedIds.reserve(plan.destroyedIds.size());
+        } catch (const CommitError& error) {
+            result.error = error;
         }
-        // The outer dispatch mutex stays held through validation and application.
-        // No competing public structural call can invalidate this model.
-        ValidateCommit(batch, std::move(tree));
-    } catch (const CommitError& error) {
-        result.error = error;
-        if (diagnostics) m_lastCommitDiagnostics = {
-            {"status", "rejected"}, {"nativeSequence", nullptr}, {"nativeRevision", std::to_string(m_nativeRevision)},
-            {"operationCount", batch.operations.size()}, {"compatibility", batch.compatibility},
-            {"validationMs", DiagnosticsNowMs() - start}, {"applicationMs", 0},
-            {"errorCode", error.code}, {"operationIndex", error.operationIndex ? json(*error.operationIndex) : json(nullptr)}};
-        return result;
-    }
-    const auto validatedAt = diagnostics ? DiagnosticsNowMs() : 0;
-    result.nativeSequence = ++m_nativeSequence;
-    size_t index = 0;
-    try {
-        for (const auto& op : batch.operations) {
-            if (!op.skip) {
-                switch (op.op) {
-                case CommitOp::Create: {
-                    auto def = op.props;
-                    def["id"] = op.id; def["type"] = op.elementType;
-                    CreateElement(def);
-                    break;
+        validatedAt = diagnostics ? DiagnosticsNowMs() : 0;
+        if (!result.error) {
+            result.nativeSequence = ++m_nativeSequence;
+            std::optional<size_t> operationIndex;
+            try {
+                // All creates precede patches, so forward references in the
+                // complete candidate have one unambiguous meaning.
+                for (auto kind : {CommitOp::Create, CommitOp::Patch}) {
+                    for (size_t index = 0; index < batch.operations.size(); ++index) {
+                        const auto& op = batch.operations[index];
+                        if (op.op != kind) continue;
+                        operationIndex = index;
+                        auto def = op.props;
+                        def["id"] = op.id;
+                        if (kind == CommitOp::Create) {
+                            def["type"] = op.elementType;
+                            CreateElementUnlocked(def);
+                        } else PatchElementUnlocked(def);
+                    }
                 }
-                case CommitOp::Patch: {
-                    auto def = op.props;
-                    def["id"] = op.id;
-                    PatchElement(def);
-                    break;
+                operationIndex.reset();
+                // Disconnect every previous Yoga owner before attaching any
+                // candidate child. Moving out of a removed ancestor retains the
+                // exact Element, Yoga node, internal subject and populated data.
+                for (int id : m_publicationOwnedIds)
+                    YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
+                for (const auto& [parent, children] : plan.children) {
+                    m_hierarchy[parent] = children;
+                    if (parent == 0) continue;
+                    auto* element = m_elements.at(parent).get();
+                    for (size_t index = 0; index < children.size(); ++index)
+                        element->m_layoutNode->InsertChild(m_elements.at(children[index])->m_layoutNode.get(), index);
+                    element->m_maxBottomDirty = true;
                 }
-                case CommitOp::SetChildren: {
-                    auto destroyed = SetChildren({{"parentId", op.id}, {"childrenIds", op.children}});
-                    result.destroyedIds.insert(result.destroyedIds.end(), destroyed.begin(), destroyed.end());
-                    break;
-                }
-                case CommitOp::AppendChild:
-                    AppendChild({{"parentId", op.id}, {"childId", op.children.front()}});
-                    break;
-                }
+                // The plan is old-tree postorder filtered by final reachability;
+                // destruction never recursively follows the newly published tree.
+                for (int id : plan.destroyedIds) DestroyElementUnlocked(id, &result.destroyedIds);
+                m_publicationOwnedIds.swap(plan.ownedIds);
+                result.nativeRevision = ++m_nativeRevision;
+                result.status = "applied";
+            } catch (const std::exception& error) {
+                // Quarantine is established under the visibility locks even if
+                // constructing an error acknowledgment itself cannot allocate.
+                m_surfaceQuarantined = true;
+                result.status = "failed";
+                result.error.emplace("application_error", std::string(error.what()).substr(0, 512), operationIndex);
+            } catch (...) {
+                m_surfaceQuarantined = true;
+                result.status = "failed";
+                result.error.emplace("application_error", "Unexpected native publication failure", operationIndex);
             }
-            ++index;
         }
-        result.nativeRevision = ++m_nativeRevision;
-        result.status = "applied";
-    } catch (const std::exception& error) {
-        // Resource/allocation/constructor failures are not validation rejections.
-        // A prefix may have applied: report failure and actual completed destruction,
-        // consume the application sequence, and never advance the success revision.
-        result.status = "failed";
-        result.error.emplace("application_error", std::string(error.what()).substr(0, 512), index);
+        appliedAt = diagnostics ? DiagnosticsNowMs() : 0;
     }
     if (diagnostics) m_lastCommitDiagnostics = {
-        {"nativeSequence", std::to_string(*result.nativeSequence)}, {"nativeRevision", std::to_string(m_nativeRevision)},
-        {"operationCount", batch.operations.size()}, {"compatibility", batch.compatibility},
-        {"validationMs", validatedAt - start}, {"applicationMs", DiagnosticsNowMs() - validatedAt},
-        {"status", result.status}, {"errorCode", result.error ? json(result.error->code) : json(nullptr)}};
-    // Each private helper has released its tree locks before completion is published.
+        {"nativeSequence", result.nativeSequence ? json(std::to_string(*result.nativeSequence)) : json(nullptr)},
+        {"nativeRevision", std::to_string(m_nativeRevision)}, {"operationCount", batch.operations.size()},
+        {"managedCount", m_publicationOwnedIds.size()}, {"visibilityLockWaitMs", lockedAt - start},
+        {"visibilityLockHeldMs", appliedAt - lockedAt}, {"validationMs", validatedAt - lockedAt},
+        {"applicationMs", appliedAt - validatedAt}, {"status", result.status},
+        {"errorCode", result.error ? json(result.error->code) : json(nullptr)}};
+    // Completion/result delivery follows the release of both visibility locks.
     return result;
 }
 
 json XFrames::GetCommitState() {
     const std::lock_guard<std::mutex> lock(m_commitMutex);
-    json state = {{"schemaVersion", 1}, {"surfaceId", 0}, {"initialized", true}, {"nativeSequence", std::to_string(m_nativeSequence)},
-        {"nativeRevision", std::to_string(m_nativeRevision)}};
+    json state = {{"schemaVersion", 2}, {"surfaceId", 0}, {"initialized", true}, {"nativeSequence", std::to_string(m_nativeSequence)},
+        {"nativeRevision", std::to_string(m_nativeRevision)},
+        {"surfaceStatus", m_surfaceQuarantined ? "quarantined" : "healthy"}, {"managedCount", m_publicationOwnedIds.size()}};
     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) state["lastTransaction"] = m_lastCommitDiagnostics;
     return state;
 }

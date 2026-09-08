@@ -1,14 +1,17 @@
-/** Stage 2 native structural transactions. These are not Fabric commits or frame revisions. */
+/** Atomic final-tree publication. An acknowledgment is not a presented-frame guarantee. */
 export type NativeCommitOperation =
     | { op: "create"; id: number; elementType: string; props: Record<string, unknown> }
     | { op: "patch"; id: number; props: Record<string, unknown> }
-    | { op: "setChildren"; parentId: number; childrenIds: number[] }
-    | { op: "appendChild"; parentId: number; childId: number };
+    | { op: "setChildren"; parentId: number; childrenIds: number[] };
 
 export interface NativeCommit {
-    schemaVersion: 1;
+    schemaVersion: 2;
     /** The current Fabric container and sole native surface are both 0. */
     surfaceId: 0;
+    /** Must match the current successful native revision. */
+    baseRevision: NativeCounter;
+    /** Complete virtual-root list; every reachable node also needs a child assignment. */
+    rootChildren: number[];
     /** Optional opaque correlation, at most 128 UTF-8 bytes; never controls ordering. */
     correlationId?: string;
     operations: NativeCommitOperation[];
@@ -20,12 +23,13 @@ export type NativeCommitErrorCode =
     | "invalid_json" | "missing_field" | "invalid_field" | "unknown_field"
     | "unsupported_version" | "unsupported_surface" | "unsupported_operation"
     | "invalid_id" | "invalid_element_type" | "invalid_props" | "immutable_identity"
-    | "duplicate_id" | "duplicate_child" | "missing_target" | "destroyed_id"
+    | "duplicate_id" | "duplicate_child" | "missing_target" | "duplicate_assignment" | "missing_children"
+    | "ownership_conflict" | "stale_revision" | "unreachable_operation" | "surface_quarantined"
     | "cycle" | "multiple_parents" | "invalid_relationship" | "counter_overflow"
     | "application_error" | "runtime_not_ready";
 
 interface NativeCommitResultBase {
-    schemaVersion: 1;
+    schemaVersion: 2;
     surfaceId: 0;
     nativeRevision: NativeCounter;
     correlationId?: string;
@@ -42,20 +46,22 @@ export interface NativeCommitError {
     operationIndex: number | null;
 }
 export interface NativeCommitState {
-    schemaVersion: 1;
+    schemaVersion: 2;
     surfaceId: 0;
     initialized: boolean;
+    surfaceStatus: "uninitialized" | "healthy" | "quarantined";
+    managedCount: number;
     nativeSequence: NativeCounter;
     nativeRevision: NativeCounter;
     lastTransaction?: null | {
         nativeSequence?: NativeCounter | null;
         nativeRevision?: NativeCounter;
         operationCount?: number;
-        compatibility?: boolean;
+        managedCount?: number;
         validationMs?: number;
         applicationMs?: number;
-        envelopeMs?: number;
-        dispatchMs?: number;
+        visibilityLockWaitMs?: number;
+        visibilityLockHeldMs?: number;
         operationIndex?: number | null;
         parseMs?: number;
         totalMs?: number;

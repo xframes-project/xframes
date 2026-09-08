@@ -1,6 +1,6 @@
 # Fabric-Compatible Runtime Hardening
 
-- Status: target architecture; Stage 1 cleanup and Stage 2 native transaction path implemented
+- Status: target architecture; Stage 3 publication and local acceptance complete, hosted coverage unverified; Stage 4 remains open
 - Last updated: 8 September 2026
 - Related decision: [XFrames and GPUIX assessment](../strategy/gpuix-comparison-2026-08.md)
 
@@ -21,31 +21,41 @@ All six are compatible with Fabric. They strengthen the existing Fabric, RxJS, R
 
 ## Summary
 
-### Implemented Stage 2 boundary
+### Current Stage 3 boundary
 
-The [transaction implementation record](../engineering/fabric-transactions-2026-09.md)
-defines the current wire contract and validation evidence. Both bindings expose
-`applyCommit(string): string` and `getCommitState(): string`. Schema version 1
-supports ordered create, patch, setChildren and appendChild operations on surface
-0, the current Fabric virtual container. Native IDs are positive signed 32-bit
-integers; native sequence/revision counters are unsigned 64-bit decimal strings.
-An optional opaque correlation ID never controls ordering.
+The [publication implementation record](../engineering/fabric-publication-2026-09.md)
+defines the accepted schema-v2 contract and current validation evidence. XFrames
+has always been alpha. Stage 3 replaces schema v1 and removes the immediate
+structural binding exports; the [Stage 2 record](../engineering/fabric-transactions-2026-09.md)
+is historical evidence, not a compatibility obligation.
 
-One native authority serializes full preflight and synchronous subject delivery
-for direct batches and legacy one-operation transactions. Rejected input cannot
-apply a prefix. Successful batches advance revision once and return actual
-destroyed IDs after tree locks are released. Application failures report failure
-and may leave a prefix applied; arbitrary resource/allocation rollback is outside
-this boundary. A weak replay record avoids retaining completed owned payloads.
+Fabric host creation/cloning and child assembly build prospective descriptions.
+Only completeRoot traverses the actual candidate, submits one final-tree native
+publication, and installs committed event/public-ID/handle ownership after its
+synchronous acknowledgment. Earlier render attempts cannot publish native state
+or overwrite committed event callbacks. Root metadata belongs to a native lifetime.
 
-The ordinary Fabric host still publishes individual operations. Each native
-operation retains its own tree-lock boundary, so successful multi-operation
-batches do not yet have atomic visibility. Native revisions are neither Fabric
-commit revisions nor presented-frame guarantees. Imperative widget calls keep
-their existing API and synchronous relative ordering; asynchronous resources do
-not acquire a total ordering domain. The design below describes the fuller
-Stage 3–6 target, including prospective staging, atomic visibility, scheduling,
-recording and automation. Those capabilities are not implied by Stage 2.
+Both bindings expose applyCommit(string): string and getCommitState(): string.
+The envelope carries surface 0, a matching baseRevision, the complete virtual-root
+list, and create/patch/complete-child-assignment operations. Native IDs remain
+positive signed-32-bit integers; sequence/revision counters are uint64 decimal
+strings. Correlation never controls ordering. Unsupported versions and stale
+writers are rejected before mutation.
+
+Shared tree locks cover full preflight, mutation, final ownership, deletion and
+revision advancement, excluding rendering and synchronous readers throughout.
+Same-ID moves preserve native objects, Yoga nodes, subjects and widget state.
+Only finally unreachable managed nodes are destroyed. Results leave the locks
+before JS cleanup, callbacks and effects. Unexpected native application failure
+quarantines the surface; JS publication failure terminally invalidates usable
+bridge targets. This is explicit failure, not recovery or successful publication.
+
+The local native, Fabric and real-runtime gates are recorded separately from
+remaining stress, measurement, smoke and hosted acceptance. Acknowledgment does
+not establish a presented frame. Imperative APIs, asynchronous resource work and
+backend render cadence keep their existing scope. The remainder of this document
+also describes future recording, invalidation, scheduling and automation; the
+schema sketches below are not the accepted publication wire spelling.
 
 The central change is to introduce an XFrames-owned, versioned transaction at Fabric's `completeRoot` publication boundary.
 

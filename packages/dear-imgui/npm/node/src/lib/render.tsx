@@ -26,7 +26,7 @@ export const render = (
       </WidgetRegistrationServiceContext.Provider>,
       0, // containerTag,
       () => {
-        // console.log("initialised");
+        ReactNativePrivateInterface.nativeFabricUIManager.assertPublicationHealthy();
       },
       1,
       undefined,
@@ -219,8 +219,10 @@ export const render = (
   })();
 
   // Resolves after native destruction acknowledgment and JS bridge teardown.
-  return () => new Promise<void>((resolve) => {
+  return () => new Promise<void>((resolve, reject) => {
     ReactFabric.render(null, 0, () => {
+      try { ReactNativePrivateInterface.nativeFabricUIManager.assertPublicationHealthy(); }
+      catch (error) { flag = false; reject(error); return; }
       flag = false;
       ReactFabric.stopSurface(0);
       ReactNativePrivateInterface.nativeFabricUIManager.destroy();

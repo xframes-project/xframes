@@ -5,11 +5,12 @@ import { ReactNativePrivateInterface as privateInterface, ReactFabricInitialiser
 
 export type NativeBinding = Record<string, (...args: any[]) => any>;
 type FabricRenderer = {
-    render(element: React.ReactNode, container: number, callback: () => void, concurrent: number, options: undefined): void;
+    render(element: React.ReactNode, container: number, callback: () => void, concurrent: number,
+        options?: { onUncaughtError(error: unknown): void }): void;
     stopSurface(container: number): void;
 };
 export type CallRecord = { index: number; atMs: number; method: string; args: unknown[]; bytes: number };
-const nativeMethods = ["setElement", "patchElement", "setChildren", "appendChild", "elementInternalOp", "isElementAlive", "applyCommit", "getCommitState"];
+const nativeMethods = ["elementInternalOp", "isElementAlive", "applyCommit", "getCommitState"];
 
 /** Observes actual calls, including calls before completeRoot. This is not a commit log. */
 export function observeBinding(binding: NativeBinding, capacity = 256) {
@@ -58,117 +59,137 @@ export function createBridge(binding: NativeBinding) {
         observer.record("completeRoot:exit", [container]);
     };
     const renderer = ReactFabricInitialiser(host) as FabricRenderer;
+    const rendererErrors: unknown[] = [];
+    const pendingRenders = new Set<(error: unknown) => void>();
+    const options = { onUncaughtError(error: unknown) {
+        rendererErrors.push(error);
+        for (const reject of [...pendingRenders]) reject(error);
+    } };
     const render = (element: React.ReactNode): Promise<void> => new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("Fabric completion timed out")), 10_000);
+        const fail = (error: unknown) => { clearTimeout(timeout); pendingRenders.delete(fail); reject(error); };
+        const timeout = setTimeout(() => fail(new Error("Fabric completion timed out")), 10_000);
+        pendingRenders.add(fail);
         renderer.render(
-            React.createElement(WidgetRegistrationServiceContext.Provider, { value: registrations }, element),
+            element === null ? null : React.createElement(WidgetRegistrationServiceContext.Provider, { value: registrations }, element),
             0,
-            () => { clearTimeout(timeout); resolve(); },
+            () => {
+                clearTimeout(timeout);
+                pendingRenders.delete(fail);
+                try { manager.assertPublicationHealthy(); resolve(); } catch (error) { reject(error); }
+            },
             1,
-            undefined,
+            options,
         );
     });
-    return { manager, registrations, renderer, observer, render,
+    let disposal: Promise<void> | undefined;
+    return { manager, registrations, renderer, observer, render, rendererErrors,
         snapshot: () => ({ bridge: manager.getDiagnostics(), registrations: registrations.getDiagnostics(),
             operations: observer.snapshot() }),
-        dispose: () => { renderer.stopSurface(0); manager.destroy(); },
+        // Disposal releases the renderer even after terminal publication failure.
+        // It deliberately does not signal an acknowledged native unmount.
+        dispose: () => disposal ??= new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("Fabric disposal timed out")), 10_000);
+            renderer.render(null, 0, () => {
+                clearTimeout(timeout);
+                renderer.stopSurface(0);
+                manager.destroy();
+                resolve();
+            }, 1, options);
+        }),
     };
 }
 
-/** Minimal binding double for bridge tests only; native parity is tested in C++. */
+/** Prospective/final-tree binding double. C++ is authoritative for props, Yoga, locks and resources. */
 export function createFakeBinding() {
     const nodes = new Map<number, Record<string, any>>([[0, { id: 0, type: "container" }]]);
     const children = new Map<number, number[]>([[0, []]]);
     const internalOps: { id: number; live: boolean; op: any }[] = [];
-    const pendingDestructions: number[][] = [];
-    const delivery = { delayed: false };
-    let nativeSequence = 0n;
-    let nativeRevision = 0n;
-    const state = () => ({ schemaVersion: 1, surfaceId: 0, initialized: true,
-        nativeSequence: String(nativeSequence), nativeRevision: String(nativeRevision) });
-    // The double stages plain JS values for preflight; actual queue/locking/props
-    // behavior is covered by native and shared real-binding fixtures.
-    const apply = (wire: string, compatibility = false) => {
+    let nativeSequence = 0n, nativeRevision = 0n;
+    const state = () => ({ schemaVersion: 2, surfaceId: 0, initialized: true, surfaceStatus: "healthy",
+        managedCount: nodes.size - 1, nativeSequence: String(nativeSequence), nativeRevision: String(nativeRevision) });
+    const apply = (wire: string) => {
         let operationIndex: number | null = null;
-        const rejected = (code: string) => JSON.stringify({ ...state(), status: "rejected", nativeSequence: null,
-            destroyedIds: [], error: { code, message: code, operationIndex } });
         let batch: any;
-        try { batch = JSON.parse(wire); } catch { return rejected("invalid_json"); }
-        if (batch.schemaVersion !== 1) return rejected("unsupported_version");
-        if (batch.surfaceId !== 0) return rejected("unsupported_surface");
-        if (!Array.isArray(batch.operations)) return rejected("invalid_field");
+        const result = (status: string, destroyedIds: number[], code?: string) => JSON.stringify({
+            schemaVersion: 2, surfaceId: 0, status, destroyedIds,
+            nativeSequence: status === "rejected" ? null : String(nativeSequence), nativeRevision: String(nativeRevision),
+            ...(batch?.correlationId === undefined ? {} : { correlationId: batch.correlationId }),
+            ...(code ? { error: { code, message: code, operationIndex } } : {}),
+        });
+        const reject = (code: string) => result("rejected", [], code);
+        try { batch = JSON.parse(wire); } catch { return reject("invalid_json"); }
+        if (batch.schemaVersion !== 2) return reject("unsupported_version");
+        if (batch.surfaceId !== 0) return reject("unsupported_surface");
+        if (batch.baseRevision !== String(nativeRevision)) return reject("stale_revision");
+        if (!Array.isArray(batch.operations) || !Array.isArray(batch.rootChildren)) return reject("invalid_field");
         const nextNodes = new Map([...nodes].map(([id, node]) => [id, { ...node }]));
-        const nextChildren = new Map([...children].map(([id, ids]) => [id, [...ids]]));
-        const destroyedIds: number[] = [];
-        const remove = (id: number) => {
-            for (const child of nextChildren.get(id) ?? []) remove(child);
-            if (nextNodes.delete(id)) destroyedIds.push(id);
-            nextChildren.delete(id);
-        };
+        const nextChildren = new Map<number, number[]>([[0, [...batch.rootChildren]]]);
         for (let i = 0; i < batch.operations.length; i++) {
             operationIndex = i;
             const op = batch.operations[i];
-            if (!op || !["create", "patch", "setChildren", "appendChild"].includes(op.op)) return rejected("unsupported_operation");
-            const target = op.id ?? op.parentId;
-            if (!Number.isInteger(target) || target < (op.id !== undefined ? 1 : 0) || target > 2147483647) return rejected("invalid_id");
+            if (!op || !["create", "patch", "setChildren"].includes(op.op)) return reject("unsupported_operation");
+            const id = op.id ?? op.parentId;
+            if (!Number.isInteger(id) || id < 1 || id > 2147483647) return reject("invalid_id");
             if (op.op === "create") {
-                if (nextNodes.has(target)) return rejected("duplicate_id");
-                if (destroyedIds.includes(target)) return rejected("destroyed_id");
-                if (typeof op.elementType !== "string") return rejected("invalid_element_type");
-                nextNodes.set(target, { ...op.props, id: target, type: op.elementType });
-                nextChildren.set(target, []);
-            } else {
-                if (!nextNodes.has(target)) {
-                    if (compatibility) continue;
-                    return rejected("missing_target");
-                }
-                if (op.op === "patch") nextNodes.set(target, { ...nextNodes.get(target), ...op.props, id: target });
-                else {
-                    const siblings = nextChildren.get(target)!;
-                    const next = op.op === "setChildren" ? op.childrenIds : siblings.includes(op.childId) ? siblings : [...siblings, op.childId];
-                    if (!Array.isArray(next)) return rejected("invalid_field");
-                    if (!compatibility && next.some((id: number) => !nextNodes.has(id))) return rejected("missing_target");
-                    if (op.op === "setChildren") for (const old of siblings) if (!next.includes(old)) remove(old);
-                    nextChildren.set(target, [...next]);
-                }
+                if (nextNodes.has(id)) return reject("duplicate_id");
+                if (typeof op.elementType !== "string") return reject("invalid_element_type");
+                nextNodes.set(id, { ...op.props, id, type: op.elementType });
             }
         }
+        for (let i = 0; i < batch.operations.length; i++) {
+            operationIndex = i;
+            const op = batch.operations[i], id = op.id ?? op.parentId;
+            if (!nextNodes.has(id)) return reject("missing_target");
+            if (op.op === "patch") {
+                if ("id" in op.props || "type" in op.props || "root" in op.props) return reject("immutable_identity");
+                nextNodes.set(id, { ...nextNodes.get(id), ...op.props });
+            } else if (op.op === "setChildren") {
+                if (!Array.isArray(op.childrenIds)) return reject("invalid_field");
+                if (nextChildren.has(id)) return reject("duplicate_assignment");
+                nextChildren.set(id, [...op.childrenIds]);
+            }
+        }
+        const owners = new Map<number, number>();
+        for (const [parent, list] of nextChildren) {
+            const unique = new Set<number>();
+            for (const id of list) {
+                if (unique.has(id)) return reject("duplicate_child");
+                unique.add(id);
+                if (!nextNodes.has(id)) return reject("missing_target");
+                if (!nextChildren.has(id)) return reject("missing_children");
+                if (owners.has(id)) return reject("multiple_parents");
+                if (id === parent) return reject("cycle");
+                owners.set(id, parent);
+            }
+        }
+        const reachable = new Set<number>([0]);
+        const pending = [...batch.rootChildren];
+        while (pending.length) {
+            const id = pending.pop()!;
+            if (reachable.has(id)) return reject("cycle");
+            reachable.add(id); pending.push(...nextChildren.get(id)!);
+        }
+        for (const op of batch.operations) if (!reachable.has(op.id ?? op.parentId)) return reject("unreachable_operation");
+        const destroyedIds: number[] = [];
+        const destroy = (id: number) => {
+            for (const child of children.get(id) ?? []) destroy(child);
+            if (!reachable.has(id)) destroyedIds.push(id);
+        };
+        for (const id of children.get(0)!) destroy(id);
+        for (const id of nextNodes.keys()) if (!reachable.has(id)) nextNodes.delete(id);
         nodes.clear(); for (const entry of nextNodes) nodes.set(...entry);
         children.clear(); for (const entry of nextChildren) children.set(...entry);
         ++nativeSequence; ++nativeRevision;
-        return JSON.stringify({ ...state(), status: "applied", destroyedIds,
-            ...(batch.correlationId !== undefined ? { correlationId: batch.correlationId } : {}) });
-    };
-    const legacy = (op: any) => {
-        const result = JSON.parse(apply(JSON.stringify({ schemaVersion: 1, surfaceId: 0, operations: [op] }), true));
-        if (result.status !== "applied") throw new Error(JSON.stringify(result.error));
-        return result;
+        return result("applied", destroyedIds);
     };
     const binding: NativeBinding = {
-        applyCommit: (wire: string) => apply(wire),
+        applyCommit: apply,
         getCommitState: () => JSON.stringify(state()),
-        setElement: (payload: string) => {
-            const { id, type, ...props } = JSON.parse(payload);
-            legacy({ op: "create", id, elementType: type, props });
-        },
-        patchElement: (id: number, payload: string) => {
-            const { id: _id, type: _type, ...props } = JSON.parse(payload);
-            legacy({ op: "patch", id, props });
-        },
-        setChildren: (id: number, payload: string) => {
-            const { destroyedIds } = legacy({ op: "setChildren", parentId: id, childrenIds: JSON.parse(payload) });
-            if (delivery.delayed) {
-                if (destroyedIds.length) pendingDestructions.push(destroyedIds);
-                return "[]";
-            }
-            return JSON.stringify(destroyedIds);
-        },
         isElementAlive: (id: number) => id !== 0 && nodes.has(id),
-        appendChild: (parentId: number, childId: number) => { legacy({ op: "appendChild", parentId, childId }); },
         elementInternalOp: (id: number, payload: string) => {
             internalOps.push({ id, live: nodes.has(id), op: JSON.parse(payload) });
             if (internalOps.length > 256) internalOps.shift();
         },
     };
-    return { binding, nodes, children, internalOps, delivery, pendingDestructions };
+    return { binding, nodes, children, internalOps };
 }

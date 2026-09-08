@@ -1,4 +1,3 @@
-import type { NativeCommit, NativeCommitResult } from "../nativeCommit";
 type AttributePayload = Record<string, unknown> | null;
 type ValidAttributes = Record<string, unknown>;
 
@@ -16,7 +15,7 @@ declare const ReactNativePrivateInterface: {
     createPublicRootInstance(containerTag: number): { containerTag: number };
     nativeFabricUIManager: {
         init(nativeModule: unknown, widgetRegistrationService: unknown): void;
-        applyCommit(commit: NativeCommit): NativeCommitResult;
+        assertPublicationHealthy(): void;
         dispatchEvent(rootNodeId: number, topLevelType: string, nativeEvent: unknown): void;
         enqueueEvent(rootNodeId: number, topLevelType: string, nativeEvent: unknown): void;
         unstable_getCurrentEventPriority(): number | null;

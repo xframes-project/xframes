@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/fetch.h>
@@ -52,9 +53,12 @@ static sol::object jsonToLua(sol::state& lua, const json& j) {
 }
 
 LuaCanvas::LuaCanvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
+    : LuaCanvas(view, id, style, getLuaCanvas2DShim()) {}
+
+LuaCanvas::LuaCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap)
     : StyledWidget(view, id, style) {
     m_type = "di-lua-canvas";
-    InitLua();
+    InitLua(bootstrap); // sol::state unwinds through RAII if initialization fails.
 }
 
 LuaCanvas::~LuaCanvas() {
@@ -71,7 +75,7 @@ LuaCanvas::~LuaCanvas() {
     // sol::state destructor handles Lua cleanup via RAII
 }
 
-void LuaCanvas::InitLua() {
+void LuaCanvas::InitLua(const std::string& bootstrap) {
     m_lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table);
 
     m_drawContext.drawList = nullptr;
@@ -94,13 +98,10 @@ void LuaCanvas::InitLua() {
     };
 
     // Evaluate Canvas 2D API shim — creates global `ctx` table
-    const auto& shim = getLuaCanvas2DShim();
-    auto shimResult = m_lua.safe_script(shim, sol::script_pass_on_error);
+    auto shimResult = m_lua.safe_script(bootstrap, sol::script_pass_on_error);
     if (!shimResult.valid()) {
         sol::error err = shimResult;
-        if (m_view->m_onScriptError) {
-            m_view->m_onScriptError(m_id, std::string(err.what()));
-        }
+        throw std::runtime_error(err.what());
     }
 }
 

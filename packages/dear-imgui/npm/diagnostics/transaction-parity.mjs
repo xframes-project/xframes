@@ -32,7 +32,12 @@ assert.equal(wasm.metadata.runtime, "Wasm/WebGPU");
 for (const report of [node, wasm]) {
     assert.equal(report.status, "passed");
     assert.equal(report.transactions.status, "passed");
-    assert.ok(report.transactions.semanticResults.length >= 40, "Missing binding transaction fixtures");
+    assert.equal(report.transactions.schemaVersion, 2);
+    const names = new Set(report.transactions.semanticResults.map(result => result.name));
+    for (const name of ["removed-version-1", "removed-append-op", "same-ID-move", "surviving-descendants-escape-removed-root",
+        "stale-revision", "missing-leaf-assignment", "unreachable-create", "populated-unmount", "canvas-bootstrap-create", "canvas-bootstrap-cleanup"])
+        assert.ok(names.has(name), `Missing publication fixture: ${name}`);
+    assert.ok(report.transactions.semanticResults.length >= 60, "Missing binding publication fixtures");
 }
 assert.deepEqual(node.transactions.semanticResults, wasm.transactions.semanticResults, "Wire results/revisions/error classifications differ");
 assert.deepEqual(node.transactions.mounted, wasm.transactions.mounted, "Populated native widget/Yoga state differs");

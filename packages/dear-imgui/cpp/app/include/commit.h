@@ -5,11 +5,12 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <nlohmann/json.hpp>
 
 namespace xframes {
-enum class CommitOp { Create, Patch, SetChildren, AppendChild };
+enum class CommitOp { Create, Patch, SetChildren };
 
 // Owned values only: no Elements, Yoga nodes, widget resources or borrowed JSON.
 struct CommitOperation {
@@ -18,13 +19,13 @@ struct CommitOperation {
     std::string elementType;
     nlohmann::json props = nlohmann::json::object();
     std::vector<int> children;
-    bool skip = false; // validation marks accepted stale compatibility no-ops
 };
 
 struct CommitBatch {
+    uint64_t baseRevision = 0; // schema 2 optimistic structural revision
+    std::vector<int> rootChildren; // schema 2 complete virtual-root list
     std::optional<std::string> correlationId;
     std::vector<CommitOperation> operations;
-    bool compatibility = false; // native-only; never accepted on the wire
 };
 
 struct CommitError : std::runtime_error {
@@ -54,13 +55,20 @@ struct ValidationTree {
     std::unordered_map<int, std::vector<int>> children;
 };
 
+// The complete, validated surface. Owned only by the synchronous request.
+struct PublicationPlan {
+    std::unordered_map<int, std::vector<int>> children;
+    std::unordered_set<int> ownedIds;
+    std::vector<int> destroyedIds; // previous tree postorder, excluding survivors
+};
+
 CommitBatch ParseCommit(nlohmann::json wire);
 CommitResult UninitializedCommitResult();
 nlohmann::json UninitializedCommitState();
 int ParseNativeId(const nlohmann::json& value, bool allowContainer = false);
 int ParseBindingId(double value, bool allowContainer = false);
-std::vector<int> ParseChildrenIds(std::string_view wire);
-void ValidateCommit(CommitBatch& batch, ValidationTree tree);
+PublicationPlan ValidatePublication(CommitBatch& batch, ValidationTree tree,
+    const std::unordered_set<int>& managedIds, uint64_t nativeRevision);
 void ValidateCommitProps(const std::string& type, const nlohmann::json& props, bool create);
 bool IsCommitElementType(const std::string& type);
 bool IsMeasuredElementType(const std::string& type);

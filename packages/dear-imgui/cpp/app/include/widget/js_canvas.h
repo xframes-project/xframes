@@ -14,6 +14,8 @@ extern "C" {
 
 class JsCanvas final : public StyledWidget {
 private:
+    friend class XFramesTest;
+    JsCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap);
     JSRuntime* m_runtime = nullptr;
     JSContext* m_context = nullptr;
     JSValue m_renderFunc = JS_UNDEFINED;
@@ -42,7 +44,7 @@ private:
     std::unordered_set<std::string> m_inFlightFetches; // guarded by m_textureMutex
 #endif
 
-    void InitQuickJS();
+    void InitQuickJS(const std::string& bootstrap);
     void CleanupQuickJS();
     void SetScriptFromString(const std::string& script);
 

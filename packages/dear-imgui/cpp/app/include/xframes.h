@@ -41,6 +41,8 @@ struct CommitRequest {
 class XFrames {
     private:
         friend class XFramesTest;
+        friend class Element;
+        friend class Widget;
 
         std::optional<std::string> m_rawStyleOverridesDefs;
 
@@ -51,22 +53,26 @@ class XFrames {
         std::unordered_map<int, rpp::subjects::serialized_replay_subject<json>> m_elementInternalOpsSubject;
 
         // Lock order: structural dispatch -> subject -> hierarchy -> elements.
-        // Rendering takes only hierarchy -> elements; Stage 2 allows intermediate frames.
+        // Rendering takes hierarchy -> elements. Publication holds both for the
+        // entire preflight/application/revision boundary.
         std::mutex m_commitMutex;
         uint64_t m_nativeSequence = 0;
         uint64_t m_nativeRevision = 0;
+        std::unordered_set<int> m_publicationOwnedIds;
+        std::atomic<bool> m_surfaceQuarantined{false};
         bool m_subjectsReady = false;
         rpp::subjects::serialized_replay_subject<std::weak_ptr<CommitRequest>> m_elementOpSubject;
         rpp::composite_disposable_wrapper m_commitSubscription = rpp::composite_disposable_wrapper::make();
         json m_lastCommitDiagnostics;
         xframes::CommitResult DispatchCommit(xframes::CommitBatch batch);
         xframes::CommitResult ApplyCommitOperations(xframes::CommitBatch& batch);
-        xframes::CommitResult ApplyCompatibility(json operation);
 
         std::unordered_map<std::string, std::function<std::unique_ptr<Element>(const json&, std::optional<WidgetStyle>, XFrames*)>> m_element_init_fn;
 
         std::unordered_map<int, std::unique_ptr<Element>> m_elements;
         std::mutex m_elements_mutex;
+        std::unordered_map<int, std::vector<int>> m_hierarchy;
+        std::mutex m_hierarchy_mutex;
 
         bool m_debug;
 
@@ -78,24 +84,31 @@ class XFrames {
         std::unordered_map<int, double> m_diagnosticsLastInternalOpMs; // element-mutex owned
         json BuildDiagnosticsStateUnlocked();
 
-        void CreateElement(const json& elementDef);
+        void CreateElementUnlocked(const json& elementDef);
 
-        void PatchElement(const json& patchDef);
+        void PatchElementUnlocked(const json& patchDef);
 
-        std::vector<int> SetChildren(const json& opDef);
 
-        void AppendChild(const json& opDef);
 
-        void RemoveElement(int id, std::vector<int>* destroyedIds = nullptr);
+        void DestroyElementUnlocked(int id, std::vector<int>* destroyedIds);
         
         void SetUpFloatFormatChars();
 
         void SetUpElementCreatorFunctions();
 
+        // Render traversal helpers require Render's hierarchy/element locks.
+        // Widget/Element call them while constructing that same frame.
+        void RenderElementById(int id, const std::optional<ImRect>& viewport = std::nullopt);
+        void RenderDebugWindow();
+        void SetChildrenDisplay(int id, YGDisplay display);
+        void RenderChildren(int id, const std::optional<ImRect>& viewport = std::nullopt);
+        void RenderElementTree(int id = 0);
+        void RenderElements(int id = 0, const std::optional<ImRect>& viewport = std::nullopt);
+        float GetChildrenMaxBottom(int parentId) const;
+        void InvalidateMaxBottomCaches();
+
     public:
         ImGuiRenderer* m_renderer;
-        std::unordered_map<int, std::vector<int>> m_hierarchy;
-        std::mutex m_hierarchy_mutex;
 
 #ifndef __EMSCRIPTEN__
         std::unordered_map<int, GLuint> m_imageToTextureMap;
@@ -137,8 +150,6 @@ class XFrames {
 
         void ShowDebugWindow();
 
-        void RenderElementById(int id, const std::optional<ImRect>& viewport = std::nullopt);
-
         void SetUpSubjects();
 
         void SetEventHandlers(
@@ -159,43 +170,23 @@ class XFrames {
 
         void PrepareForRender();
 
-        void RenderDebugWindow();
-
         void Render(int window_width, int window_height);
 
-        void SetChildrenDisplay(int id, YGDisplay display);
-
-        void RenderChildren(int id, const std::optional<ImRect>& viewport = std::nullopt);
-
-        void RenderElementTree(int id = 0);
-
-        void RenderElements(int id = 0, const std::optional<ImRect>& viewport = std::nullopt);
-
-        void QueueCreateElement(std::string& elementJsonAsString);
 
         // Synchronous structural API. uint64 counters use decimal strings on the wire.
         xframes::CommitResult ApplyCommit(std::string_view serializedCommit);
         json GetCommitState();
 
-        void QueuePatchElement(int id, std::string& elementJsonAsString);
 
-        // Returns actual recursive destruction after application and tree-lock release.
-        // Existing callers may continue to ignore the result.
-        std::vector<int> QueueSetChildren(int id, const std::vector<int>& childIds);
 
         bool IsElementAlive(int id);
 
-        void QueueAppendChild(int parentId, int childId);
 
         void QueueElementInternalOp(int id, std::string& widgetOpDef);
 
         void AppendTextToClippedMultiLineTextRenderer(int id, const std::string& data);
 
         std::vector<int> GetChildren(int id);
-
-        float GetChildrenMaxBottom(int parentId) const;
-
-        void InvalidateMaxBottomCaches();
 
         json GetAvailableFonts();
 

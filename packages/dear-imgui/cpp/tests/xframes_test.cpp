@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <algorithm>
-#include <gmock/gmock.h>
+#include <barrier>
+#include <future>
+#include <latch>
+#include <tuple>
 #include <nlohmann/json.hpp>
 #include <rpp/rpp.hpp>
 #include "widget/styled_widget.h"
@@ -9,108 +12,67 @@
 #include "element/element.h"
 #include "implot_renderer.h"
 #include "widget/table.h"
+#include "widget/js_canvas.h"
+#include "widget/lua_canvas.h"
+#include "widget/janet_canvas.h"
 
 using json = nlohmann::json;
-using ::testing::Eq;
-using ::testing::IsTrue;
-using ::testing::IsFalse;
-using ::testing::IsEmpty;
+namespace {
+json Create(int id, std::string type = "node", json props = json::object()) {
+    return {{"op", "create"}, {"id", id}, {"elementType", type}, {"props", props}};
+}
+json Patch(int id, json props) { return {{"op", "patch"}, {"id", id}, {"props", props}}; }
+json Children(int id, std::vector<int> children) {
+    return {{"op", "setChildren"}, {"parentId", id}, {"childrenIds", children}};
+}
+json TableProps() { return {{"columns", json::array({{{"fieldId", "v"}, {"heading", "Value"}, {"type", "number"}}})}}; }
+}
 
-// Test fixture that directly manipulates XFrames maps, bypassing the RPP
-// reactive queue and avoiding ImGui/GLFW/OpenGL dependencies entirely.
+// Every structural assertion uses the production parser, dispatch, serialized
+// subject and publication path. Friendship is for identity/failure/lock probes.
 class XFramesTest : public ::testing::Test {
 protected:
     std::unique_ptr<XFrames> xf;
-
-    void SetUp() override {
-        xf = std::make_unique<XFrames>("test_window", std::nullopt);
-        // Do NOT call SetUpSubjects() — tests bypass the reactive queue.
-        // The default-constructed RPP subject destructs cleanly.
-        InsertNode(0);
-    }
-
-    // Insert a plain Element directly into the registries
-    void InsertNode(int id) {
-        auto element = std::make_unique<Element>(nullptr, id, id == 0, false, false);
-        json emptyDef = json::object();
-        element->m_layoutNode->ApplyStyle(emptyDef);
-        xf->m_elements[id] = std::move(element);
-        xf->m_hierarchy[id] = std::vector<int>();
-    }
-
-    // Wire parent-child in both hierarchy map and Yoga tree
-    void LinkChildren(int parentId, const std::vector<int>& childIds) {
-        xf->m_hierarchy[parentId] = childIds;
-        YGNodeRemoveAllChildren(xf->m_elements[parentId]->m_layoutNode->m_node);
-        for (size_t i = 0; i < childIds.size(); i++) {
-            xf->m_elements[parentId]->m_layoutNode->InsertChild(
-                xf->m_elements[childIds[i]]->m_layoutNode.get(), i);
+    using Edges = std::initializer_list<std::pair<int, std::vector<int>>>;
+    void SetUp() override { xf = std::make_unique<XFrames>("publication-test", std::nullopt); }
+    json Wire(Edges edges = {}, std::initializer_list<json> operations = {}) {
+        json wire = {{"schemaVersion", 2}, {"surfaceId", 0},
+            {"baseRevision", xf->GetCommitState()["nativeRevision"]},
+            {"rootChildren", json::array()}, {"operations", std::vector<json>(operations)}};
+        for (const auto& [parent, children] : edges) {
+            if (parent == 0) wire["rootChildren"] = children;
+            else wire["operations"].push_back(Children(parent, children));
         }
+        return wire;
     }
-
-    // Call the private SetChildren with proper JSON (tests the real orphan cleanup path)
-    void CallSetChildren(int parentId, const std::vector<int>& childIds) {
-        json opDef;
-        opDef["parentId"] = parentId;
-        opDef["childrenIds"] = childIds;
-        xf->SetChildren(opDef);
+    xframes::CommitResult Publish(Edges edges = {}, std::initializer_list<json> operations = {}) {
+        auto result = xf->ApplyCommit(Wire(edges, operations).dump());
+        EXPECT_EQ(result.status, "applied") << result.ToJson();
+        return result;
     }
-
-    bool HasElement(int id) const {
-        return xf->m_elements.contains(id);
+    void Reject(json wire, const char* code, std::optional<size_t> index = std::nullopt) {
+        const auto before = xf->GetDiagnosticsState(), counters = xf->GetCommitState();
+        auto result = xf->ApplyCommit(wire.dump());
+        ASSERT_EQ(result.status, "rejected") << result.ToJson() << wire;
+        ASSERT_TRUE(result.error);
+        EXPECT_EQ(result.error->code, code) << result.ToJson() << wire;
+        if (index) EXPECT_EQ(result.error->operationIndex, index) << result.ToJson();
+        EXPECT_FALSE(result.nativeSequence);
+        EXPECT_TRUE(result.destroyedIds.empty());
+        // Yoga's not-yet-laid-out dimensions are NaN; compare the actual JSON
+        // observation (null for undefined dimensions), not NaN == NaN.
+        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
+        EXPECT_EQ(xf->GetCommitState(), counters);
     }
-
-    bool HasHierarchyEntry(int id) const {
-        return xf->m_hierarchy.contains(id);
+    json Node(const json& state, int id) {
+        for (const auto& node : state["elements"]) if (node["id"] == id) return node;
+        return nullptr;
     }
-
-    std::vector<int> GetHierarchyChildren(int id) const {
-        if (xf->m_hierarchy.contains(id)) {
-            return xf->m_hierarchy[id];
-        }
-        return {};
-    }
-
-    bool HasInternalOpsSubject(int id) const {
-        return xf->m_elementInternalOpsSubject.contains(id);
-    }
-
-    void InjectInternalOpsSubject(int id) {
-        xf->m_elementInternalOpsSubject[id] = rpp::subjects::serialized_replay_subject<json>{10};
-    }
-
-    size_t ElementCount() const {
-        return xf->m_elements.size();
-    }
-
-    size_t FloatFormatCharsCount() const {
-        return xf->m_floatFormatChars.size();
-    }
-
-    bool HasFloatFormatChar(int key) const {
-        return xf->m_floatFormatChars.contains(key);
-    }
-
-    void DirectRemoveElement(int id) {
-        xf->RemoveElement(id);
-    }
-
-    auto CopyInternalSubject(int id) {
-        return xf->m_elementInternalOpsSubject.at(id);
-    }
-
-    void SetCommitCounters(uint64_t sequence, uint64_t revision) {
-        xf->m_nativeSequence = sequence;
-        xf->m_nativeRevision = revision;
-    }
-
-    void FailButtonCreation() {
-        xf->m_element_init_fn["di-button"] = [](const json&, std::optional<WidgetStyle>, XFrames*) -> std::unique_ptr<Element> {
-            throw std::runtime_error("injected constructor failure");
-        };
-    }
-
-    bool LastCommitRequestExpired() {
+    Element* ElementAt(int id) { return xf->m_elements.at(id).get(); }
+    auto CopyInternalSubject(int id) { return xf->m_elementInternalOpsSubject.at(id); }
+    void Internal(int id, const json& operation) { auto payload = operation.dump(); xf->QueueElementInternalOp(id, payload); }
+    void SetCounters(uint64_t sequence, uint64_t revision) { xf->m_nativeSequence = sequence; xf->m_nativeRevision = revision; }
+    bool LastRequestExpired() {
         bool expired = false;
         auto subscription = rpp::composite_disposable_wrapper::make();
         xf->m_elementOpSubject.get_observable() | rpp::ops::subscribe(subscription,
@@ -118,275 +80,386 @@ protected:
         subscription.dispose();
         return expired;
     }
+    void OnButtonCreate(std::function<void()> callback) {
+        auto create = xf->m_element_init_fn.at("di-button");
+        xf->m_element_init_fn["di-button"] = [create, callback](const json& props, std::optional<WidgetStyle> style, XFrames* view) {
+            callback();
+            return create(props, style, view);
+        };
+    }
+    void BreakCanvasBootstrap(const std::string& type) {
+        xf->m_element_init_fn[type] = [type](const json& props, std::optional<WidgetStyle> style, XFrames* view) -> std::unique_ptr<Element> {
+            const int id = props.at("id");
+            if (type == "di-js-canvas") return std::unique_ptr<Element>(new JsCanvas(view, id, style, "function ("));
+            if (type == "di-lua-canvas") return std::unique_ptr<Element>(new LuaCanvas(view, id, style, "function ("));
+            return std::unique_ptr<Element>(new JanetCanvas(view, id, style, "("));
+        };
+    }
+    // Called from a separate reader thread at a rendezvous inside real subject
+    // delivery. Both locks must be owned even between individual mutations.
+    void ProbeVisibilityLocks() {
+        std::unique_lock hierarchy(xf->m_hierarchy_mutex, std::try_to_lock);
+        std::unique_lock elements(xf->m_elements_mutex, std::try_to_lock);
+        EXPECT_FALSE(hierarchy.owns_lock());
+        EXPECT_FALSE(elements.owns_lock());
+    }
+    void InsertUnowned(int id) {
+        xf->m_elements[id] = std::make_unique<Element>(xf.get(), id, false, false, false);
+        xf->m_hierarchy[id] = {};
+    }
+    void SetUnownedRoot(int id) { xf->m_hierarchy[0] = {id}; }
+    void AssertEmpty() {
+        const auto state = xf->GetDiagnosticsState();
+        EXPECT_EQ(state["elementCount"], 0); EXPECT_EQ(state["hierarchyCount"], 1);
+        EXPECT_EQ(state["internalSubjectCount"], 0); EXPECT_EQ(state["unreachableCount"], 0);
+        EXPECT_EQ(state["rootChildren"], json::array()); EXPECT_EQ(xf->GetCommitState()["managedCount"], 0);
+        EXPECT_FALSE(xf->IsElementAlive(0));
+    }
+    size_t FormatCount() { return xf->m_floatFormatChars.size(); }
 };
 
-// --- RemoveElement tests ---
-
-TEST_F(XFramesTest, RemoveElement_SingleNode) {
-    InsertNode(1);
-    LinkChildren(0, {1});
-
-    ASSERT_THAT(HasElement(1), IsTrue());
-    ASSERT_THAT(HasHierarchyEntry(1), IsTrue());
-
-    DirectRemoveElement(1);
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(1), IsFalse());
+TEST_F(XFramesTest, PublicationSingleNodeUnmountKeepsOnlyVirtualContainer) {
+    AssertEmpty();
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    EXPECT_EQ(Publish().destroyedIds, (std::vector<int>{1}));
+    AssertEmpty();
+}
+TEST_F(XFramesTest, PublicationDeepRemovalIsOrderedAndComplete) {
+    Publish({{0, {1}}, {1, {2, 4}}, {2, {3}}, {3, {}}, {4, {}}}, {Create(1), Create(2), Create(3), Create(4)});
+    EXPECT_EQ(Publish().destroyedIds, (std::vector<int>{3, 2, 4, 1}));
+    AssertEmpty();
+}
+TEST_F(XFramesTest, PublicationPartialRootRemovalPreservesSiblingIdentity) {
+    Publish({{0, {1, 2}}, {1, {3}}, {2, {}}, {3, {}}}, {Create(1), Create(2), Create(3)});
+    auto survivor = ElementAt(2);
+    EXPECT_EQ(Publish({{0, {2}}, {2, {}}}).destroyedIds, (std::vector<int>{3, 1}));
+    EXPECT_EQ(ElementAt(2), survivor);
+    EXPECT_EQ(xf->GetChildren(0), (std::vector<int>{2}));
+}
+TEST_F(XFramesTest, PublicationReplacementDestroysOnlyOldLifetimes) {
+    Publish({{0, {1, 2}}, {1, {}}, {2, {}}}, {Create(1), Create(2)});
+    EXPECT_EQ(Publish({{0, {3, 4}}, {3, {}}, {4, {}}}, {Create(3), Create(4)}).destroyedIds, (std::vector<int>{1, 2}));
+    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 2);
+}
+TEST_F(XFramesTest, PublicationReorderAndInsertionKeepHierarchyAndYogaConsistent) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}}, {Create(1), Create(2), Create(3)});
+    auto survivor = ElementAt(3);
+    EXPECT_TRUE(Publish({{0, {1}}, {1, {3, 4, 2}}, {3, {}}, {4, {}}, {2, {}}}, {Create(4)}).destroyedIds.empty());
+    const auto state = xf->GetDiagnosticsState();
+    EXPECT_EQ(ElementAt(3), survivor);
+    EXPECT_EQ(Node(state, 1)["children"], json::array({3, 4, 2}));
+    EXPECT_EQ(Node(state, 1)["yogaChildren"], json::array({3, 4, 2}));
+    EXPECT_EQ(Node(state, 4)["yogaParent"], 1);
+}
+TEST_F(XFramesTest, PublicationIdenticalAndEmptyTreesAdvanceExactlyOnce) {
+    EXPECT_EQ(Publish().nativeRevision, 1);
+    EXPECT_EQ(Publish({{0, {1}}, {1, {}}}, {Create(1)}).nativeRevision, 2);
+    auto element = ElementAt(1);
+    auto unchanged = Publish({{0, {1}}, {1, {}}}, {Patch(1, json::object())});
+    EXPECT_EQ(unchanged.nativeRevision, 3); EXPECT_EQ(unchanged.nativeSequence, 3);
+    EXPECT_EQ(ElementAt(1), element); EXPECT_TRUE(unchanged.destroyedIds.empty());
+    EXPECT_EQ(Publish().nativeRevision, 4); EXPECT_EQ(Publish().nativeRevision, 5);
+    AssertEmpty();
+}
+TEST_F(XFramesTest, PublicationDoesNotDestroyGlobalFloatFormats) {
+    ASSERT_EQ(FormatCount(), 10);
+    Publish({{0, {3}}, {3, {}}}, {Create(3)});
+    Publish(); EXPECT_EQ(FormatCount(), 10);
+}
+TEST_F(XFramesTest, PublicationRejectsOldWireVersionAndRemovedOperations) {
+    Reject({{"schemaVersion", 1}, {"surfaceId", 0}, {"operations", json::array()}}, "unsupported_version");
+    Reject(Wire({}, {{{"op", "appendChild"}, {"parentId", 1}, {"childId", 2}}}), "unsupported_operation", 0);
+}
+TEST_F(XFramesTest, PublicationEnvelopeValidationIsStrictAndNonMutating) {
+    for (const auto& [field, value, code] : std::vector<std::tuple<std::string, json, const char*>>{
+        {"surfaceId", 1, "unsupported_surface"}, {"surfaceId", "0", "unsupported_surface"},
+        {"schemaVersion", 99, "unsupported_version"}, {"operations", json::object(), "invalid_field"},
+        {"rootChildren", json::object(), "invalid_field"}, {"sequence", 1, "unknown_field"},
+        {"correlationId", std::string(129, 'a'), "invalid_field"}}) {
+        auto wire = Wire(); wire[field] = value; Reject(wire, code);
+    }
+    for (const auto& field : {"schemaVersion", "surfaceId", "baseRevision", "rootChildren", "operations"}) {
+        auto wire = Wire(); wire.erase(field); Reject(wire, "missing_field");
+    }
+    const auto invalid = xf->ApplyCommit("{"); ASSERT_TRUE(invalid.error); EXPECT_EQ(invalid.error->code, "invalid_json");
+    AssertEmpty(); EXPECT_EQ(Publish().nativeRevision, 1);
+}
+TEST_F(XFramesTest, PublicationIdsAndRevisionStringsHaveLosslessRanges) {
+    for (auto id : json::array({0, -1, 1.5, 2147483648LL, 9007199254740993LL, "2", nullptr})) {
+        auto op = Create(2); op["id"] = id; Reject(Wire({}, {op}), "invalid_id", 0);
+    }
+    for (auto revision : json::array({0, "", "00", "01", "-1", "+1", "1.0", "18446744073709551616", nullptr})) {
+        auto wire = Wire(); wire["baseRevision"] = revision; Reject(wire, "invalid_field");
+    }
+    Publish({{0, {2147483647}}, {2147483647, {}}}, {Create(2147483647)});
+}
+TEST_F(XFramesTest, PublicationRejectsStaleRevisionAndAllowsExplicitRecovery) {
+    auto stale = Wire({{0, {1}}, {1, {}}}, {Create(1)});
+    Publish(); Reject(stale, "stale_revision");
+    stale["baseRevision"] = "1";
+    EXPECT_EQ(xf->ApplyCommit(stale.dump()).status, "applied");
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "2");
+}
+TEST_F(XFramesTest, PublicationValidatesEntireCandidateBeforeApplyingAPrefix) {
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    const std::vector<std::pair<json, const char*>> invalid = {
+        {Create(1), "duplicate_id"}, {Create(3, "unknown"), "invalid_element_type"},
+        {Patch(999, json::object()), "missing_target"}, {Patch(1, {{"id", "public"}}), "immutable_identity"},
+        {Patch(1, {{"type", "node"}}), "immutable_identity"}, {Patch(1, {{"root", true}}), "immutable_identity"},
+        {Patch(1, {{"style", {{"border", {{"thickness", "bad"}}}}}}), "invalid_props"},
+        {Create(3, "di-table", {{"columns", json::array({{{"heading", "missing fieldId"}}})}}), "invalid_props"}
+    };
+    for (const auto& [operation, code] : invalid)
+        Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2), Patch(1, {{"style", {{"width", 123}}}}), operation}), code, 2);
+}
+TEST_F(XFramesTest, PublicationRequiresOneAssignmentForEveryFinalNode) {
+    Reject(Wire({{0, {1}}}, {Create(1)}), "missing_children");
+    Reject(Wire({{0, {1}}, {1, {}}}, {Create(1), Children(1, {})}), "duplicate_assignment", 2);
+    Reject(Wire({{0, {1}}, {1, {99}}}, {Create(1)}), "missing_target", 1);
+    Reject(Wire({{0, {1}}, {1, {2, 2}}, {2, {}}}, {Create(1), Create(2)}), "duplicate_child", 2);
+    Reject(Wire({{0, {1, 1}}, {1, {}}}, {Create(1)}), "duplicate_child");
+}
+TEST_F(XFramesTest, PublicationRejectsUnreachableCreatesPatchesAndDeclarations) {
+    Reject(Wire({}, {Create(1)}), "unreachable_operation", 0);
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    Reject(Wire({}, {Patch(1, json::object())}), "unreachable_operation", 0);
+    Reject(Wire({{1, {}}}), "unreachable_operation", 0);
+}
+TEST_F(XFramesTest, PublicationValidatesFinalOwnershipCyclesAndRootRestrictions) {
+    Reject(Wire({{0, {1, 2}}, {1, {3}}, {2, {3}}, {3, {}}}, {Create(1), Create(2), Create(3)}), "multiple_parents");
+    Reject(Wire({{1, {2}}, {2, {1}}}, {Create(1), Create(2)}), "cycle");
+    Reject(Wire({{0, {1}}, {1, {1}}}, {Create(1)}), "cycle");
+    Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(1), Create(2, "node", {{"root", true}})}), "invalid_relationship");
+    Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(1, "unformatted-text", {{"text", "leaf"}}), Create(2)}), "invalid_relationship");
+}
+TEST_F(XFramesTest, PublicationAllowsForwardReferencesAndOrderedPatches) {
+    auto wire = Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Patch(2, {{"style", {{"width", 21}}}}), Create(2), Create(1), Patch(2, {{"style", {{"width", 42}}}})});
+    std::reverse(wire["operations"].begin() + 4, wire["operations"].end());
+    auto result = xf->ApplyCommit(wire.dump()); ASSERT_EQ(result.status, "applied") << result.ToJson();
+    EXPECT_EQ(YGNodeStyleGetWidth(ElementAt(2)->m_layoutNode->m_node).value, 42);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["yogaParent"], 1);
+}
+TEST_F(XFramesTest, PublicationCannotDestroyAndRecreateAnAcknowledgmentIdentity) {
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(1), Create(2)});
+    Reject(Wire({{0, {1, 2}}, {1, {}}, {2, {}}}, {Create(2)}), "duplicate_id", 0);
+    EXPECT_EQ(Publish({{0, {1}}, {1, {}}}).destroyedIds, (std::vector<int>{2}));
+    Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}), "missing_target");
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2)}); // explicitly new lifetime, later publication
+}
+TEST_F(XFramesTest, PublicationNeitherAdoptsNorSweepsUnownedObjects) {
+    InsertUnowned(99); auto unowned = ElementAt(99);
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    Reject(Wire({{0, {1, 99}}, {1, {}}, {99, {}}}), "ownership_conflict");
+    Publish(); EXPECT_EQ(ElementAt(99), unowned); EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 1);
+    SetUnownedRoot(99);
+    Reject(Wire(), "ownership_conflict");
+}
+TEST_F(XFramesTest, PublicationCountersSurviveDiagnosticTogglesAndSubjectSetup) {
+    auto wire = Wire(); wire["correlationId"] = "opaque";
+    EXPECT_EQ(xf->ApplyCommit(wire.dump()).ToJson()["correlationId"], "opaque");
+    xf->SetDiagnosticsEnabled(true); Publish(); xf->SetDiagnosticsEnabled(false); xf->SetUpSubjects(); Publish();
+    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], "3"); EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "3");
+    EXPECT_TRUE(LastRequestExpired());
+}
+TEST_F(XFramesTest, PublicationCountersRemainLosslessAndOverflowRejects) {
+    SetCounters(9007199254740992ULL, 9007199254740992ULL);
+    EXPECT_EQ(Publish().ToJson()["nativeRevision"], "9007199254740993");
+    SetCounters(UINT64_MAX, 12); Reject(Wire(), "counter_overflow");
+    SetCounters(12, UINT64_MAX); Reject(Wire(), "counter_overflow");
+}
+TEST_F(XFramesTest, PublicationCompetingWritersCannotOverwriteAStaleTree) {
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    const auto wire = Wire({{0, {1}}, {1, {}}}, {Patch(1, {{"style", {{"width", 30}}}})}).dump();
+    std::barrier rendezvous(3);
+    xframes::CommitResult first, second;
+    std::thread a([&] { rendezvous.arrive_and_wait(); first = xf->ApplyCommit(wire); });
+    std::thread b([&] { rendezvous.arrive_and_wait(); second = xf->ApplyCommit(wire); });
+    rendezvous.arrive_and_wait(); a.join(); b.join();
+    EXPECT_EQ((first.status == "applied") + (second.status == "applied"), 1);
+    const auto& rejected = first.status == "rejected" ? first : second;
+    ASSERT_TRUE(rejected.error); EXPECT_EQ(rejected.error->code, "stale_revision");
+    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "2");
 }
 
-TEST_F(XFramesTest, RemoveElement_RecursivelyRemovesChildren) {
-    InsertNode(1);
-    InsertNode(2);
-    InsertNode(3);
-    LinkChildren(0, {1});
-    LinkChildren(1, {2});
-    LinkChildren(2, {3});
-
-    DirectRemoveElement(1);
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasElement(2), IsFalse());
-    EXPECT_THAT(HasElement(3), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(1), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(2), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(3), IsFalse());
-}
-
-TEST_F(XFramesTest, RemoveElement_DoesNotAffectSiblings) {
-    InsertNode(1);
-    InsertNode(2);
-    LinkChildren(0, {1, 2});
-
-    DirectRemoveElement(1);
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasElement(2), IsTrue());
-    EXPECT_THAT(HasHierarchyEntry(2), IsTrue());
-}
-
-TEST_F(XFramesTest, RemoveElement_NonExistentId) {
-    DirectRemoveElement(999);
-
-    // Root element still intact
-    EXPECT_THAT(HasElement(0), IsTrue());
-}
-
-TEST_F(XFramesTest, RemoveElement_DoesNotCorruptFloatFormatChars) {
-    ASSERT_THAT(FloatFormatCharsCount(), Eq(10u));
-    ASSERT_THAT(HasFloatFormatChar(3), IsTrue());
-
-    InsertNode(3);
-    LinkChildren(0, {3});
-
-    DirectRemoveElement(3);
-
-    // All 10 global format strings must survive
-    EXPECT_THAT(FloatFormatCharsCount(), Eq(10u));
-    EXPECT_THAT(HasFloatFormatChar(3), IsTrue());
-}
-
-TEST_F(XFramesTest, RemoveElement_ErasesInternalOpsSubject) {
-    InsertNode(5);
-    LinkChildren(0, {5});
-
-    InjectInternalOpsSubject(5);
-    ASSERT_THAT(HasInternalOpsSubject(5), IsTrue());
-
-    DirectRemoveElement(5);
-
-    EXPECT_THAT(HasInternalOpsSubject(5), IsFalse());
-}
-
-// --- SetChildren orphan cleanup tests ---
-
-TEST_F(XFramesTest, SetChildren_OrphanedChildrenAreRemoved) {
-    InsertNode(1);
-    InsertNode(2);
-    InsertNode(3);
-    LinkChildren(0, {1, 2, 3});
-
-    CallSetChildren(0, {1}); // orphans 2 and 3
-
-    EXPECT_THAT(HasElement(1), IsTrue());
-    EXPECT_THAT(HasElement(2), IsFalse());
-    EXPECT_THAT(HasElement(3), IsFalse());
-    EXPECT_THAT(GetHierarchyChildren(0), Eq(std::vector<int>{1}));
-}
-
-TEST_F(XFramesTest, SetChildren_NonOrphanedChildrenPreserved) {
-    InsertNode(1);
-    InsertNode(2);
-    InsertNode(3);
-    InsertNode(4);
-    LinkChildren(0, {1, 2, 3});
-
-    CallSetChildren(0, {2, 3, 4}); // 1 orphaned, 2+3 preserved, 4 added
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasElement(2), IsTrue());
-    EXPECT_THAT(HasElement(3), IsTrue());
-    EXPECT_THAT(HasElement(4), IsTrue());
-    EXPECT_THAT(GetHierarchyChildren(0), Eq(std::vector<int>{2, 3, 4}));
-}
-
-TEST_F(XFramesTest, SetChildren_EmptyNewList) {
-    InsertNode(1);
-    InsertNode(2);
-    LinkChildren(0, {1, 2});
-
-    CallSetChildren(0, {});
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasElement(2), IsFalse());
-    EXPECT_THAT(GetHierarchyChildren(0), IsEmpty());
-}
-
-TEST_F(XFramesTest, SetChildren_CompleteReplacement) {
-    InsertNode(1);
-    InsertNode(2);
-    InsertNode(3);
-    InsertNode(4);
-    LinkChildren(0, {1, 2});
-
-    CallSetChildren(0, {3, 4});
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasElement(2), IsFalse());
-    EXPECT_THAT(HasElement(3), IsTrue());
-    EXPECT_THAT(HasElement(4), IsTrue());
-    EXPECT_THAT(GetHierarchyChildren(0), Eq(std::vector<int>{3, 4}));
-}
-
-TEST_F(XFramesTest, SetChildren_OrphanedSubtreeRecursivelyRemoved) {
-    InsertNode(1);
-    InsertNode(2);
-    InsertNode(3);
-    LinkChildren(0, {1});
-    LinkChildren(1, {2});
-    LinkChildren(2, {3});
-
-    CallSetChildren(0, {});
-
-    EXPECT_THAT(HasElement(1), IsFalse());
-    EXPECT_THAT(HasElement(2), IsFalse());
-    EXPECT_THAT(HasElement(3), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(1), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(2), IsFalse());
-    EXPECT_THAT(HasHierarchyEntry(3), IsFalse());
-}
-
-TEST_F(XFramesTest, SetChildren_IdenticalList) {
-    InsertNode(1);
-    InsertNode(2);
-    LinkChildren(0, {1, 2});
-
-    auto countBefore = ElementCount();
-
-    CallSetChildren(0, {1, 2});
-
-    EXPECT_THAT(HasElement(1), IsTrue());
-    EXPECT_THAT(HasElement(2), IsTrue());
-    EXPECT_THAT(ElementCount(), Eq(countBefore));
-}
-
-// These tests use the real serialized subject handlers and real ImGui/ImPlot
-// frame construction. No window, graphics driver, or fake native tree is involved.
+// The same subject path plus actual ImGui/ImPlot frame construction; no window
+// or graphics driver is involved. Real Node/Wasm suites establish GPU coverage.
 class XFramesQueueTest : public XFramesTest {
 protected:
     std::unique_ptr<ImPlotRenderer> renderer;
-
     void SetUp() override {
-        xf = std::make_unique<XFrames>("queue-test", std::nullopt);
+        XFramesTest::SetUp();
         std::string fonts = "{}";
-        renderer = std::make_unique<ImPlotRenderer>(xf.get(), "queue-test", "queue-test", fonts, std::nullopt);
-        auto& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2(900, 700);
-        io.DeltaTime = 1.0f / 60;
+        renderer = std::make_unique<ImPlotRenderer>(xf.get(), "publication-test", "publication-test", fonts, std::nullopt);
+        auto& io = ImGui::GetIO(); io.DisplaySize = ImVec2(900, 700); io.DeltaTime = 1.0f / 60;
         io.FontDefault = io.Fonts->AddFontDefault();
-        unsigned char* pixels;
-        int width, height;
-        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        xf->m_onInit = [] {};
-        xf->m_onTableSort = [](int, int, int) {};
-        xf->m_onTableFilter = [](int, int, const std::string&) {};
-        xf->m_onTableRowClick = [](int, int) {};
+        unsigned char* pixels; int width, height; io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+        xf->m_onInit = [] {}; xf->m_onTableSort = [](int, int, int) {};
+        xf->m_onTableFilter = [](int, int, const std::string&) {}; xf->m_onTableRowClick = [](int, int) {};
         xf->Init(renderer.get());
-        Create({{"id", 1}, {"type", "node"}, {"root", true}, {"style", {{"width", 850}, {"height", 650}}}});
-        xf->QueueSetChildren(0, {1});
+        Publish({{0, {1}}, {1, {}}}, {Create(1, "node", {{"root", true}, {"style", {{"width", 850}, {"height", 650}}}})});
     }
-
     void TearDown() override {
-        xf.reset();
-        ImPlot::DestroyContext();
-        ImGui::DestroyContext(renderer->m_imGuiCtx);
-        renderer.reset();
+        xf.reset(); ImPlot::DestroyContext(); ImGui::DestroyContext(renderer->m_imGuiCtx); renderer.reset();
     }
-
-    void Create(const json& definition) {
-        auto payload = definition.dump();
-        xf->QueueCreateElement(payload);
-    }
-
-    void Internal(int id, const json& operation) {
-        auto payload = operation.dump();
-        xf->QueueElementInternalOp(id, payload);
-    }
-
-    void Frame() {
-        xf->Render(900, 700);
-        // No GPU submission in this fixture; exercises the publication hook explicitly.
-        xf->CompleteDiagnosticsFrame();
-    }
-
-    json Node(const json& state, int id) {
-        for (const auto& node : state["elements"]) if (node["id"] == id) return node;
-        return nullptr;
-    }
+    void Frame() { xf->Render(900, 700); xf->CompleteDiagnosticsFrame(); }
 };
 
-TEST_F(XFramesQueueTest, QueueMaintainsHierarchyAndYogaOwnership) {
-    Create({{"id", 2}, {"type", "node"}});
-    Create({{"id", 3}, {"type", "node"}});
-    Create({{"id", 4}, {"type", "node"}});
-    xf->QueueAppendChild(1, 2);
-    xf->QueueAppendChild(1, 3);
-    xf->QueueAppendChild(2, 4);
-    auto state = xf->GetDiagnosticsState();
-    EXPECT_EQ(state["elementCount"], 4);
-    EXPECT_EQ(state["unreachableCount"], 0);
-    EXPECT_EQ(Node(state, 1)["children"], json::array({2, 3}));
-    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({4}));
-    EXPECT_EQ(Node(state, 4)["yogaParent"], 2);
-    xf->QueueSetChildren(1, {3, 2});
-    state = xf->GetDiagnosticsState();
-    EXPECT_EQ(Node(state, 1)["yogaChildren"], json::array({3, 2}));
-    xf->QueueSetChildren(1, {3});
-    state = xf->GetDiagnosticsState();
-    EXPECT_EQ(state["elementCount"], 2);
-    EXPECT_TRUE(Node(state, 2).is_null());
-    EXPECT_TRUE(Node(state, 4).is_null());
-}
-
-TEST_F(XFramesQueueTest, ImperativeDataAndSubjectsUseRealDelivery) {
+TEST_F(XFramesQueueTest, PublicationPreservesImperativeDataAndDestroysSubjects) {
     xf->SetDiagnosticsEnabled(true);
-    Create({{"id", 2}, {"type", "plot-bar"}, {"series", json::array({{{"label", "A"}}, {{"label", "B"}}})}});
-    Create({{"id", 3}, {"type", "di-table"}, {"columns", json::array({{{"fieldId", "value"}, {"heading", "Value"}, {"type", "number"}}})}});
-    xf->QueueSetChildren(1, {2, 3});
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}},
+        {Create(2, "plot-bar", {{"series", json::array({{{"label", "A"}}, {{"label", "B"}}})}}), Create(3, "di-table", TableProps())});
     Internal(2, {{"op", "appendSeriesData"}, {"seriesIndex", 1}, {"x", 42}, {"y", 100}});
-    Internal(3, {{"op", "setData"}, {"data", json::array({{{"value", 42}}})}});
+    Internal(3, {{"op", "setData"}, {"data", json::array({{{"v", 42}}})}});
     auto state = xf->GetDiagnosticsState();
     EXPECT_EQ(state["internalSubjectCount"], 2);
     EXPECT_EQ(Node(state, 2)["state"]["series"][1]["lastX"], 42);
     EXPECT_EQ(Node(state, 3)["state"]["rowCount"], 1);
-    EXPECT_DOUBLE_EQ(std::stod(Node(state, 3)["state"]["firstRow"]["value"].get<std::string>()), 42);
     EXPECT_GT(Node(state, 2)["lastInternalOpMs"].get<double>(), 0);
-    xf->QueueSetChildren(1, {});
-    state = xf->GetDiagnosticsState();
-    EXPECT_EQ(state["internalSubjectCount"], 0);
-    EXPECT_EQ(state["elementCount"], 1);
+    EXPECT_EQ(Publish({{0, {1}}, {1, {}}}).destroyedIds, (std::vector<int>{2, 3}));
     Internal(2, {{"op", "appendData"}, {"x", 43}, {"y", 0}});
-    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 1);
+    EXPECT_EQ(xf->GetDiagnosticsState()["internalSubjectCount"], 0);
+    EXPECT_FALSE(xf->IsElementAlive(2));
+}
+TEST_F(XFramesQueueTest, XF_LIFE_005_SameIdMovePreservesExactWidgetsSubjectsAndPopulatedData) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {4, 5}}, {3, {}}, {4, {}}, {5, {}}},
+        {Create(2), Create(3), Create(4, "plot-bar"), Create(5, "di-table", TableProps())});
+    Internal(4, {{"op", "appendData"}, {"x", 42}, {"y", 7}});
+    Internal(5, {{"op", "setData"}, {"data", json::array({{{"v", 19}}})}});
+    auto plot = ElementAt(4), table = ElementAt(5); auto yoga = plot->m_layoutNode->m_node;
+    auto subject = CopyInternalSubject(4); auto tableSubject = CopyInternalSubject(5);
+    const auto before = xf->GetDiagnosticsState();
+    // Receiving assignment precedes detachment in the envelope.
+    const auto result = Publish({{0, {1}}, {1, {2, 3}}, {3, {5, 4}}, {2, {}}, {4, {}}, {5, {}}});
+    EXPECT_TRUE(result.destroyedIds.empty()); EXPECT_EQ(ElementAt(4), plot); EXPECT_EQ(ElementAt(5), table);
+    EXPECT_EQ(plot->m_layoutNode->m_node, yoga);
+    EXPECT_EQ(CopyInternalSubject(4).get_disposable(), subject.get_disposable());
+    EXPECT_EQ(CopyInternalSubject(5).get_disposable(), tableSubject.get_disposable());
+    const auto after = xf->GetDiagnosticsState();
+    EXPECT_EQ(Node(after, 4)["state"], Node(before, 4)["state"]); EXPECT_EQ(Node(after, 5)["state"], Node(before, 5)["state"]);
+    EXPECT_EQ(Node(after, 2)["yogaChildren"], json::array()); EXPECT_EQ(Node(after, 3)["yogaChildren"], json::array({5, 4}));
+    EXPECT_EQ(Node(after, 4)["yogaParent"], 3); EXPECT_EQ(after["internalSubjectCount"], 2);
+    Frame();
+}
+TEST_F(XFramesQueueTest, PublicationMovesSurvivingDescendantsOutOfRemovedAncestors) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {4}}, {3, {}}, {4, {5}}, {5, {}}},
+        {Create(2), Create(3), Create(4), Create(5, "plot-bar")});
+    Internal(5, {{"op", "appendData"}, {"x", 21}, {"y", 8}}); auto plot = ElementAt(5);
+    EXPECT_EQ(Publish({{0, {1}}, {1, {3}}, {3, {5}}, {5, {}}}).destroyedIds, (std::vector<int>{4, 2}));
+    EXPECT_EQ(ElementAt(5), plot); EXPECT_EQ(Node(xf->GetDiagnosticsState(), 5)["yogaParent"], 3);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 5)["state"]["series"][0]["lastX"], 21); Frame();
+    EXPECT_EQ(Publish().destroyedIds, (std::vector<int>{5, 3, 1})); AssertEmpty();
+}
+TEST_F(XFramesQueueTest, PublicationDelayedSubjectCannotTargetAReusedNativeId) {
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "plot-bar")});
+    auto old = CopyInternalSubject(2);
+    Internal(2, {{"op", "appendData"}, {"x", 1}, {"y", 2}});
+    EXPECT_EQ(Publish({{0, {1}}, {1, {}}}).destroyedIds, (std::vector<int>{2}));
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "plot-bar")});
+    Internal(2, {{"op", "appendData"}, {"x", 10}, {"y", 20}});
+    old.get_observer().on_next({{"op", "appendData"}, {"x", 99}, {"y", 99}});
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"]["series"][0]["lastX"], 10);
+}
+TEST_F(XFramesQueueTest, PublicationGuardedNullRemovalPreservesWidgetData) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}}, {Create(2, "plot-bar"), Create(3, "di-table", TableProps())});
+    Internal(2, {{"op", "appendData"}, {"x", 12}, {"y", 21}}); Internal(3, {{"op", "setData"}, {"data", json::array({{{"v", 19}}})}});
+    const auto before = xf->GetDiagnosticsState();
+    Publish({{0, {1}}, {1, {2, 3, 4, 5, 6}}, {2, {}}, {3, {}}, {4, {}}, {5, {}}, {6, {}}}, {
+        Patch(2, {{"series", nullptr}, {"bullColor", nullptr}}), Patch(3, {{"columns", nullptr}, {"contextMenuItems", nullptr}, {"clipRows", nullptr}}),
+        Create(4, "multi-slider", {{"numValues", nullptr}, {"decimalDigits", nullptr}, {"defaultValues", nullptr}}),
+        Create(5, "color-indicator", {{"color", nullptr}}), Create(6, "di-window"),
+        Patch(6, {{"title", nullptr}, {"width", nullptr}, {"height", nullptr}}),
+        Patch(4, {{"style", {{"font", nullptr}, {"colors", nullptr}, {"vars", nullptr}, {"roundCorners", nullptr}}}})});
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"], Node(before, 2)["state"]);
+    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 3)["state"], Node(before, 3)["state"]);
+    EXPECT_EQ(Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}}).destroyedIds, (std::vector<int>{4, 5, 6}));
+}
+TEST_F(XFramesQueueTest, PublicationThousandCyclesReturnToBaselineIncludingMovesAndKeyedReplacement) {
+    Publish(); const auto baseline = xf->GetDiagnosticsState();
+    for (int cycle = 0; cycle < 1000; ++cycle) {
+        Publish({{0, {1}}, {1, {2, 3}}, {2, {4, 5}}, {3, {}}, {4, {}}, {5, {}}},
+            {Create(1, "node", {{"root", true}}), Create(2), Create(3), Create(4, "plot-bar"), Create(5, "di-table", TableProps())});
+        Internal(4, {{"op", "appendData"}, {"x", cycle}, {"y", 7}});
+        Internal(5, {{"op", "setData"}, {"data", json::array({{{"v", cycle}}})}});
+        auto plot = ElementAt(4);
+        Publish({{0, {1}}, {1, {2, 3}}, {3, {4, 5}}, {2, {}}, {4, {}}, {5, {}}});
+        ASSERT_EQ(ElementAt(4), plot); ASSERT_EQ(Node(xf->GetDiagnosticsState(), 4)["state"]["series"][0]["lastX"], cycle);
+        if (cycle % 2 == 0) {
+            EXPECT_EQ(Publish({{0, {1}}, {1, {}}}).destroyedIds, (std::vector<int>{2, 4, 5, 3}));
+            Publish();
+        } else {
+            EXPECT_EQ(Publish({{0, {1}}, {1, {3}}, {3, {6, 5}}, {6, {}}, {5, {}}}, {Create(6, "plot-bar")}).destroyedIds, (std::vector<int>{2, 4}));
+            Internal(6, {{"op", "appendData"}, {"x", cycle}, {"y", 9}});
+            EXPECT_EQ(Publish().destroyedIds, (std::vector<int>{6, 5, 3, 1}));
+        }
+        ASSERT_EQ(xf->GetDiagnosticsState(), baseline) << cycle;
+        ASSERT_TRUE(LastRequestExpired());
+    }
+    AssertEmpty();
+}
+TEST_F(XFramesQueueTest, PublicationFailureQuarantinesBeforeReadersOrDrawingCanResume) {
+    OnButtonCreate([] { throw std::runtime_error("injected constructor failure"); });
+    auto wire = Wire({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {}}}, {Create(2), Create(3, "di-button", {{"label", "fail"}})});
+    const auto result = xf->ApplyCommit(wire.dump());
+    EXPECT_EQ(result.status, "failed"); EXPECT_EQ(result.nativeSequence, 2); EXPECT_EQ(result.nativeRevision, 1);
+    ASSERT_TRUE(result.error); EXPECT_EQ(result.error->code, "application_error"); EXPECT_EQ(result.error->operationIndex, 1);
+    EXPECT_EQ(xf->GetCommitState()["surfaceStatus"], "quarantined");
+    EXPECT_FALSE(xf->IsElementAlive(1)); EXPECT_FALSE(xf->IsElementAlive(2));
+    EXPECT_THROW(xf->GetChildren(0), xframes::CommitError);
+    EXPECT_THROW(xf->GetDiagnosticsState(), xframes::CommitError);
+    const auto rejected = xf->ApplyCommit(Wire().dump()); ASSERT_TRUE(rejected.error); EXPECT_EQ(rejected.error->code, "surface_quarantined");
+    xf->SetDiagnosticsEnabled(true); Frame(); EXPECT_EQ(xf->GetDiagnosticsFrame()["surfaceStatus"], "quarantined");
+    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], "2"); EXPECT_TRUE(LastRequestExpired());
+}
+TEST_F(XFramesQueueTest, CanvasBootstrapFailureQuarantinesWithoutCallingApplicationScriptHandlers) {
+    for (const auto& type : {"di-js-canvas", "di-lua-canvas", "di-janet-canvas"}) {
+        SCOPED_TRACE(type);
+        xf = std::make_unique<XFrames>("bootstrap-failure", std::nullopt);
+        static int callbacks = 0;
+        callbacks = 0;
+        xf->m_onScriptError = [](int, const std::string&) { ++callbacks; };
+        BreakCanvasBootstrap(type);
+        const auto result = xf->ApplyCommit(Wire({{0, {1}}, {1, {2}}, {2, {}}},
+            {Create(1, "node", {{"root", true}}), Create(2, type)}).dump());
+        EXPECT_EQ(result.status, "failed"); ASSERT_TRUE(result.error);
+        EXPECT_EQ(result.error->code, "application_error"); EXPECT_EQ(result.error->operationIndex, 1);
+        EXPECT_EQ(result.nativeRevision, 0); EXPECT_EQ(result.nativeSequence, 1);
+        EXPECT_EQ(callbacks, 0); EXPECT_FALSE(xf->IsElementAlive(1)); EXPECT_FALSE(xf->IsElementAlive(2));
+        EXPECT_EQ(xf->GetCommitState()["surfaceStatus"], "quarantined");
+        EXPECT_TRUE(LastRequestExpired());
+        // Failed constructors must release their engine and GC ownership. A new
+        // runtime can still create and delete the same real widget normally.
+        xf = std::make_unique<XFrames>("after-bootstrap-failure", std::nullopt);
+        Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(1, "node", {{"root", true}}), Create(2, type)});
+        EXPECT_EQ(Publish().destroyedIds, (std::vector<int>{2, 1})); AssertEmpty();
+    }
+}
+TEST_F(XFramesQueueTest, PublicationVisibilityLocksExcludeCoordinatedReaderAndRendererThroughRealSubject) {
+    Publish({{0, {1}}, {1, {2, 4}}, {2, {}}, {4, {}}}, {Create(2), Create(4, "plot-bar")});
+    const auto next = Wire({{0, {1}}, {1, {3, 5}}, {3, {}}, {5, {}}},
+        {Create(3), Create(5, "di-button", {{"label", "new"}}), Patch(1, {{"style", {{"width", 400}}}})}).dump();
+    std::latch inside(1), probed(2), release(1);
+    OnButtonCreate([&] { inside.count_down(); release.wait(); });
+    auto writer = std::async(std::launch::async, [&] { return xf->ApplyCommit(next); });
+    inside.wait();
+    auto reader = std::async(std::launch::async, [&] {
+        ProbeVisibilityLocks(); probed.count_down(); return xf->GetDiagnosticsState();
+    });
+    auto render = std::async(std::launch::async, [&] {
+        ProbeVisibilityLocks(); probed.count_down(); xf->Render(900, 700);
+    });
+    probed.wait();
+    // These are nonblocking observations at a deterministic rendezvous, not
+    // sleep-based attempts to miss a race. Neither operation can pass tree locks.
+    EXPECT_EQ(reader.wait_for(std::chrono::seconds(0)), std::future_status::timeout);
+    EXPECT_EQ(render.wait_for(std::chrono::seconds(0)), std::future_status::timeout);
+    release.count_down();
+    const auto result = writer.get(); EXPECT_EQ(result.status, "applied");
+    EXPECT_EQ(result.destroyedIds, (std::vector<int>{2, 4}));
+    const auto state = reader.get(); render.get();
+    EXPECT_EQ(state["elementCount"], 3); EXPECT_EQ(state["internalSubjectCount"], 0);
+    EXPECT_EQ(Node(state, 1)["children"], json::array({3, 5})); EXPECT_EQ(Node(state, 1)["yogaChildren"], json::array({3, 5}));
+    EXPECT_TRUE(Node(state, 2).is_null()); EXPECT_TRUE(Node(state, 4).is_null());
+    EXPECT_EQ(YGNodeStyleGetWidth(ElementAt(1)->m_layoutNode->m_node).value, 400);
 }
 
 TEST_F(XFramesQueueTest, FrameDiagnosticsAreOptInAndPublishTheConstructedState) {
@@ -395,8 +468,7 @@ TEST_F(XFramesQueueTest, FrameDiagnosticsAreOptInAndPublishTheConstructedState) 
     xf->SetDiagnosticsEnabled(true);
     xf->Render(900, 700);
     // Mutations after construction must not be misattributed to that frame.
-    Create({{"id", 2}, {"type", "node"}});
-    xf->QueueAppendChild(1, 2);
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2)});
     EXPECT_EQ(xf->GetDiagnosticsFrame()["frame"], 0);
     xf->CompleteDiagnosticsFrame();
     auto frame = xf->GetDiagnosticsFrame();
@@ -419,29 +491,13 @@ TEST_F(XFramesQueueTest, FrameDiagnosticsAreOptInAndPublishTheConstructedState) 
     EXPECT_EQ(xf->GetDiagnosticsFrame()["frame"], 2);
 }
 
-TEST_F(XFramesQueueTest, RepeatedQueueLifecycleReturnsNativeCountsToBaseline) {
-    const auto baseline = xf->GetDiagnosticsState();
-    for (int cycle = 0; cycle < 1000; ++cycle) {
-        Create({{"id", 2}, {"type", "node"}});
-        Create({{"id", 3}, {"type", "plot-bar"}});
-        xf->QueueAppendChild(2, 3);
-        xf->QueueSetChildren(1, {2});
-        Internal(3, {{"op", "appendData"}, {"x", cycle}, {"y", 1}});
-        xf->QueueSetChildren(1, {});
-        const auto state = xf->GetDiagnosticsState();
-        ASSERT_EQ(state["elementCount"], baseline["elementCount"]) << cycle;
-        ASSERT_EQ(state["hierarchyCount"], baseline["hierarchyCount"]) << cycle;
-        ASSERT_EQ(state["internalSubjectCount"], baseline["internalSubjectCount"]) << cycle;
-    }
-}
 
 TEST_F(XFramesQueueTest, TableRenderAppliesNumericSortAndTypedFilters) {
     xf->SetDiagnosticsEnabled(true);
-    Create({{"id", 2}, {"type", "di-table"}, {"filterable", true}, {"clipRows", 10},
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "di-table", {{"filterable", true}, {"clipRows", 10},
         {"style", {{"width", 600}, {"height", 350}}},
         {"columns", json::array({{{"fieldId", "value"}, {"heading", "Value"}, {"type", "number"}, {"defaultSort", true}},
-                                {{"fieldId", "used"}, {"heading", "Used"}, {"type", "boolean"}}})}});
-    xf->QueueSetChildren(1, {2});
+                                {{"fieldId", "used"}, {"heading", "Used"}, {"type", "boolean"}}})}})});
     Internal(2, {{"op", "setData"}, {"data", json::array({{{"value", 20}, {"used", true}},
         {{"value", 3}, {"used", false}}, {{"value", 100}, {"used", true}}})}});
     Frame();
@@ -455,328 +511,4 @@ TEST_F(XFramesQueueTest, TableRenderAppliesNumericSortAndTypedFilters) {
     Internal(2, {{"op", "setColumnFilter"}, {"columnIndex", 0}, {"filterText", "20"}});
     Frame();
     EXPECT_EQ(Node(xf->GetDiagnosticsFrame(), 2)["state"]["filteredCount"], 1);
-}
-
-TEST_F(XFramesQueueTest, CharacterizeSameIdReparentDefect) {
-    Create({{"id", 2}, {"type", "node"}});
-    Create({{"id", 3}, {"type", "node"}});
-    Create({{"id", 4}, {"type", "plot-bar"}});
-    xf->QueueSetChildren(1, {2, 3});
-    xf->QueueAppendChild(2, 4);
-    Internal(4, {{"op", "appendData"}, {"x", 12}, {"y", 4}});
-    xf->QueueSetChildren(2, {});
-    xf->QueueSetChildren(3, {4});
-    auto state = xf->GetDiagnosticsState();
-    const bool reparentInvariant = !Node(state, 4).is_null();
-    EXPECT_FALSE(reparentInvariant) << "XPASS XF-LIFE-005: remove the expected failure after reparenting is fixed";
-    EXPECT_EQ(state["elementCount"], 3) << "XF-LIFE-005 signature changed";
-    EXPECT_EQ(Node(state, 3)["children"], json::array({4}));
-    EXPECT_EQ(Node(state, 3)["yogaChildren"], json::array());
-    xf->QueueSetChildren(0, {});
-    state = xf->GetDiagnosticsState();
-    EXPECT_EQ(state["elementCount"], 0);
-    EXPECT_EQ(state["unreachableCount"], 0);
-    RecordProperty("known_defects", "XF-LIFE-005");
-}
-
-TEST_F(XFramesQueueTest, VirtualContainerAcknowledgesDeepDestructionAndPreservesSurvivors) {
-    Create({{"id", 2}, {"type", "node"}, {"root", true}});
-    Create({{"id", 3}, {"type", "plot-bar"}});
-    Create({{"id", 4}, {"type", "di-table"}, {"columns", json::array({{{"fieldId", "value"}, {"heading", "Value"}, {"type", "number"}}})}});
-    xf->QueueSetChildren(1, {3});
-    xf->QueueSetChildren(2, {4});
-    EXPECT_TRUE(xf->QueueSetChildren(0, {1, 2}).empty());
-    Internal(4, {{"op", "setData"}, {"data", json::array({{{"value", 42}}})}});
-    const auto survivor = Node(xf->GetDiagnosticsState(), 4);
-    EXPECT_TRUE(xf->QueueSetChildren(0, {2, 1}).empty());
-    EXPECT_EQ(xf->QueueSetChildren(0, {2}), (std::vector<int>{3, 1}));
-    const auto state = xf->GetDiagnosticsState();
-    EXPECT_EQ(state["elementCount"], 2);
-    EXPECT_EQ(state["hierarchyCount"], 3);
-    EXPECT_EQ(state["internalSubjectCount"], 1);
-    EXPECT_EQ(Node(state, 4)["state"], survivor["state"]);
-    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({4}));
-    EXPECT_EQ(Node(state, 4)["yogaParent"], 2);
-    EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{4, 2}));
-    EXPECT_TRUE(xf->QueueSetChildren(0, {}).empty());
-    EXPECT_TRUE(xf->QueueSetChildren(2, {}).empty());
-    EXPECT_TRUE(xf->GetChildren(2).empty()); // a stale read must not recreate metadata
-    Internal(4, {{"op", "setData"}, {"data", json::array()}});
-    EXPECT_FALSE(xf->IsElementAlive(4));
-    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 0);
-    EXPECT_EQ(xf->GetDiagnosticsState()["hierarchyCount"], 1);
-    EXPECT_EQ(xf->GetDiagnosticsState()["internalSubjectCount"], 0);
-}
-
-TEST_F(XFramesQueueTest, ThousandPopulatedRootUnmountsReturnExactLifetimeResults) {
-    EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{1}));
-    const auto baseline = xf->GetDiagnosticsState();
-    for (int cycle = 0; cycle < 1000; ++cycle) {
-        Create({{"id", 1}, {"type", "node"}, {"root", true}});
-        Create({{"id", 2}, {"type", "plot-bar"}});
-        Create({{"id", 3}, {"type", "di-table"}, {"columns", json::array({{{"fieldId", "value"}, {"heading", "Value"}, {"type", "number"}}})}});
-        xf->QueueSetChildren(1, {2, 3});
-        xf->QueueSetChildren(0, {1});
-        Internal(2, {{"op", "appendData"}, {"x", cycle}, {"y", 7}});
-        ASSERT_TRUE(xf->IsElementAlive(2));
-        ASSERT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"]["series"][0]["lastX"], cycle);
-        if (cycle % 2 == 0) {
-            ASSERT_EQ(xf->QueueSetChildren(1, {}), (std::vector<int>{2, 3}));
-            ASSERT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{1}));
-        } else {
-            ASSERT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{2, 3, 1}));
-        }
-        const auto state = xf->GetDiagnosticsState();
-        ASSERT_EQ(state["elementCount"], baseline["elementCount"]) << cycle;
-        ASSERT_EQ(state["hierarchyCount"], baseline["hierarchyCount"]) << cycle;
-        ASSERT_EQ(state["internalSubjectCount"], baseline["internalSubjectCount"]) << cycle;
-        ASSERT_TRUE(xf->QueueSetChildren(0, {}).empty());
-    }
-}
-
-TEST_F(XFramesQueueTest, DelayedSubjectDeliveryCannotMutateAReusedNativeId) {
-    Create({{"id", 2}, {"type", "plot-bar"}});
-    xf->QueueSetChildren(1, {2});
-    auto oldSubject = CopyInternalSubject(2);
-    oldSubject.get_observer().on_next({{"op", "appendData"}, {"x", 1}, {"y", 2}});
-    ASSERT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"]["series"][0]["lastX"], 1);
-    ASSERT_EQ(xf->QueueSetChildren(1, {}), (std::vector<int>{2}));
-    Create({{"id", 2}, {"type", "plot-bar"}});
-    xf->QueueSetChildren(1, {2});
-    Internal(2, {{"op", "appendData"}, {"x", 10}, {"y", 20}});
-    oldSubject.get_observer().on_next({{"op", "appendData"}, {"x", 99}, {"y", 99}});
-    const auto state = xf->GetDiagnosticsState();
-    EXPECT_EQ(Node(state, 2)["state"]["series"][0]["lastX"], 10);
-    EXPECT_EQ(Node(state, 2)["state"]["series"][0]["count"], 1);
-    EXPECT_EQ(state["internalSubjectCount"], 1);
-}
-
-TEST_F(XFramesQueueTest, DestructionResultsReportEachActualElementOnlyOnce) {
-    Create({{"id", 2}, {"type", "plot-bar"}});
-    xf->QueueSetChildren(1, {2});
-    // Virtual roots have no Yoga owner, allowing this duplicate incoming list.
-    xf->QueueSetChildren(0, {1, 1});
-    EXPECT_EQ(xf->QueueSetChildren(0, {}), (std::vector<int>{2, 1}));
-    EXPECT_TRUE(xf->QueueSetChildren(0, {}).empty());
-    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 0);
-}
-
-
-namespace {
-json Transaction(std::initializer_list<json> operations) {
-    return {{"schemaVersion", 1}, {"surfaceId", 0}, {"operations", std::vector<json>(operations)}};
-}
-json TxCreate(int id, std::string type = "node", json props = json::object()) {
-    return {{"op", "create"}, {"id", id}, {"elementType", type}, {"props", props}};
-}
-json TxChildren(int id, std::initializer_list<int> children) {
-    return {{"op", "setChildren"}, {"parentId", id}, {"childrenIds", std::vector<int>(children)}};
-}
-json TxPatch(int id, json props) { return {{"op", "patch"}, {"id", id}, {"props", props}}; }
-json TxAppend(int parent, int child) { return {{"op", "appendChild"}, {"parentId", parent}, {"childId", child}}; }
-}
-
-TEST_F(XFramesQueueTest, CommitSeveralOperationsShareOneRevisionAndPreserveWidgetData) {
-    const auto result = xf->ApplyCommit(Transaction({TxCreate(2), TxCreate(3, "plot-bar"),
-        TxCreate(4, "di-table", {{"columns", json::array({{{"fieldId", "v"}, {"heading", "Value"}}})}}),
-        TxAppend(2, 3), TxAppend(2, 4), TxChildren(1, {2}),
-        TxPatch(3, {{"series", json::array({{{"label", "Updated"}}})}})}).dump()).ToJson();
-    ASSERT_EQ(result["status"], "applied") << result;
-    EXPECT_EQ(result["nativeSequence"], "3"); EXPECT_EQ(result["nativeRevision"], "3");
-    EXPECT_EQ(result["destroyedIds"], json::array());
-    Internal(3, {{"op", "appendData"}, {"x", 42}, {"y", 7}});
-    Internal(4, {{"op", "setData"}, {"data", json::array({{{"v", 19}}})}});
-    auto state = xf->GetDiagnosticsState();
-    const auto plot = Node(state, 3)["state"], table = Node(state, 4)["state"];
-    EXPECT_EQ(plot["series"][0]["lastX"], 42); EXPECT_EQ(plot["series"][0]["label"], "Updated");
-    EXPECT_EQ(table["rowCount"], 1);
-    const auto reordered = xf->ApplyCommit(Transaction({TxChildren(2, {4, 3}), TxPatch(3, {{"showLegend", true}, {"series", json::array({{{"label", "Updated"}}})}})}).dump());
-    ASSERT_EQ(reordered.status, "applied"); EXPECT_EQ(reordered.nativeRevision, 4);
-    state = xf->GetDiagnosticsState();
-    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({4, 3}));
-    EXPECT_EQ(Node(state, 3)["state"], plot); EXPECT_EQ(Node(state, 4)["state"], table);
-    const auto removed = xf->ApplyCommit(Transaction({TxChildren(2, {4}), TxChildren(0, {})}).dump());
-    EXPECT_EQ(removed.destroyedIds, (std::vector<int>{3, 4, 2, 1})); EXPECT_EQ(removed.nativeRevision, 5);
-    state = xf->GetDiagnosticsState();
-    EXPECT_EQ(state["elementCount"], 0); EXPECT_EQ(state["hierarchyCount"], 1); EXPECT_EQ(state["internalSubjectCount"], 0);
-}
-
-TEST_F(XFramesQueueTest, CommitInvalidFinalOperationsLeaveEveryNativeStateFieldUnchanged) {
-    Create({{"id", 2}, {"type", "plot-bar"}}); xf->QueueSetChildren(1, {2});
-    Internal(2, {{"op", "appendData"}, {"x", 10}, {"y", 20}});
-    const auto before = xf->GetDiagnosticsState(), counters = xf->GetCommitState();
-    const std::vector<std::pair<json, std::string>> cases = {
-        {TxCreate(2), "duplicate_id"}, {TxPatch(999, json::object()), "missing_target"},
-        {TxCreate(3, "unknown"), "invalid_element_type"}, {TxChildren(1, {2, 2}), "duplicate_child"},
-        {TxChildren(1, {999}), "missing_target"}, {TxChildren(1, {1}), "cycle"},
-        {TxPatch(2, {{"id", "public"}}), "immutable_identity"}, {TxPatch(2, {{"type", "node"}}), "immutable_identity"},
-        {TxPatch(2, {{"axisAutoFit", "bad"}}), "invalid_props"},
-        {TxPatch(2, {{"series", json::array({{{"label", 3}}})}}), "invalid_props"},
-        {TxPatch(2, {{"style", {{"border", {{"thickness", "bad"}}}}}}), "invalid_props"},
-        {TxCreate(3, "di-table", {{"columns", json::array({{{"heading", "missing fieldId"}}})}}), "invalid_props"},
-        {{{"op", "future"}}, "unsupported_operation"}, {TxCreate(-1), "invalid_id"}
-    };
-    for (const auto& [invalid, code] : cases) {
-        auto wire = Transaction({TxCreate(8, "plot-bar"), TxPatch(2, {{"showLegend", true}}), invalid});
-        const auto result = xf->ApplyCommit(wire.dump()).ToJson(); SCOPED_TRACE(wire.dump());
-        ASSERT_EQ(result["status"], "rejected") << result;
-        EXPECT_EQ(result["error"]["code"], code); EXPECT_EQ(result["error"]["operationIndex"], 2);
-        EXPECT_EQ(result["destroyedIds"], json::array()); EXPECT_TRUE(result["nativeSequence"].is_null());
-        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump()); EXPECT_EQ(xf->GetCommitState(), counters);
-    }
-    auto rejected = xf->ApplyCommit(Transaction({TxChildren(1, {}), TxPatch(2, json::object())}).dump());
-    EXPECT_EQ(rejected.error->code, "destroyed_id"); EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
-    const auto recovery = xf->ApplyCommit(Transaction({TxChildren(1, {})}).dump());
-    EXPECT_EQ(recovery.status, "applied"); EXPECT_EQ(recovery.destroyedIds, (std::vector<int>{2}));
-}
-
-TEST_F(XFramesQueueTest, CommitRejectsEnvelopeAndIdErrorsAndRecovers) {
-    const auto before = xf->GetDiagnosticsState();
-    const std::vector<std::pair<std::string, std::string>> cases = {
-        {"{", "invalid_json"}, {"[]", "invalid_field"},
-        {R"({"schemaVersion":2,"surfaceId":0,"operations":[]})", "unsupported_version"},
-        {R"({"schemaVersion":1,"surfaceId":1,"operations":[]})", "unsupported_surface"},
-        {R"({"schemaVersion":1,"surfaceId":"0","operations":[]})", "unsupported_surface"},
-        {R"({"schemaVersion":1,"surfaceId":0})", "missing_field"},
-        {R"({"schemaVersion":1,"surfaceId":0,"operations":{}})", "invalid_field"},
-        {R"({"schemaVersion":1,"surfaceId":0,"operations":[],"sequence":1})", "unknown_field"}
-    };
-    for (const auto& [wire, code] : cases) {
-        const auto result = xf->ApplyCommit(wire); SCOPED_TRACE(wire);
-        ASSERT_TRUE(result.error.has_value()); EXPECT_EQ(result.status, "rejected"); EXPECT_EQ(result.error->code, code);
-        EXPECT_EQ(result.nativeRevision, 2); EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
-    }
-    for (const auto& id : json::array({0, -1, 1.5, 2147483648LL, 9007199254740993LL, "2", nullptr})) {
-        auto op = TxCreate(2); op["id"] = id;
-        const auto result = xf->ApplyCommit(Transaction({op}).dump());
-        ASSERT_TRUE(result.error.has_value()); EXPECT_EQ(result.error->code, "invalid_id");
-        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
-    }
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxCreate(2147483647)}).dump()).status, "applied");
-}
-
-TEST_F(XFramesQueueTest, CommitValidatesOrderedRelationshipsAndSameBatchIdReuse) {
-    const auto before = xf->GetDiagnosticsState();
-    const std::vector<std::pair<json, std::string>> cases = {
-        {Transaction({TxAppend(1, 2), TxCreate(2)}), "missing_target"},
-        {Transaction({TxCreate(2), TxCreate(2)}), "duplicate_id"},
-        {Transaction({TxCreate(2), TxAppend(1, 2), TxChildren(1, {}), TxCreate(2)}), "destroyed_id"},
-        {Transaction({TxCreate(2), TxAppend(1, 2), TxAppend(2, 1)}), "invalid_relationship"},
-        {Transaction({TxCreate(2), TxCreate(3), TxAppend(1, 2), TxAppend(3, 2)}), "multiple_parents"},
-        {Transaction({TxCreate(2, "unformatted-text", {{"text", "leaf"}}), TxCreate(3), TxAppend(2, 3)}), "invalid_relationship"},
-        {Transaction({TxCreate(2), TxCreate(3), TxAppend(2, 3), TxAppend(3, 2)}), "cycle"}
-    };
-    for (const auto& [wire, code] : cases) {
-        const auto result = xf->ApplyCommit(wire.dump()); SCOPED_TRACE(wire.dump());
-        ASSERT_TRUE(result.error.has_value()) << result.ToJson(); EXPECT_EQ(result.error->code, code);
-        EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
-    }
-}
-
-TEST_F(XFramesQueueTest, CommitEmptyNoOpsCompatibilityAndDiagnosticTogglesShareOrdering) {
-    auto wire = Transaction({}); wire["correlationId"] = "same-correlation-is-not-ordering";
-    EXPECT_EQ(xf->ApplyCommit(wire.dump()).nativeRevision, 3); EXPECT_EQ(xf->ApplyCommit(wire.dump()).nativeRevision, 4);
-    Create({{"id", 2}, {"type", "node"}}); xf->QueueAppendChild(1, 2);
-    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "6");
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxAppend(1, 2), TxPatch(2, json::object())}).dump()).nativeRevision, 7);
-    std::string props = "{}"; xf->QueuePatchElement(999, props);
-    EXPECT_TRUE(xf->QueueSetChildren(999, {}).empty()); xf->QueueAppendChild(999, 2);
-    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "10");
-    xf->SetDiagnosticsEnabled(true); xf->SetUpSubjects(); xf->SetDiagnosticsEnabled(false);
-    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], "10");
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxChildren(0, {})}).dump()).destroyedIds, (std::vector<int>{2, 1}));
-    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "11");
-}
-
-TEST_F(XFramesTest, CommitCountersRemainLosslessAndOverflowRejectsBeforeMutation) {
-    SetCommitCounters(9007199254740992ULL, 9007199254740992ULL);
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxCreate(1)}).dump()).ToJson()["nativeRevision"], "9007199254740993");
-    SetCommitCounters(UINT64_MAX, 12); const auto before = xf->GetDiagnosticsState();
-    auto result = xf->ApplyCommit(Transaction({TxCreate(2)}).dump()); ASSERT_TRUE(result.error.has_value());
-    EXPECT_EQ(result.error->code, "counter_overflow"); EXPECT_EQ(xf->GetDiagnosticsState().dump(), before.dump());
-    SetCommitCounters(12, UINT64_MAX); result = xf->ApplyCommit(Transaction({}).dump());
-    EXPECT_EQ(result.error->code, "counter_overflow");
-}
-
-TEST_F(XFramesTest, CommitApplicationFailureIsHonestAndDoesNotTerminateSubject) {
-    FailButtonCreation();
-    const auto result = xf->ApplyCommit(Transaction({TxCreate(1), TxCreate(2, "di-button", {{"label", "Fail"}})}).dump());
-    EXPECT_EQ(result.status, "failed"); ASSERT_TRUE(result.error.has_value());
-    EXPECT_EQ(result.error->code, "application_error"); EXPECT_EQ(result.error->operationIndex, 1);
-    EXPECT_EQ(result.nativeSequence, 1); EXPECT_EQ(result.nativeRevision, 0);
-    EXPECT_TRUE(xf->IsElementAlive(1)); // documented lack of arbitrary-failure rollback
-    EXPECT_TRUE(LastCommitRequestExpired());
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxCreate(3)}).dump()).nativeSequence, 2);
-    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "1");
-}
-
-
-TEST_F(XFramesTest, CommitCompetingStructuralCallsHaveOneNativeAuthority) {
-    std::vector<uint64_t> sequences;
-    std::mutex resultsMutex;
-    std::vector<std::thread> threads;
-    for (int thread = 0; thread < 4; ++thread) threads.emplace_back([&, thread] {
-        for (int i = 0; i < 30; ++i) {
-            const int id = 1000 + thread * 100 + i;
-            const auto result = xf->ApplyCommit(Transaction({TxCreate(id), TxAppend(0, id)}).dump());
-            EXPECT_EQ(result.status, "applied");
-            if (result.nativeSequence) {
-                std::lock_guard<std::mutex> lock(resultsMutex);
-                sequences.push_back(*result.nativeSequence);
-            }
-            // A stale legacy operation participates in the same serialization domain.
-            std::string props = "{}";
-            xf->QueuePatchElement(999999, props);
-        }
-    });
-    for (auto& thread : threads) thread.join();
-    EXPECT_EQ(sequences.size(), 120);
-    std::sort(sequences.begin(), sequences.end());
-    EXPECT_EQ(std::adjacent_find(sequences.begin(), sequences.end()), sequences.end());
-    EXPECT_EQ(xf->GetCommitState()["nativeSequence"], "240");
-    EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "240");
-    const auto removed = xf->ApplyCommit(Transaction({TxChildren(0, {})}).dump());
-    EXPECT_EQ(removed.destroyedIds.size(), 120);
-    EXPECT_EQ(xf->GetDiagnosticsState()["elementCount"], 1); // this fixture owns an actual node 0
-}
-
-TEST_F(XFramesQueueTest, CommitVirtualRootPartialRemovalPreservesTheSurvivingWidget) {
-    Create({{"id", 2}, {"type", "node"}, {"root", true}});
-    Create({{"id", 3}, {"type", "plot-bar"}});
-    xf->QueueAppendChild(2, 3);
-    xf->QueueSetChildren(0, {1, 2});
-    Internal(3, {{"op", "appendData"}, {"x", 12}, {"y", 21}});
-    const auto before = Node(xf->GetDiagnosticsState(), 3)["state"];
-    const auto result = xf->ApplyCommit(Transaction({TxChildren(0, {2, 1}), TxChildren(0, {2})}).dump());
-    EXPECT_EQ(result.status, "applied"); EXPECT_EQ(result.destroyedIds, (std::vector<int>{1}));
-    const auto state = xf->GetDiagnosticsState();
-    EXPECT_EQ(Node(state, 3)["state"], before);
-    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({3}));
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxChildren(0, {})}).dump()).destroyedIds, (std::vector<int>{3, 2}));
-}
-
-TEST_F(XFramesQueueTest, CommitGuardedNullPropRemovalPreservesWidgetData) {
-    ASSERT_EQ(xf->ApplyCommit(Transaction({
-        TxCreate(2, "plot-bar", {{"series", json::array({{{"label", "Keep"}}})}}),
-        TxCreate(3, "di-table", {{"columns", json::array({{{"fieldId", "v"}, {"heading", "Value"}}})}}),
-        TxChildren(1, {2, 3})}).dump()).status, "applied");
-    Internal(2, {{"op", "appendData"}, {"x", 12}, {"y", 21}});
-    Internal(3, {{"op", "setData"}, {"data", json::array({{{"v", 19}}})}});
-    const auto before = xf->GetDiagnosticsState();
-    std::string plotPatch = R"({"series":null,"bullColor":null})";
-    std::string tablePatch = R"({"columns":null,"contextMenuItems":null,"clipRows":null})";
-    xf->QueuePatchElement(2, plotPatch);
-    xf->QueuePatchElement(3, tablePatch);
-    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 2)["state"], Node(before, 2)["state"]);
-    EXPECT_EQ(Node(xf->GetDiagnosticsState(), 3)["state"], Node(before, 3)["state"]);
-    // Guarded scalar/style removals must remain no-ops at the same queue boundary.
-    const auto removedOptions = xf->ApplyCommit(Transaction({
-        TxCreate(4, "multi-slider", {{"numValues", nullptr}, {"decimalDigits", nullptr}, {"defaultValues", nullptr}}),
-        TxCreate(5, "color-indicator", {{"color", nullptr}}),
-        TxCreate(6, "di-window"),
-        TxPatch(6, {{"title", nullptr}, {"width", nullptr}, {"height", nullptr}}),
-        TxPatch(4, {{"style", {{"font", nullptr}, {"colors", nullptr}, {"vars", nullptr}, {"roundCorners", nullptr}}}}),
-        TxChildren(1, {2, 3, 4, 5, 6})}).dump());
-    EXPECT_EQ(removedOptions.status, "applied") << removedOptions.ToJson();
-    EXPECT_EQ(xf->ApplyCommit(Transaction({TxChildren(1, {2, 3})}).dump()).destroyedIds, (std::vector<int>{4, 5, 6}));
 }

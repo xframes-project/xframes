@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import React, { useEffect, useState } from "react";
 import { createBridge, createFakeBinding } from "./bridge";
 import { components } from "@xframes/common";
-import { check, knownFailure, waitFor, type InvariantResult } from "./assertions";
+import { check, waitFor, type InvariantResult } from "./assertions";
 
 const output = resolve(process.env.XFRAMES_DIAGNOSTICS_DIR ?? "./build/diagnostics");
 const { Table, PlotBar } = components;
@@ -26,8 +26,10 @@ async function scenario(name: string, run: (h: ReturnType<typeof createBridge>, 
         results.push({ name, status: "fail", error: String(error), checks, diagnostics: bridge.snapshot() });
         throw error;
     } finally {
-        bridge.dispose();
+        await bridge.dispose();
         assert.equal(bridge.manager.getDiagnostics().subscriptionClosed, true);
+        checks.push({ name: "bridge disposal releases its subscription", status: "pass", defect: "XF-LIFE-010" });
+        assert.deepEqual(bridge.rendererErrors, [], "No unaccounted React commit errors");
         save();
     }
 }
@@ -56,9 +58,15 @@ async function main() {
     assert.equal(state.registrations.reverseMappingCount, 0);
     const trace = state.operations.trace;
     const firstCommit = trace.findIndex(call => call.method === "completeRoot:enter");
-    const earlyCreates = trace.slice(0, firstCommit).filter(call => call.method === "setElement").length;
-    checks.push(knownFailure("prospective work stays out of native state", earlyCreates === 0,
-        "XF-LIFE-004", earlyCreates === 3, { earlyCreates }));
+    const earlyCalls = trace.slice(0, firstCommit).filter(call => call.method === "applyCommit").length;
+    assert.equal(earlyCalls, 0, "XF-LIFE-004: prospective work makes no native structural calls");
+    assert.equal(state.bridge.publications, state.bridge.structuralCalls);
+    assert.equal(state.bridge.publications, state.bridge.appliedPublications);
+    assert.equal(BigInt(state.bridge.nativeRevision!), BigInt(state.bridge.appliedPublications));
+    assert.equal(state.bridge.committedDescriptionCount, 0);
+    assert.equal(state.bridge.retainedCandidateCount, 0);
+    checks.push({ name: "unmount releases native and Fiber mappings", status: "pass", defect: "XF-LIFE-001" });
+    checks.push({ name: "prospective work stays out of native state", status: "pass", defect: "XF-LIFE-004" });
   });
 
   await scenario("React state, prop diff, and rapid updates", async (bridge, fake) => {
@@ -72,9 +80,170 @@ async function main() {
     for (let value = 1; value <= 25; value++) update!(value);
     await waitFor(() => [...fake.nodes.values()].find(node => node.type === "di-button")?.label,
         label => label === "value-25", "batched state update reaches native props");
-    check((bridge.observer.snapshot().counts.patchElement ?? 0) > 0, "No native prop patch observed");
+    check(bridge.manager.getDiagnostics().appliedPublications > 1, "No native prop publication observed");
     await bridge.render(null);
   });
+
+  await scenario("callback-only updates publish committed event props", async (bridge, fake) => {
+    const calls: string[] = [];
+    const render = (callback?: () => void) => bridge.render(React.createElement("node", { root: true }, leaf("event", "unchanged", callback)));
+    await render(() => calls.push("first"));
+    const target = bridge.registrations.captureWidget("event")!;
+    const revision = BigInt(bridge.manager.getDiagnostics().nativeRevision!);
+    bridge.manager.dispatchEvent(target.nativeId, "onClick", {});
+    await render(() => calls.push("second"));
+    assert.equal(bridge.registrations.captureWidget("event"), target);
+    assert.equal(BigInt(bridge.manager.getDiagnostics().nativeRevision!), revision + 1n);
+    assert.equal(fake.nodes.get(target.nativeId)!.label, "unchanged");
+    bridge.manager.dispatchEvent(target.nativeId, "onClick", {});
+    await render();
+    bridge.manager.dispatchEvent(target.nativeId, "onClick", {});
+    assert.deepEqual(calls, ["first", "second"]);
+  });
+
+  await scenario("independent prospective clones, same-ID move and abandoned ID reuse", async (bridge, fake, checks) => {
+    let clicks = 0;
+    await bridge.render(React.createElement("node", { root: true, id: "root" },
+        React.createElement("node", { id: "left" }, leaf("survivor", "original", () => clicks++)),
+        React.createElement("node", { id: "right" })));
+    const manager = bridge.manager;
+    const original = manager.fiberNodesMap.get(fake.children.get(0)![0]).stateNode.node;
+    const [left, right] = original.children;
+    const survivor = left.children[0];
+    const target = bridge.registrations.captureWidget("survivor")!;
+    const lease = bridge.registrations.registerTable(target);
+    const before = JSON.stringify([...fake.nodes]);
+    const publications = manager.getDiagnostics().publications;
+    assert.equal(manager.cloneNodeWithNewProps(original, { root: null }).props.root, true);
+    assert.throws(() => manager.cloneNodeWithNewProps(original, { root: false }), /Root metadata/);
+    assert.throws(() => manager.cloneNodeWithNewProps(original, { root: "true" }), /Root metadata must be boolean/);
+    const branchA = manager.cloneNodeWithNewProps(survivor, { label: "abandoned", id: "stolen" });
+    const branchB = manager.cloneNodeWithNewProps(survivor, { label: "committed" });
+    const abandoned = manager.cloneNodeWithNewChildren(original);
+    manager.appendChild(abandoned, branchA);
+    for (let i = 0; i < 1000; i++) {
+        const ignored = manager.createNode(1000000 + i, "di-button", 0, { id: "survivor", label: "discarded" }, {});
+        const attempt = manager.cloneNodeWithNewChildren(original);
+        manager.appendChild(attempt, ignored);
+    }
+    assert.equal(JSON.stringify([...fake.nodes]), before);
+    assert.equal(manager.getDiagnostics().publications, publications);
+    assert.equal(manager.getDiagnostics().retainedCandidateCount, 0);
+    assert.equal(bridge.registrations.captureWidget("survivor"), target);
+    assert.equal(bridge.registrations.captureWidget("stolen"), undefined);
+    assert.equal(manager.fiberNodesMap.get(survivor.id).stateNode.node, survivor);
+    manager.dispatchEvent(survivor.id, "onClick", {});
+    bridge.registrations.setTableData(target, [{ value: "pending" }]);
+    assert.equal(clicks, 1);
+    assert.equal(fake.internalOps.at(-1)!.live, true);
+    assert.equal(branchA.props.label, "abandoned");
+    assert.equal(branchB.props.label, "committed");
+    assert.equal(survivor.props.label, "original");
+    const movedRight = manager.cloneNodeWithNewChildren(right);
+    manager.appendChild(movedRight, branchB);
+    const finalRoot = manager.cloneNodeWithNewChildren(original);
+    manager.appendChild(finalRoot, movedRight); // left disappears; its child survives under right.
+    const set = manager.createChildSet();
+    manager.appendChildToSet(set, finalRoot);
+    manager.completeRoot(0, set);
+    assert.equal(fake.nodes.has(left.id), false);
+    assert.equal(fake.nodes.get(survivor.id)!.label, "committed");
+    assert.deepEqual(fake.children.get(right.id), [survivor.id]);
+    assert.equal(bridge.registrations.captureWidget("survivor"), target);
+    assert.equal(bridge.registrations.getDiagnostics().registrationCount, 1);
+    manager.dispatchEvent(survivor.id, "onClick", {});
+    assert.equal(clicks, 2);
+    assert.throws(() => manager.appendChild(finalRoot, branchA), TypeError, "Published children are immutable");
+    assert.throws(() => manager.createChildSet(1), /Unsupported Fabric surface/);
+    assert.throws(() => manager.createNode(999999, "node", 1, {}, {}), /Unsupported Fabric surface/);
+    assert.throws(() => manager.completeRoot(1, manager.createChildSet()), /Unsupported Fabric surface/);
+    assert.equal(manager.getDiagnostics().publications, publications + 1);
+    manager.completeRoot(0, manager.createChildSet());
+    assert.equal(target.alive, false);
+    assert.equal(bridge.registrations.getDiagnostics().registrationCount, 0);
+    lease();
+    checks.push({ name: "one-publication same-ID move preserves the JS lifetime", status: "pass", defect: "XF-LIFE-005" });
+  });
+
+  await scenario("Suspense transition keeps committed callbacks and IDs until reveal", async (bridge, fake) => {
+    let resume!: () => void;
+    let ready = false, attempts = 0;
+    const gate = new Promise<void>(resolve => { resume = () => { ready = true; resolve(); }; });
+    const calls: string[] = [];
+    function Suspend() { attempts++; if (!ready) throw gate; return null; }
+    const fixture = (pending: boolean) => React.createElement("node", { root: true },
+        React.createElement(React.Suspense, { fallback: leaf("fallback") },
+            React.createElement("node", null,
+                React.createElement("di-button", { key: "stable", id: pending ? "renamed" : "live", label: pending ? "next" : "old",
+                    onClick: pending ? () => calls.push("new") : () => calls.push("old") }),
+                pending && leaf("live", "prospective thief"), pending && React.createElement(Suspend))));
+    await bridge.render(fixture(false));
+    const live = bridge.registrations.captureWidget("live")!;
+    const lease = bridge.registrations.registerTable(live);
+    const baseline = bridge.manager.getDiagnostics();
+    let completed = false;
+    let transition!: Promise<void>;
+    React.startTransition(() => { transition = bridge.render(fixture(true)).then(() => { completed = true; }); });
+    await waitFor(() => attempts, count => count > 0, "transition suspended after prospective host completion");
+    assert.ok(bridge.manager.getDiagnostics().observedClones > baseline.observedClones);
+    assert.equal(bridge.manager.getDiagnostics().publications, baseline.publications);
+    assert.equal(completed, false);
+    assert.equal(fake.nodes.get(live.nativeId)!.label, "old");
+    assert.equal(bridge.registrations.captureWidget("live"), live);
+    assert.equal(bridge.registrations.captureWidget("renamed"), undefined);
+    bridge.manager.dispatchEvent(live.nativeId, "onClick", {});
+    bridge.registrations.setTableData(live, [{ value: "still committed" }]);
+    assert.deepEqual(calls, ["old"]);
+    assert.equal(fake.internalOps.at(-1)!.live, true);
+    resume();
+    await transition;
+    assert.equal(bridge.registrations.captureWidget("renamed"), live);
+    assert.notEqual(bridge.registrations.captureWidget("live"), live);
+    assert.equal(bridge.registrations.getDiagnostics().registrationCount, 1);
+    bridge.manager.dispatchEvent(live.nativeId, "onClick", {});
+    assert.deepEqual(calls, ["old", "new"]);
+    assert.equal(fake.nodes.get(live.nativeId)!.label, "next");
+    lease();
+  });
+
+  for (const failure of ["rejected", "failed", "invalid-acknowledgment"] as const) {
+    await scenario(`real Fabric ${failure} prevents success and invalidates handles`, async (bridge, fake) => {
+      await bridge.render(tree(["old"]));
+      const target = bridge.registrations.captureWidget("old")!;
+      bridge.registrations.registerTable(target);
+      const before = JSON.stringify([...fake.nodes]);
+      const revision = bridge.manager.getDiagnostics().nativeRevision;
+      const apply = fake.binding.applyCommit;
+      fake.binding.applyCommit = wire => {
+        if (failure === "invalid-acknowledgment") {
+          const result = JSON.parse(apply(wire));
+          result.destroyedIds = [];
+          return JSON.stringify(result);
+        }
+        return JSON.stringify({ schemaVersion: 2, surfaceId: 0, status: failure, nativeRevision: revision,
+            nativeSequence: failure === "rejected" ? null : String(BigInt(revision!) + 1n), destroyedIds: [],
+            error: { code: failure === "rejected" ? "invalid_props" : "application_error", operationIndex: 0, message: "injected" } });
+      };
+      let success = false;
+      await assert.rejects(bridge.render(tree(["new"])).then(() => { success = true; }), /Native publication/);
+      assert.equal(success, false);
+      assert.equal(target.alive, false);
+      assert.equal(bridge.registrations.captureWidget("new"), undefined);
+      assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
+      assert.equal(bridge.manager.getDiagnostics().committedDescriptionCount, 0);
+      assert.equal(bridge.manager.getDiagnostics().failedPublications, 1);
+      assert.equal(bridge.manager.getDiagnostics().lastPublication!.status, failure === "rejected" ? "rejected" : "failed");
+      assert.equal(bridge.manager.getDiagnostics().stagingNodeCount, 0);
+      assert.equal(bridge.manager.getDiagnostics().nativeRevision, revision);
+      if (failure === "rejected") assert.equal(JSON.stringify([...fake.nodes]), before);
+      bridge.registrations.setTableData(target, []);
+      assert.equal(fake.internalOps.length, 0);
+      assert.throws(() => bridge.manager.assertPublicationHealthy(), /Fabric surface failed/);
+      await bridge.dispose();
+      assert.ok(bridge.rendererErrors.length > 0);
+      for (const error of bridge.rendererErrors.splice(0)) assert.match(String(error), /Native publication/);
+    });
+  }
 
   await scenario("removing a public ID preserves native identity", async (bridge, fake, checks) => {
     await bridge.render(React.createElement("node", { root: true, id: "public-root" }, leaf("a")));
@@ -83,6 +252,7 @@ async function main() {
     assert.equal(rootChildren.length, 1);
     assert.equal(typeof rootChildren[0], "number", "XF-LIFE-007: native identity is numeric");
     assert.equal(bridge.registrations.captureWidget("public-root"), undefined);
+    checks.push({ name: "removing a public ID preserves numeric native identity", status: "pass", defect: "XF-LIFE-007" });
   });
 
   await scenario("real PlotBar/Table registration and imperative handles", async (bridge, fake, checks) => {
@@ -110,6 +280,8 @@ async function main() {
     assert.equal(registrations.tableCount, 0, "XF-LIFE-002: effect registrations released");
     assert.equal(registrations.registrationCount, 0);
     assert.equal(registrations.droppedOperations, 1);
+    checks.push({ name: "effect registrations are released", status: "pass", defect: "XF-LIFE-002" });
+    checks.push({ name: "stale handles cannot reach a replacement", status: "pass", defect: "XF-LIFE-003" });
   });
 
   await scenario("events before, during, and after deletion", async (bridge, fake, checks) => {
@@ -136,6 +308,7 @@ async function main() {
     assert.equal(forwarded.filter(item => item.unmounted).length, 0);
     assert.equal(lateCallbacks, 0, "XF-LIFE-006: late events cannot call deleted widgets");
     assert.equal(bridge.manager.getDiagnostics().droppedEvents, 2);
+    checks.push({ name: "events cannot target a deleted lifetime", status: "pass", defect: "XF-LIFE-006" });
   });
 
   await scenario("React cross-parent move remounts identity", async (bridge, fake, checks) => {
@@ -147,9 +320,10 @@ async function main() {
     await bridge.render(moved(true));
     const current = [...fake.nodes.values()].filter(node => node.type === "di-button").at(-1)!.id;
     assert.notEqual(current, old);
-    checks.push(knownFailure("cross-parent remount removes the old native child", !fake.nodes.has(old),
-        "XF-LIFE-008", fake.nodes.has(old) && current !== old && fake.nodes.size === 6,
-        { old, current, nodes: [...fake.nodes.values()] }));
+    assert.equal(fake.nodes.has(old), false, "XF-LIFE-008: cross-parent remount destroys old lifetime");
+    assert.equal(bridge.manager.fiberNodesMap.has(old), false);
+    assert.equal(fake.nodes.size, 5);
+    checks.push({ name: "cross-parent remount removes old lifetime", status: "pass", defect: "XF-LIFE-008" });
     await bridge.render(null);
   });
 
@@ -162,13 +336,12 @@ async function main() {
     check([...fake.nodes.values()].some(node => node.label === "fallback"), "Suspense fallback was not created");
     await bridge.render(null);
     const leaked = [...fake.nodes.values()].filter(node => node.id !== 0);
-    checks.push(knownFailure("abandoned Suspense work leaves no native nodes", leaked.length === 0,
-        "XF-LIFE-009", leaked.length === 1 && leaked[0].label === "prospective", leaked));
-    // No destruction was acknowledged for the abandoned node. Stage 1 must not
-    // disguise speculative publication with an unrelated global registry sweep.
-    assert.equal(bridge.manager.getDiagnostics().fiberCount, 1);
-    assert.equal(bridge.registrations.getDiagnostics().nativeCount, 1);
-    assert.equal(bridge.registrations.getDiagnostics().mappingCount, 1);
+    assert.equal(leaked.length, 0, "XF-LIFE-009: abandoned Suspense work never publishes");
+    assert.equal(bridge.manager.getDiagnostics().fiberCount, 0);
+    assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
+    assert.equal(bridge.registrations.getDiagnostics().mappingCount, 0);
+    assert.equal(bridge.manager.getDiagnostics().committedDescriptionCount, 0);
+    checks.push({ name: "abandoned Suspense work leaves no native nodes", status: "pass", defect: "XF-LIFE-009" });
   });
 
   await scenario("Strict Mode effects remain executable", async (bridge, fake) => {
@@ -214,7 +387,7 @@ async function main() {
     assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
   });
 
-  await scenario("delayed and duplicate native acknowledgments, queued events, disposal", async (bridge, fake) => {
+  await scenario("duplicate destruction receipts after rebinding, queued events and disposal", async (bridge, fake) => {
     let clicks = 0;
     await bridge.render(React.createElement("node", { root: true }, leaf("late", "late", () => clicks++)));
     const old = bridge.registrations.captureWidget("late")!;
@@ -222,18 +395,25 @@ async function main() {
     const queuedEvent = () => bridge.manager.dispatchEvent(old.nativeId, "onClick", {});
     queuedEvent();
     assert.equal(clicks, 1);
-    fake.delivery.delayed = true;
+    const receipts: number[][] = [];
+    const apply = fake.binding.applyCommit;
+    fake.binding.applyCommit = (wire: string) => {
+        const result = apply(wire);
+        const ids = JSON.parse(result).destroyedIds;
+        if (ids.length) receipts.push(ids);
+        return result;
+    };
     await bridge.render(null);
     assert.equal(fake.nodes.size, 1);
-    assert.ok(fake.pendingDestructions.length);
-    queuedEvent(); // Native is dead even though its result has not been delivered.
+    assert.ok(receipts.length);
+    queuedEvent(); // The actual publication acknowledgment has already invalidated this target.
     bridge.registrations.setMapMarkers(old, []);
     assert.equal(clicks, 1);
     assert.equal(fake.internalOps.length, 0);
     await bridge.render(React.createElement("node", { root: true }, leaf("late", "new", () => clicks++)));
     const current = bridge.registrations.captureWidget("late")!;
     bridge.registrations.registerMap(current);
-    for (const ids of fake.pendingDestructions.splice(0)) {
+    for (const ids of receipts.splice(0)) {
         bridge.manager.acknowledgeDestruction(ids);
         bridge.manager.acknowledgeDestruction(ids);
     }
@@ -243,7 +423,7 @@ async function main() {
     assert.equal(clicks, 2);
     await bridge.render(null);
     bridge.manager.destroy();
-    for (const ids of fake.pendingDestructions.splice(0)) bridge.manager.acknowledgeDestruction(ids);
+    for (const ids of receipts.splice(0)) bridge.manager.acknowledgeDestruction(ids);
     queuedEvent();
     assert.equal(clicks, 2);
     assert.equal(bridge.manager.wasmModule, undefined);
@@ -261,7 +441,7 @@ async function main() {
     const refs = widgets.map(() => React.createRef<any>());
     await bridge.render(React.createElement(React.StrictMode, null, React.createElement("node", { root: true },
         widgets.map((Widget, index) => React.createElement(Widget as React.ComponentType<any>, {
-            key: index, ref: refs[index], columns: [], options: [],
+            key: index, ref: refs[index], columns: [{ fieldId: "value", heading: "Value" }], options: [],
         })))));
     await waitFor(() => bridge.registrations.getDiagnostics().registrationCount,
         value => value === widgets.length, "every widget has one lifetime registration");
@@ -283,11 +463,14 @@ async function main() {
   });
 
   await scenario("registration lease duplicate cleanup and real error propagation", async (bridge, fake) => {
-    fake.binding.setElement(JSON.stringify({ id: 100001, type: "plot-bar" }));
+    const direct = (rootChildren: number[], operations: unknown[]) => JSON.parse(fake.binding.applyCommit(JSON.stringify({
+        schemaVersion: 2, surfaceId: 0, baseRevision: JSON.parse(fake.binding.getCommitState()).nativeRevision, rootChildren, operations,
+    })));
+    assert.equal(direct([100001], [{ op: "create", id: 100001, elementType: "plot-bar", props: {} },
+        { op: "setChildren", parentId: 100001, childrenIds: [] }]).status, "applied");
     bridge.registrations.linkWidgetIds("direct-caller", 100001);
     assert.equal(bridge.registrations.captureWidget("direct-caller")!.nativeId, 100001);
-    fake.binding.setChildren(0, JSON.stringify([100001]));
-    bridge.manager.acknowledgeDestruction(JSON.parse(fake.binding.setChildren(0, "[]")));
+    bridge.manager.acknowledgeDestruction(direct([], []).destroyedIds);
     bridge.registrations.linkWidgetIds("late-direct-caller", 100001);
     assert.equal(bridge.registrations.captureWidget("late-direct-caller"), undefined);
     await bridge.render(tree(["owner"]));
@@ -312,9 +495,13 @@ async function main() {
     assert.equal(clicks, 0);
     await Promise.resolve();
     assert.equal(clicks, 1);
-    bridge.manager.enqueueEvent(id, "onClick", {});
-    const destroyed = JSON.parse(fake.binding.setChildren(0, "[]"));
-    bridge.manager.acknowledgeDestruction(destroyed);
+    const apply = fake.binding.applyCommit;
+    fake.binding.applyCommit = (wire: string) => {
+        const result = apply(wire);
+        if (JSON.parse(result).destroyedIds.includes(id)) bridge.manager.enqueueEvent(id, "onClick", {});
+        return result;
+    };
+    await bridge.render(null);
     await Promise.resolve();
     assert.equal(clicks, 1);
     for (let i = 0; i < 300; i++) bridge.manager.enqueueEvent(999999, "onClick", { i });
@@ -352,33 +539,32 @@ async function main() {
     assert.equal(bridge.manager.getDiagnostics().fiberCount, 0);
     assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
   });
-  await scenario("compatibility transactions and direct destruction share ordering and cleanup", async (bridge, fake) => {
+  await scenario("one publication per completeRoot and explicit stale-writer failure", async (bridge, fake) => {
     await bridge.render(tree(["transaction-owner"]));
     const initial = JSON.parse(fake.binding.getCommitState());
-    const structuralCalls = bridge.observer.snapshot().counts;
-    assert.equal(BigInt(initial.nativeRevision), BigInt(["setElement", "patchElement", "appendChild", "setChildren"]
-        .reduce((sum, key) => sum + (structuralCalls[key] ?? 0), 0)));
+    assert.equal(BigInt(initial.nativeRevision), BigInt(bridge.observer.snapshot().counts.applyCommit));
     const owner = bridge.registrations.captureWidget("transaction-owner")!;
-    const result = bridge.manager.applyCommit({ schemaVersion: 1, surfaceId: 0, operations: [
-        { op: "patch", id: owner.nativeId, props: { label: "patched" } },
-        { op: "setChildren", parentId: 0, childrenIds: [] },
-    ] });
-    assert.equal(result.status, "applied");
-    assert.equal(BigInt(result.nativeRevision), BigInt(initial.nativeRevision) + 1n);
-    assert.ok(result.destroyedIds.includes(owner.nativeId));
+    const roots = fake.children.get(0)!;
+    const rootNode = bridge.manager.fiberNodesMap.get(roots[0]).stateNode.node;
+    const external = JSON.parse(fake.binding.applyCommit(JSON.stringify({ schemaVersion: 2, surfaceId: 0,
+        baseRevision: initial.nativeRevision, rootChildren: roots,
+        operations: [{ op: "patch", id: owner.nativeId, props: { label: "external" } },
+            ...[...fake.children].filter(([id]) => id !== 0).map(([parentId, childrenIds]) => ({ op: "setChildren", parentId, childrenIds }))],
+    })));
+    assert.equal(external.status, "applied");
+    const set = bridge.manager.createChildSet(0);
+    bridge.manager.appendChildToSet(set, rootNode);
+    assert.throws(() => bridge.manager.completeRoot(0, set), /stale_revision/);
+    assert.equal(bridge.manager.getDiagnostics().failedPublications, 1);
     assert.equal(owner.alive, false);
     assert.equal(bridge.manager.getDiagnostics().fiberCount, 0);
     assert.equal(bridge.registrations.getDiagnostics().nativeCount, 0);
-    const rejected = bridge.manager.applyCommit({ schemaVersion: 1, surfaceId: 0, operations: [
-        { op: "create", id: 100001, elementType: "node", props: {} },
-        { op: "patch", id: 100002, props: {} },
-    ] });
-    assert.equal(rejected.status, "rejected");
-    assert.equal(rejected.nativeRevision, result.nativeRevision);
-    assert.equal(fake.nodes.has(100001), false);
-    await bridge.render(null);
+    assert.equal(fake.nodes.get(owner.nativeId)!.label, "external");
+    assert.throws(() => bridge.manager.assertPublicationHealthy(), /stale_revision/);
   });
-  console.log(`${mode}: ${results.length} bridge lifecycle scenarios passed; ${results.reduce((sum, result) => sum + result.checks.length, 0)} known defects reproduced`);
+  const defects = new Set(results.flatMap(result => result.checks.map((check: InvariantResult) => check.defect)));
+  for (let id = 1; id <= 10; id++) assert.ok(defects.has(`XF-LIFE-${String(id).padStart(3, "0")}`), `Missing defect gate ${id}`);
+  console.log(`${mode}: ${results.length} bridge lifecycle scenarios passed; all 10 defect gates executed`);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(save);

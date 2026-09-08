@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/fetch.h>
@@ -25,9 +26,13 @@ struct ScriptFetchContext {
 #endif
 
 JsCanvas::JsCanvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
+    : JsCanvas(view, id, style, getCanvas2DShim()) {}
+
+JsCanvas::JsCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap)
     : StyledWidget(view, id, style) {
     m_type = "di-js-canvas";
-    InitQuickJS();
+    try { InitQuickJS(bootstrap); }
+    catch (...) { CleanupQuickJS(); throw; }
 }
 
 JsCanvas::~JsCanvas() {
@@ -44,9 +49,9 @@ JsCanvas::~JsCanvas() {
     CleanupQuickJS();
 }
 
-void JsCanvas::InitQuickJS() {
+void JsCanvas::InitQuickJS(const std::string& bootstrap) {
     m_runtime = JS_NewRuntime();
-    if (!m_runtime) return;
+    if (!m_runtime) throw std::runtime_error("QuickJS runtime allocation failed");
 
     // QuickJS's C-stack-pointer heuristic is unreliable in multi-threaded
     // contexts where InitQuickJS and JS_Eval run on different threads.
@@ -56,7 +61,7 @@ void JsCanvas::InitQuickJS() {
     if (!m_context) {
         JS_FreeRuntime(m_runtime);
         m_runtime = nullptr;
-        return;
+        throw std::runtime_error("QuickJS context allocation failed");
     }
 
     m_drawContext.drawList = nullptr;
@@ -80,17 +85,23 @@ void JsCanvas::InitQuickJS() {
     };
 
     // Evaluate Canvas 2D API shim — creates globalThis.ctx
-    const auto& shim = getCanvas2DShim();
-    JSValue shimResult = JS_Eval(m_context, shim.c_str(), shim.size(),
+    JSValue shimResult = JS_Eval(m_context, bootstrap.c_str(), bootstrap.size(),
                                  "<canvas2d_shim>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(shimResult)) {
         JSValue exc = JS_GetException(m_context);
-        const char* msg = JS_ToCString(m_context, exc);
-        if (msg && m_view->m_onScriptError) {
-            m_view->m_onScriptError(m_id, std::string(msg));
-        }
-        if (msg) JS_FreeCString(m_context, msg);
-        JS_FreeValue(m_context, exc);
+        struct ExceptionDetails {
+            JSContext* context;
+            JSValue value;
+            const char* text;
+            ~ExceptionDetails() {
+                if (text) JS_FreeCString(context, text);
+                JS_FreeValue(context, value);
+            }
+        } details{m_context, exc, JS_ToCString(m_context, exc)};
+        // Bootstrap is framework initialization inside native publication, not
+        // an application script event. Never call a user handler under its locks.
+        JS_FreeValue(m_context, shimResult);
+        throw std::runtime_error(details.text ? details.text : "QuickJS Canvas 2D bootstrap failed");
     }
     JS_FreeValue(m_context, shimResult);
 }

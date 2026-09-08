@@ -105,7 +105,7 @@ jobs:
       - run: npm run copy-artifacts-to-lib-folder --workspace @xframes/node
       # Linux/Xvfb with Mesa is the CI rendering gate. Windows supplies VS2022
       # compilation and native unit coverage; hosted Windows desktop GL varies.
-      - name: Node OpenGL transactions, lifecycle and production baseline (Mesa)
+      - name: Node OpenGL publication, abandonment, moves, lifecycle and production baseline (Mesa)
         if: runner.os == 'Linux'
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -157,7 +157,7 @@ jobs:
           bash ../cpp/wasm/build-wasm-docker.sh 2>&1 | tee build/diagnostics/wasm-build.log
       - run: npm run build:wasm
       - run: npm run diagnostics:typecheck
-      - name: Wasm transactions, Fabric lifecycle and production baseline
+      - name: Wasm publication, abandonment, moves, lifecycle and production baseline
         env:
           XFRAMES_BROWSER: /usr/bin/google-chrome
           XFRAMES_WEBGPU_ADAPTER: swiftshader
@@ -188,7 +188,7 @@ jobs:
             packages/dear-imgui/cpp/wasm/build-wasm/CMakeCache.txt
 
   transaction-parity:
-    name: Current-source Node and Wasm transaction parity
+    name: Current-source Node and Wasm publication and removed-version parity
     needs: [native, wasm]
     runs-on: ubuntu-24.04
     timeout-minutes: 5

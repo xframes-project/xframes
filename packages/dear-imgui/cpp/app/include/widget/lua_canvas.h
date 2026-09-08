@@ -11,6 +11,8 @@
 
 class LuaCanvas final : public StyledWidget {
 private:
+    friend class XFramesTest;
+    LuaCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap);
     sol::state m_lua;
     sol::protected_function m_renderFunc;
     bool m_hasRenderFunc = false;
@@ -38,7 +40,7 @@ private:
     std::unordered_set<std::string> m_inFlightFetches; // guarded by m_textureMutex
 #endif
 
-    void InitLua();
+    void InitLua(const std::string& bootstrap);
     void SetScriptFromString(const std::string& script);
 
 public:

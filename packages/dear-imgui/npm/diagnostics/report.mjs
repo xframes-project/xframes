@@ -26,7 +26,26 @@ for (const path of paths) {
         console.log(`| ${rate} | ${range(runs.map(run => run.achievedHz))} | ${sum("observedUpdates")} / ${sum("produced")} | ${range(runs.map(run => run.dataToObservedFrameMs.p50))} | ${range(runs.map(run => run.dataToObservedFrameMs.p95))} | ${range(runs.map(run => run.dataToObservedFrameMs.p99))} | ${Math.max(...runs.map(run => run.dataToObservedFrameMs.maximum)).toFixed(2)} | ${range(runs.map(run => run.applyToConstructedMs.p95))} |`);
     }
     console.log("\nRanges are per-repetition values, not pooled percentiles. JS intervals include observation polling; native intervals are widget state age at frame construction.");
-    if (report.transactions) {
+    if (report.publications) {
+        if (report.publications.status !== "passed" || report.publications.results.length !== report.options.repetitions)
+            throw new Error(`Incomplete Fabric structural workload: ${path}`);
+        const runs = report.publications.results;
+        console.log("\n| React updates | Publications / calls | Bailouts | UTF-8 bytes | Staging p95 ms | Diff p95 ms | Serialization p95 ms | Boundary p95 ms | Total publication p95 ms |");
+        console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+        console.log(`| ${range(runs.map(run => run.requestedUpdates))} | ${range(runs.map(run => run.publications))} | ${range(runs.map(run => run.bailouts))} | ${range(runs.map(run => run.wireBytes))} | ${range(runs.map(run => run.stagingMs.p95))} | ${range(runs.map(run => run.diffMs.p95))} | ${range(runs.map(run => run.serializationMs.p95))} | ${range(runs.map(run => run.boundaryMs.p95))} | ${range(runs.map(run => run.publicationTotalMs.p95))} |`);
+        console.log(report.publications.timingScope);
+    }
+    if (report.transactions?.schemaVersion === 2) {
+        if (report.transactions.status !== "passed") throw new Error(`Failed publication fixture: ${path}`);
+        const runs = report.transactions.overhead;
+        if (runs.length !== 3 || runs.some(run => run.mode !== "final-tree-publication")) throw new Error(`Missing publication overhead repetitions: ${path}`);
+        const timing = key => runs.every(run => run[key].samples > 0) ? range(runs.map(run => run[key].p95 * 1000)) : "unsampled";
+        console.log("\n| Patches | Child assignments | Calls | UTF-8 bytes | Boundary p95 µs | Parse p95 µs | Validation/reachability p95 µs | Application p95 µs | Lock wait p95 µs | Lock held p95 µs |");
+        console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+        console.log(`| ${range(runs.map(run => run.patches))} | ${range(runs.map(run => run.childAssignments))} | ${range(runs.map(run => run.boundaryCalls))} | ${range(runs.map(run => run.bytes))} | ${timing("boundaryMs")} | ${timing("parseMs")} | ${timing("validationMs")} | ${timing("applicationMs")} | ${timing("lockWaitMs")} | ${timing("lockHeldMs")} |`);
+        console.log(report.transactions.overhead[0].timingScope);
+    } else if (report.transactions) {
+        // Historical Stage 2 reports remain readable for measured comparisons.
         if (report.transactions.status !== "passed") throw new Error(`Failed transaction fixture: ${path}`);
         console.log("\n| Transaction mode | Operations | Calls | UTF-8 bytes | Boundary p95 µs | Parse p95 µs | Envelope p95 µs | Validation p95 µs | Application p95 µs |");
         console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");

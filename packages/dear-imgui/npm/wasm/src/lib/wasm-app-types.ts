@@ -745,14 +745,10 @@ export type ImGuiViewportFlags =
 interface EmbindModule {
   exit(): void;
   resizeWindow(_0: number, _1: number): void;
-  setElement(_0: EmbindString): void;
   applyCommit(payload: string): string;
   getCommitState(): string;
-  patchElement(_0: number, _1: EmbindString): void;
   elementInternalOp(_0: number, _1: EmbindString): void;
-  setChildren(_0: number, _1: EmbindString): string;
   isElementAlive(_0: number): boolean;
-  appendChild(_0: number, _1: number): void;
   getChildren(_0: number): string;
   appendDataToTable(_0: number, _1: EmbindString): void;
   renderMap(_0: number, _1: number, _2: number, _3: number): void;

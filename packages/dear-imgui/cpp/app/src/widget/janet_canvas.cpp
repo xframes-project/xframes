@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/fetch.h>
@@ -74,9 +75,13 @@ static Janet jsonToJanet(const json& j) {
 }
 
 JanetCanvas::JanetCanvas(XFrames* view, const int id, std::optional<WidgetStyle>& style)
+    : JanetCanvas(view, id, style, getJanetCanvas2DShim()) {}
+
+JanetCanvas::JanetCanvas(XFrames* view, int id, std::optional<WidgetStyle>& style, const std::string& bootstrap)
     : StyledWidget(view, id, style) {
     m_type = "di-janet-canvas";
-    InitJanet();
+    try { InitJanet(bootstrap); }
+    catch (...) { CleanupJanet(); throw; }
 }
 
 JanetCanvas::~JanetCanvas() {
@@ -90,25 +95,30 @@ JanetCanvas::~JanetCanvas() {
         }
     }
     m_textures.clear();
+    CleanupJanet();
+}
 
+void JanetCanvas::CleanupJanet() {
     if (m_hasRenderFunc) {
         janet_gcunroot(m_renderFuncValue);
+        m_hasRenderFunc = false;
     }
     if (m_env) {
         janet_gcunroot(janet_wrap_table(m_env));
         m_env = nullptr;
     }
-    s_janetRefCount--;
-    if (s_janetRefCount == 0) {
-        janet_deinit();
+    if (m_ownsJanetRuntime) {
+        m_ownsJanetRuntime = false;
+        if (--s_janetRefCount == 0) janet_deinit();
     }
 }
 
-void JanetCanvas::InitJanet() {
+void JanetCanvas::InitJanet(const std::string& bootstrap) {
     if (s_janetRefCount == 0) {
         janet_init();
     }
     s_janetRefCount++;
+    m_ownsJanetRuntime = true;
 
     // Create a per-widget child env so vars/bindings don't collide
     // (janet_core_env returns the SAME cached table on every call)
@@ -129,13 +139,10 @@ void JanetCanvas::InitJanet() {
     janet_var(m_env, "canvas-height", janet_wrap_number(0), NULL);
 
     // Evaluate Canvas 2D API shim — creates global `ctx` table + ctx-xxx functions
-    const auto& shim = getJanetCanvas2DShim();
     Janet shimOut;
-    int shimStatus = janet_dostring(m_env, shim.c_str(), "canvas2d_shim", &shimOut);
+    int shimStatus = janet_dostring(m_env, bootstrap.c_str(), "canvas2d_shim", &shimOut);
     if (shimStatus != 0) {
-        if (m_view->m_onScriptError) {
-            m_view->m_onScriptError(m_id, "Janet Canvas 2D shim failed to evaluate");
-        }
+        throw std::runtime_error("Janet Canvas 2D bootstrap failed to evaluate");
     }
 
     // Set textureLookup once — lambda captures `this` which is stable for widget lifetime

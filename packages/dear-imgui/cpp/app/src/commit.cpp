@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <charconv>
 #include <unordered_set>
 
 namespace xframes {
@@ -23,7 +24,7 @@ void Fields(const json& value, std::initializer_list<const char*> required,
 }
 
 json CommitResult::ToJson() const {
-    json result = {{"schemaVersion", 1}, {"surfaceId", 0}, {"status", status},
+    json result = {{"schemaVersion", 2}, {"surfaceId", 0}, {"status", status},
         {"nativeSequence", nativeSequence ? json(std::to_string(*nativeSequence)) : json(nullptr)},
         {"nativeRevision", std::to_string(nativeRevision)}, {"destroyedIds", destroyedIds}};
     if (correlationId) result["correlationId"] = *correlationId;
@@ -39,8 +40,8 @@ CommitResult UninitializedCommitResult() {
 }
 
 json UninitializedCommitState() {
-    return {{"schemaVersion", 1}, {"surfaceId", 0}, {"initialized", false},
-        {"nativeSequence", "0"}, {"nativeRevision", "0"}};
+    return {{"schemaVersion", 2}, {"surfaceId", 0}, {"initialized", false},
+        {"nativeSequence", "0"}, {"nativeRevision", "0"}, {"surfaceStatus", "uninitialized"}, {"managedCount", 0}};
 }
 
 int ParseNativeId(const json& value, bool allowContainer) {
@@ -55,22 +56,26 @@ int ParseBindingId(double value, bool allowContainer) {
     return static_cast<int>(value);
 }
 
-std::vector<int> ParseChildrenIds(std::string_view wire) {
-    const auto parsed = json::parse(wire);
-    Require(parsed.is_array(), "invalid_field", "childrenIds must be an array");
-    std::vector<int> result;
-    for (const auto& id : parsed) result.push_back(ParseNativeId(id));
-    return result;
-}
-
 CommitBatch ParseCommit(json wire) {
-    Fields(wire, {"schemaVersion", "surfaceId", "operations"}, {"correlationId"});
-    Require(wire["schemaVersion"].is_number_integer() && wire["schemaVersion"] == 1,
-        "unsupported_version", "Only schemaVersion 1 is supported");
+    Require(wire.is_object() && wire.contains("schemaVersion"), "missing_field", "schemaVersion");
+    Require(wire["schemaVersion"].is_number_integer() && wire["schemaVersion"] == 2,
+        "unsupported_version", "Only schemaVersion 2 is supported; the alpha v1 structural API was removed");
+    Fields(wire, {"schemaVersion", "surfaceId", "baseRevision", "rootChildren", "operations"}, {"correlationId"});
     Require(wire["surfaceId"].is_number_integer() && wire["surfaceId"] == 0,
         "unsupported_surface", "Only surfaceId 0 is supported");
     Require(wire["operations"].is_array(), "invalid_field", "operations must be an array");
     CommitBatch batch;
+    {
+        Require(wire["baseRevision"].is_string(), "invalid_field", "baseRevision must be a canonical uint64 decimal string");
+        const auto& value = wire["baseRevision"].get_ref<const std::string&>();
+        Require(!value.empty() && (value == "0" || value.front() != '0') &&
+            value.find_first_not_of("0123456789") == std::string::npos,
+            "invalid_field", "baseRevision must be a canonical uint64 decimal string");
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), batch.baseRevision);
+        Require(parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size(), "invalid_field", "baseRevision exceeds uint64");
+        Require(wire["rootChildren"].is_array(), "invalid_field", "rootChildren must be an array");
+        for (const auto& id : wire["rootChildren"]) batch.rootChildren.push_back(ParseNativeId(id));
+    }
     if (wire.contains("correlationId")) {
         Require(wire["correlationId"].is_string() && wire["correlationId"].get_ref<const std::string&>().size() <= 128,
             "invalid_field", "correlationId must be a string of at most 128 UTF-8 bytes");
@@ -95,17 +100,12 @@ CommitBatch ParseCommit(json wire) {
                     Require(def["elementType"].is_string(), "invalid_field", "elementType must be a string");
                     op.elementType = def["elementType"].get<std::string>();
                 }
-            } else if (name == "setChildren" || name == "appendChild") {
-                op.op = name == "setChildren" ? CommitOp::SetChildren : CommitOp::AppendChild;
-                if (op.op == CommitOp::SetChildren) {
-                    Fields(def, {"op", "parentId", "childrenIds"});
-                    Require(def["childrenIds"].is_array(), "invalid_field", "childrenIds must be an array");
-                    for (auto& id : def["childrenIds"]) op.children.push_back(ParseNativeId(id));
-                } else {
-                    Fields(def, {"op", "parentId", "childId"});
-                    op.children.push_back(ParseNativeId(def["childId"]));
-                }
-                op.id = ParseNativeId(def["parentId"], true);
+            } else if (name == "setChildren") {
+                op.op = CommitOp::SetChildren;
+                Fields(def, {"op", "parentId", "childrenIds"});
+                Require(def["childrenIds"].is_array(), "invalid_field", "childrenIds must be an array");
+                for (auto& id : def["childrenIds"]) op.children.push_back(ParseNativeId(id));
+                op.id = ParseNativeId(def["parentId"]);
             } else throw CommitError("unsupported_operation", "Unsupported operation");
             batch.operations.push_back(std::move(op));
         } catch (CommitError& error) {
@@ -134,89 +134,108 @@ bool IsMeasuredElementType(const std::string& type) {
     return types.contains(type);
 }
 
-void ValidateCommit(CommitBatch& batch, ValidationTree tree) {
-    std::unordered_set<int> destroyed;
-    // An iterative validation-only traversal avoids allocating any live native resources.
-    auto remove = [&](int id) {
-        std::vector<int> pending{id};
-        while (!pending.empty()) {
-            int current = pending.back(); pending.pop_back();
-            if (!destroyed.insert(current).second) continue;
-            auto it = tree.children.find(current);
-            if (it != tree.children.end()) {
-                pending.insert(pending.end(), it->second.begin(), it->second.end());
-                tree.children.erase(it);
-            }
-            tree.nodes.erase(current);
-        }
-    };
+PublicationPlan ValidatePublication(CommitBatch& batch, ValidationTree tree,
+    const std::unordered_set<int>& managedIds, uint64_t nativeRevision) {
+    Require(batch.baseRevision == nativeRevision, "stale_revision", "baseRevision does not match the current structural revision");
+    // A publication may claim freshly created objects only. Unrelated standalone
+    // objects are neither adopted nor swept, including pre-existing virtual roots.
+    for (int root : tree.children[0])
+        Require(managedIds.contains(root), "ownership_conflict", "Container has an unowned root");
+    std::unordered_set<int> created;
     for (size_t index = 0; index < batch.operations.size(); ++index) {
-        auto& op = batch.operations[index];
+        const auto& op = batch.operations[index];
+        if (op.op != CommitOp::Create) continue;
         try {
-            if (op.op == CommitOp::Create) {
-                Require(!destroyed.contains(op.id), "destroyed_id", "Cannot recreate an ID destroyed in this transaction");
-                Require(!tree.nodes.contains(op.id), "duplicate_id", "Create target already exists");
-                Require(IsCommitElementType(op.elementType), "invalid_element_type", "Unsupported elementType");
-                ValidateCommitProps(op.elementType, op.props, true);
-                tree.nodes.emplace(op.id, ValidationNode{op.elementType, op.props.value("root", false), IsMeasuredElementType(op.elementType)});
-                tree.children[op.id] = {};
-                continue;
-            }
-            const bool missing = op.id != 0 && !tree.nodes.contains(op.id);
-            if (missing && batch.compatibility) { op.skip = true; continue; }
-            Require(!missing, destroyed.contains(op.id) ? "destroyed_id" : "missing_target", "Operation target is not live");
-            if (op.op == CommitOp::Patch) {
-                op.elementType = tree.nodes.at(op.id).type;
-                if (batch.compatibility) op.props.erase("root"); // legacy clone metadata, never a root mutation
-                ValidateCommitProps(op.elementType, op.props, false);
-                continue;
-            }
-            if (op.op == CommitOp::AppendChild && batch.compatibility &&
-                (!tree.children.contains(op.id) || !tree.nodes.contains(op.children.front()))) {
-                op.skip = true; continue;
-            }
-            auto children = op.children;
-            if (op.op == CommitOp::AppendChild) {
-                children = tree.children[op.id];
-                if (std::find(children.begin(), children.end(), op.children.front()) != children.end()) {
-                    op.skip = true; continue; // idempotent append in both APIs
-                }
-                children.push_back(op.children.front());
-            }
-            std::unordered_set<int> unique;
-            for (int child : children) {
-                const bool first = unique.insert(child).second;
-                Require(first || (batch.compatibility && op.id == 0), "duplicate_child", "A child list cannot contain duplicate IDs");
-                Require(child != op.id, "cycle", "A node cannot contain itself");
-                if (!batch.compatibility) {
-                    Require(tree.nodes.contains(child), destroyed.contains(child) ? "destroyed_id" : "missing_target", "Child is not live (forward references are unsupported)");
-                    Require(op.id == 0 || !tree.nodes.at(child).root, "invalid_relationship", "Root nodes can only attach to container 0");
-                    for (const auto& [parent, siblings] : tree.children) {
-                        Require(parent == op.id || std::find(siblings.begin(), siblings.end(), child) == siblings.end(),
-                            "multiple_parents", "Child already belongs to another parent");
-                    }
-                }
-                std::vector<int> pending{child};
-                std::unordered_set<int> visited;
-                while (!pending.empty()) {
-                    int current = pending.back(); pending.pop_back();
-                    Require(current != op.id, "cycle", "Child relationship would create a cycle");
-                    if (!visited.insert(current).second) continue;
-                    auto it = tree.children.find(current);
-                    if (it != tree.children.end()) pending.insert(pending.end(), it->second.begin(), it->second.end());
-                }
-            }
-            Require(children.empty() || op.id == 0 || !tree.nodes.at(op.id).measured,
-                "invalid_relationship", "A measured Yoga leaf cannot own children");
-            if (op.op == CommitOp::SetChildren) {
-                const auto old = tree.children[op.id];
-                for (int child : old) if (!unique.contains(child)) remove(child);
-                // Removing an ancestor also destroys any descendant the new list tried to retain.
-                if (!batch.compatibility) for (int child : children)
-                    Require(tree.nodes.contains(child), "destroyed_id", "Child was destroyed by this operation's removal");
-            }
-            tree.children[op.id] = std::move(children);
+            Require(!tree.nodes.contains(op.id), "duplicate_id", "Create target already exists; a publication cannot recreate an old lifetime");
+            Require(IsCommitElementType(op.elementType), "invalid_element_type", "Unsupported elementType");
+            ValidateCommitProps(op.elementType, op.props, true);
+            tree.nodes.emplace(op.id, ValidationNode{op.elementType, op.props.value("root", false), IsMeasuredElementType(op.elementType)});
+            created.insert(op.id);
         } catch (CommitError& error) { error.operationIndex = index; throw; }
     }
+    PublicationPlan plan;
+    plan.children.emplace(0, batch.rootChildren);
+    std::unordered_map<int, size_t> assignments;
+    std::vector<int> parents{0};
+    for (size_t index = 0; index < batch.operations.size(); ++index) {
+        auto& op = batch.operations[index];
+        if (op.op == CommitOp::Create) continue;
+        try {
+            Require(tree.nodes.contains(op.id), "missing_target", "Publication target does not exist");
+            Require(managedIds.contains(op.id) || created.contains(op.id), "ownership_conflict", "Publication target is not owned by this surface");
+            if (op.op == CommitOp::Patch) {
+                op.elementType = tree.nodes.at(op.id).type;
+                ValidateCommitProps(op.elementType, op.props, false);
+            } else {
+                Require(op.op == CommitOp::SetChildren, "unsupported_operation", "Publication requires complete child lists");
+                Require(assignments.emplace(op.id, index).second, "duplicate_assignment", "A publication assigns each parent's children exactly once");
+                plan.children.emplace(op.id, op.children);
+                parents.push_back(op.id);
+            }
+        } catch (CommitError& error) { error.operationIndex = index; throw; }
+    }
+    // Validate all declarations, including disconnected ones, before reachability.
+    // References to any create in the envelope are permitted regardless of order.
+    std::unordered_map<int, int> owners;
+    for (int parent : parents) {
+        const auto& children = plan.children.at(parent);
+        try {
+            Require(parent == 0 || children.empty() || !tree.nodes.at(parent).measured,
+                "invalid_relationship", "A measured Yoga leaf cannot own children");
+            std::unordered_set<int> unique;
+            for (int child : children) {
+                Require(unique.insert(child).second, "duplicate_child", "A child list cannot contain duplicate IDs");
+                Require(child != parent, "cycle", "A node cannot contain itself");
+                Require(tree.nodes.contains(child), "missing_target", "Child does not exist in the complete candidate");
+                Require(managedIds.contains(child) || created.contains(child), "ownership_conflict", "Child is not owned by this surface");
+                Require(parent == 0 || !tree.nodes.at(child).root, "invalid_relationship", "Root nodes can only attach to container 0");
+                Require(owners.emplace(child, parent).second, "multiple_parents", "Final child has multiple owners");
+                Require(plan.children.contains(child), "missing_children", "Every final node requires a complete child assignment, including leaves");
+            }
+        } catch (CommitError& error) {
+            if (parent != 0) error.operationIndex = assignments.at(parent);
+            throw;
+        }
+    }
+    // With unique ownership, following parent links detects disconnected cycles too.
+    std::unordered_set<int> checked;
+    for (int id : parents) {
+        std::unordered_set<int> path;
+        int current = id;
+        while (current != 0 && !checked.contains(current)) {
+            Require(path.insert(current).second, "cycle", "Final ownership contains a cycle");
+            const auto owner = owners.find(current);
+            if (owner == owners.end()) break;
+            current = owner->second;
+        }
+        checked.insert(path.begin(), path.end());
+    }
+    std::vector<int> pending(batch.rootChildren.rbegin(), batch.rootChildren.rend());
+    while (!pending.empty()) {
+        const int id = pending.back(); pending.pop_back();
+        plan.ownedIds.insert(id);
+        const auto& children = plan.children.at(id);
+        pending.insert(pending.end(), children.rbegin(), children.rend());
+    }
+    for (size_t index = 0; index < batch.operations.size(); ++index)
+        if (!plan.ownedIds.contains(batch.operations[index].id))
+            throw CommitError("unreachable_operation", "Operations may target only final reachable nodes", index);
+
+    // Previous-tree child order defines deterministic descendant-first cleanup.
+    // Traverse surviving ancestors too: they may lose some of their descendants.
+    std::vector<std::pair<int, bool>> deletion;
+    for (auto it = tree.children[0].rbegin(); it != tree.children[0].rend(); ++it) deletion.emplace_back(*it, false);
+    while (!deletion.empty()) {
+        const auto [id, visited] = deletion.back(); deletion.pop_back();
+        if (visited) {
+            if (!plan.ownedIds.contains(id)) plan.destroyedIds.push_back(id);
+        } else {
+            deletion.emplace_back(id, true);
+            const auto& children = tree.children.at(id);
+            for (auto it = children.rbegin(); it != children.rend(); ++it) deletion.emplace_back(*it, false);
+        }
+    }
+    return plan;
 }
+
 }

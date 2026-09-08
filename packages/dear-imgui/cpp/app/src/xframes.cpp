@@ -89,6 +89,7 @@ XFrames::XFrames(
     m_windowId = windowId;
     m_debug = false;
     m_rawStyleOverridesDefs = std::move(rawStyleOverridesDefs);
+    m_hierarchy.emplace(0, std::vector<int>{});
 
     SetUpElementCreatorFunctions();
     SetUpFloatFormatChars();
@@ -143,6 +144,7 @@ json XFrames::GetDiagnosticsFrame() {
 json XFrames::GetDiagnosticsState() {
     const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
     const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
+    if (m_surfaceQuarantined) throw xframes::CommitError("surface_quarantined", "Publication failed; recreate the native runtime");
     return BuildDiagnosticsStateUnlocked();
 }
 
@@ -327,11 +329,9 @@ void XFrames::SetChildrenDisplay(const int id, const YGDisplay display) {
     }
 };
 
-void XFrames::CreateElement(const json& elementDef) {
+void XFrames::CreateElementUnlocked(const json& elementDef) {
     const auto id = elementDef.at("id").get<int>();
     const auto type = elementDef.at("type").get<std::string>();
-    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
-    const std::lock_guard<std::mutex> elementLock(m_elements_mutex);
     if (type == "node") {
         m_elements[id] = makeElement(elementDef, this);
     } else if (m_element_init_fn.contains(type)) {
@@ -344,7 +344,7 @@ void XFrames::CreateElement(const json& elementDef) {
         auto handler = [this, id, owner](const json& opDef) {
             const std::lock_guard<std::mutex> lock(m_elements_mutex);
             const auto current = m_elementInternalOpsSubject.find(id);
-            if (m_elements.contains(id) && current != m_elementInternalOpsSubject.end()
+            if (!m_surfaceQuarantined && m_elements.contains(id) && current != m_elementInternalOpsSubject.end()
                 && current->second.get_disposable() == owner) {
                 m_elements[id]->HandleInternalOp(opDef);
                 if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
@@ -551,10 +551,10 @@ void XFrames::Render(const int window_width, const int window_height) {
 
     ImGui::Begin(m_windowId, nullptr, m_window_flags);
 
-    RenderElements();
+    if (!m_surfaceQuarantined) RenderElements();
 
     // *** DEBUG ***
-    if (m_debug) {
+    if (m_debug && !m_surfaceQuarantined) {
         RenderDebugWindow();
     }
     // *** END DEBUG ***
@@ -562,7 +562,7 @@ void XFrames::Render(const int window_width, const int window_height) {
     ImGui::End();
     ImGui::Render();
     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) {
-        m_pendingDiagnosticsFrame = BuildDiagnosticsStateUnlocked();
+        m_pendingDiagnosticsFrame = m_surfaceQuarantined ? json{{"surfaceStatus", "quarantined"}} : BuildDiagnosticsStateUnlocked();
         m_pendingDiagnosticsFrame["constructedAtMs"] = DiagnosticsNowMs();
         m_pendingDiagnosticsFrame["vertices"] = ImGui::GetDrawData()->TotalVtxCount;
     } else if (!m_pendingDiagnosticsFrame.is_null()) {
@@ -704,37 +704,9 @@ void XFrames::TakeStyleSnapshot() {
     memcpy(&m_appStyle, &style, sizeof(style));
 };
 
-void XFrames::QueueCreateElement(std::string& elementJsonAsString) {
-    auto props = json::parse(elementJsonAsString);
-    if (!props.is_object() || !props.contains("id") || !props.contains("type"))
-        throw xframes::CommitError("missing_field", "setElement requires id and type");
-    const auto id = props.at("id");
-    const auto type = props.at("type");
-    props.erase("id"); props.erase("type");
-    ApplyCompatibility({{"op", "create"}, {"id", id}, {"elementType", type}, {"props", std::move(props)}});
-}
-
-void XFrames::QueuePatchElement(const int id, std::string& elementJsonAsString) {
-    auto props = json::parse(elementJsonAsString);
-    if (!props.is_object()) throw xframes::CommitError("invalid_props", "patchElement requires an object");
-    // Legacy Fabric sends its complete cloned description, including the same ID/type.
-    // These fields are transport metadata; public string IDs never become identity.
-    if (props.contains("id") && props["id"] != id)
-        throw xframes::CommitError("immutable_identity", "patchElement cannot overwrite numeric identity");
-    props.erase("id"); props.erase("type");
-    ApplyCompatibility({{"op", "patch"}, {"id", id}, {"props", std::move(props)}});
-}
-
-void XFrames::QueueAppendChild(int parentId, int childId) {
-    ApplyCompatibility({{"op", "appendChild"}, {"parentId", parentId}, {"childId", childId}});
-}
-
-std::vector<int> XFrames::QueueSetChildren(const int parentId, const std::vector<int>& childrenIds) {
-    return ApplyCompatibility({{"op", "setChildren"}, {"parentId", parentId}, {"childrenIds", childrenIds}}).destroyedIds;
-}
-
 void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
     const std::lock_guard<std::mutex> dispatchLock(m_commitMutex);
+    if (m_surfaceQuarantined) return;
     try {
         const json opDef = json::parse(widgetOpDef);
 
@@ -757,28 +729,18 @@ void XFrames::QueueElementInternalOp(const int id, std::string& widgetOpDef) {
     }
 };
 
-void XFrames::PatchElement(const json& patchDef) {
+void XFrames::PatchElementUnlocked(const json& patchDef) {
     const auto id = patchDef.at("id").get<int>();
-    const std::lock_guard<std::mutex> lock(m_elements_mutex);
     if (auto it = m_elements.find(id); it != m_elements.end()) it->second->Patch(patchDef, this);
 }
 
 bool XFrames::IsElementAlive(const int id) {
     const std::lock_guard<std::mutex> lock(m_elements_mutex);
-    return m_elements.contains(id);
+    return !m_surfaceQuarantined && m_elements.contains(id);
 }
 
-void XFrames::RemoveElement(const int id, std::vector<int>* destroyedIds) {
-    // Recurse into children first (depth-first)
-    if (m_hierarchy.contains(id)) {
-        // Copy the vector since we modify m_hierarchy during recursion
-        const auto children = m_hierarchy[id];
-        for (const int childId : children) {
-            RemoveElement(childId, destroyedIds);
-        }
-        m_hierarchy.erase(id);
-    }
-
+void XFrames::DestroyElementUnlocked(const int id, std::vector<int>* destroyedIds) {
+    m_hierarchy.erase(id);
     // Clean up per-widget reactive subject
     m_elementInternalOpsSubject.erase(id);
     m_diagnosticsLastInternalOpMs.erase(id);
@@ -795,93 +757,9 @@ void XFrames::RemoveElement(const int id, std::vector<int>* destroyedIds) {
     if (m_elements.erase(id) && destroyedIds) destroyedIds->push_back(id);
 }
 
-std::vector<int> XFrames::SetChildren(const json& opDef) {
-    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
-    const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
-
-    const auto parentId = opDef["parentId"].template get<int>();
-    const auto childrenIds = opDef["childrenIds"].template get<std::vector<int>>();
-    std::vector<int> destroyedIds;
-
-    auto parentIt = m_elements.find(parentId);
-    // Container 0 has hierarchy ownership even though it has no Element/Yoga node.
-    // Ignore stale parent operations rather than recreating hierarchy metadata.
-    if (parentId != 0 && parentIt == m_elements.end()) return destroyedIds;
-    auto hIt = m_hierarchy.find(parentId);
-    if (hIt != m_hierarchy.end()) {
-        const auto oldChildren = hIt->second;
-        const std::unordered_set<int> newSet(childrenIds.begin(), childrenIds.end());
-        for (const int oldChildId : oldChildren) {
-            if (!newSet.contains(oldChildId)) {
-                RemoveElement(oldChildId, &destroyedIds);
-            }
-        }
-    }
-
-    if (parentIt != m_elements.end()) {
-        auto* parentEl = parentIt->second.get();
-        YGNodeRemoveAllChildren(parentEl->m_layoutNode->m_node);
-
-        const auto size = childrenIds.size();
-
-        for (int i = 0; i < size; i++) {
-            const auto childId = childrenIds[i];
-
-            auto childIt = m_elements.find(childId);
-            if (childIt != m_elements.end()) {
-                parentEl->m_layoutNode->InsertChild(childIt->second->m_layoutNode.get(), i);
-            }
-        }
-    }
-
-    m_hierarchy[parentId] = childrenIds;
-
-    if (parentIt != m_elements.end()) {
-        parentIt->second->m_maxBottomDirty = true;
-    }
-    return destroyedIds;
-}
-
-void XFrames::AppendChild(const json& opDef) {
-    auto parentId = opDef["parentId"].template get<int>();
-    auto childId = opDef["childId"].template get<int>();
-
-    const std::lock_guard<std::mutex> hierarchyLock(m_hierarchy_mutex);
-
-    if (parentId == 0) m_hierarchy.try_emplace(0);
-    auto hIt = m_hierarchy.find(parentId);
-    if (hIt != m_hierarchy.end()) {
-        if (std::find(hIt->second.begin(), hIt->second.end(), childId) == hIt->second.end()) {
-            const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
-
-            auto childIt = m_elements.find(childId);
-            if (childIt != m_elements.end()) {
-                auto* childEl = childIt->second.get();
-                if (!childEl->m_isRoot) {
-                    auto parentNode = YGNodeGetParent(childEl->m_layoutNode->m_node);
-
-                    if (!parentNode) {
-                        auto parentIt = m_elements.find(parentId);
-                        if (parentIt != m_elements.end()) {
-                            const auto childCount = parentIt->second->m_layoutNode->GetChildCount();
-                            parentIt->second->m_layoutNode->InsertChild(childEl->m_layoutNode.get(), childCount);
-                        }
-                    }
-                }
-
-                hIt->second.push_back(childId);
-
-                auto parentElIt = m_elements.find(parentId);
-                if (parentElIt != m_elements.end()) {
-                    parentElIt->second->m_maxBottomDirty = true;
-                }
-            }
-        }
-    }
-}
-
 std::vector<int> XFrames::GetChildren(int id) {
     const std::lock_guard<std::mutex> lock(m_hierarchy_mutex);
+    if (m_surfaceQuarantined) throw xframes::CommitError("surface_quarantined", "Publication failed; recreate the native runtime");
     const auto it = m_hierarchy.find(id);
     return it == m_hierarchy.end() ? std::vector<int>{} : it->second;
 };
@@ -911,6 +789,7 @@ void XFrames::InvalidateMaxBottomCaches() {
 // todo: switch to ReactivePlusPlus's BehaviorSubject
 void XFrames::AppendTextToClippedMultiLineTextRenderer(const int id, const std::string& data) {
     const std::lock_guard<std::mutex> dispatchLock(m_commitMutex);
+    if (m_surfaceQuarantined) return;
     const std::lock_guard<std::mutex> lock(m_elements_mutex);
 
     if (m_elements.contains(id)) {

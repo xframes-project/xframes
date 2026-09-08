@@ -1,4 +1,5 @@
 import NativeFabricUIManager from "./nativeFabricUiManager.ts";
+import { captureEventProps, eventsDiffer, withEventProps } from "./fabricEventProps.ts";
 import deepDiffer from "./deepDiffer.js";
 import flattenStyle from "./flattenStyle.js";
 import {
@@ -258,10 +259,19 @@ export default {
         return {};
     },
     get createAttributePayload() {
-        return createAttributePayload;
+        return (props, attributes) => withEventProps(
+            createAttributePayload(props, attributes), captureEventProps(props, attributes),
+        );
     },
     get diffAttributePayloads() {
-        return diffAttributePayloads;
+        return (previous, next, attributes) => {
+            const events = captureEventProps(next, attributes);
+            const payload = diffAttributePayloads(previous, next, attributes);
+            // Upstream converts callbacks to booleans and otherwise treats a
+            // callback-only update as a native bailout. It still changes the
+            // committed event target, so give Fabric a prospective host clone.
+            return withEventProps(payload ?? (eventsDiffer(captureEventProps(previous, attributes), events) ? {} : null), events);
+        };
     },
     get createPublicTextInstance() {
         return () => ({});
