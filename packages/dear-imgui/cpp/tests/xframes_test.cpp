@@ -318,6 +318,50 @@ protected:
     void Frame() { xf->Render(900, 700); xf->CompleteDiagnosticsFrame(); }
 };
 
+TEST_F(XFramesQueueTest, InactiveTabHeadersDoNotExtendParentCursorWithoutAnItem) {
+    Publish({{0, {1}}, {1, {2}}, {2, {3, 4, 5}}, {3, {6}}, {4, {}}, {5, {}}, {6, {}}}, {
+        Create(2, "tab-bar", {{"style", {{"flex", 1}, {"width", "100%"}}}}),
+        Create(3, "tab-item", {{"label", "Connection"}, {"style", {{"flex", 1}, {"width", "100%"}}}}),
+        Create(4, "tab-item", {{"label", "Map"}, {"style", {{"flex", 1}, {"width", "100%"}}}}),
+        Create(5, "tab-item", {{"label", "Signals"}, {"style", {{"flex", 1}, {"width", "100%"}}}}),
+        Create(6, "unformatted-text", {{"text", "Disconnected"}}),
+    });
+    auto& io = ImGui::GetIO();
+    io.ConfigErrorRecoveryEnableAssert = false;
+    io.ConfigErrorRecoveryEnableDebugLog = true;
+    io.ConfigErrorRecoveryEnableTooltip = false;
+    for (int i = 0; i < 4; ++i) {
+        Frame();
+        EXPECT_EQ(ImGui::GetCurrentContext()->ErrorCountCurrentFrame, 0);
+    }
+}
+
+TEST_F(XFramesQueueTest, ApplicationDiagnosticsReportRetainedHistoryAndMapOverlays) {
+    Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
+        Create(2, "plot-line", {{"dataPointsLimit", 2}}),
+        Create(3, "plot-scatter", {{"dataPointsLimit", 2}}), Create(4, "map-view"),
+    });
+    Internal(4, {{"op", "setPolylines"}, {"polylines", json::array({{{"points", json::array()}, {"pointsLimit", 2}}})}});
+    Internal(4, {{"op", "setMarkers"}, {"markers", json::array({{{"lat", 51.5}, {"lon", -0.12}}})}});
+    Internal(4, {{"op", "setOverlays"}, {"overlays", json::array({{{"lat", 51.5}, {"lon", -0.12}, {"radiusMeters", 30}}})}});
+    for (int i = 0; i < 5; ++i) {
+        Internal(2, {{"op", "appendData"}, {"x", i}, {"y", i}});
+        Internal(3, {{"op", "appendData"}, {"x", i}, {"y", i}});
+        Internal(4, {{"op", "appendPolylinePoint"}, {"polylineIndex", 0}, {"lat", 51.5}, {"lon", -0.12 + i * .001}});
+    }
+    Frame();
+    const auto state = xf->GetDiagnosticsState();
+    EXPECT_EQ(Node(state, 2)["state"]["pointCount"], 2);
+    EXPECT_EQ(Node(state, 3)["state"]["pointCount"], 2);
+    const auto map = Node(state, 4)["state"];
+    EXPECT_EQ(map["polylinePoints"], 2);
+    EXPECT_EQ(map["firstPolylineLimit"], 2);
+    EXPECT_EQ(map["markerCount"], 1);
+    EXPECT_EQ(map["overlayCount"], 1);
+    EXPECT_EQ(map["lastMarker"], (json{{"lat", 51.5}, {"lon", -0.12}}));
+    EXPECT_EQ(map["lastOverlayRadiusMeters"], 30);
+}
+
 namespace {
 class ActivityProbeRenderer final : public ImPlotRenderer {
 public:

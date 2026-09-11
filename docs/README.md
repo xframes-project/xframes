@@ -13,6 +13,7 @@ The live [xframes.dev](https://xframes.dev) website is maintained in a separate 
 
 ## Engineering and verification
 
+- [ubx-monitor Ordinary Application Qualification](engineering/ubx-monitor-application-2026-09.md) — completed bounded Windows slice: current-package full-App integration, sustained synthetic telemetry across Plot/Table/Map/Canvas, connection lifecycle, cleanup and reproducible setup.
 - [Stage 4: Invalidation Scheduling](engineering/fabric-invalidation-2026-09.md) — delivered scheduler MVP, producer and lifetime boundaries, local validation, measurements, completed hosted CI stabilization and deferred qualification.
 - [Stage 3: Atomic Fabric Publication](engineering/fabric-publication-2026-09.md) — schema-v2 publication, committed ownership, visibility guarantees and historical acceptance evidence.
 - [Diagnostics and Reproduction Guide](../packages/dear-imgui/npm/diagnostics/README.md) — current fixture commands, platform prerequisites and measurement contracts.

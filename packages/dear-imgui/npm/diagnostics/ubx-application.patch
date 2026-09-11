@@ -1,0 +1,1075 @@
+diff --git a/package-lock.json b/package-lock.json
+index eed378d..fc79691 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,14 +9,15 @@
+       "version": "0.1.0",
+       "license": "MPL-2.0",
+       "dependencies": {
+-        "@xframes/common": "^0.1.6",
+-        "@xframes/node": "^0.1.13",
+-        "react": "^18.2.0",
++        "@xframes/common": "file:../packages/xframes-common-0.1.7.tgz",
++        "@xframes/node": "file:../packages/xframes-node-0.1.14.tgz",
++        "react": "19.2.3",
+         "serialport": "^12.0.0",
+         "ubx-parser": "^0.2.6"
+       },
+       "devDependencies": {
+-        "@types/react": "^18.2.66",
++        "@types/node": "20.19.0",
++        "@types/react": "19.2.0",
+         "tsx": "^4.19.1",
+         "typescript": "^5.4.5"
+       }
+@@ -721,28 +722,30 @@
+       "integrity": "sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==",
+       "license": "MIT"
+     },
+-    "node_modules/@types/prop-types": {
+-      "version": "15.7.15",
+-      "resolved": "https://registry.npmjs.org/@types/prop-types/-/prop-types-15.7.15.tgz",
+-      "integrity": "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==",
++    "node_modules/@types/node": {
++      "version": "20.19.0",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.0.tgz",
++      "integrity": "sha512-hfrc+1tud1xcdVTABC2JiomZJEklMcXYNTVtZLAeqTVWD+qL5jkHKT+1lOtqDdGxt+mB53DTtiz673vfjU8D1Q==",
+       "dev": true,
+-      "license": "MIT"
++      "license": "MIT",
++      "dependencies": {
++        "undici-types": "~6.21.0"
++      }
+     },
+     "node_modules/@types/react": {
+-      "version": "18.3.28",
+-      "resolved": "https://registry.npmjs.org/@types/react/-/react-18.3.28.tgz",
+-      "integrity": "sha512-z9VXpC7MWrhfWipitjNdgCauoMLRdIILQsAEV+ZesIzBq/oUlxk0m3ApZuMFCXdnS4U7KrI+l3WRUEGQ8K1QKw==",
++      "version": "19.2.0",
++      "resolved": "https://registry.npmjs.org/@types/react/-/react-19.2.0.tgz",
++      "integrity": "sha512-1LOH8xovvsKsCBq1wnT4ntDUdCJKmnEakhsuoUSy6ExlHCkGP2hqnatagYTgFk6oeL0VU31u7SNjunPN+GchtA==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@types/prop-types": "*",
+-        "csstype": "^3.2.2"
++        "csstype": "^3.0.2"
+       }
+     },
+     "node_modules/@xframes/common": {
+-      "version": "0.1.6",
+-      "resolved": "https://registry.npmjs.org/@xframes/common/-/common-0.1.6.tgz",
+-      "integrity": "sha512-sX1/mD5LZrf3npCABuz2gFq8h39XuEvuZ810pbznRYsgd5PO7ErRpcUjafeFiKM0U8qKUKToAGXHU/8LKRySIA==",
++      "version": "0.1.7",
++      "resolved": "file:../packages/xframes-common-0.1.7.tgz",
++      "integrity": "sha512-A9XgSPMfi1ITWKo/yqIlr/C/6WVF6ga9Nwr7YooW47DIYeoSTEKIF5meVM9pSx6yR2EaAMYTI8MpoPW1wUGRWg==",
+       "license": "MIT",
+       "dependencies": {
+         "base64-js": "^1.5.1",
+@@ -762,13 +765,13 @@
+         "whatwg-fetch": "^3.6.20"
+       },
+       "peerDependencies": {
+-        "react": "^18.2.0"
++        "react": "^19.2.3"
+       }
+     },
+     "node_modules/@xframes/node": {
+-      "version": "0.1.13",
+-      "resolved": "https://registry.npmjs.org/@xframes/node/-/node-0.1.13.tgz",
+-      "integrity": "sha512-pV5OLhB4Wa9oi3NP0E/nf9eemzgCPQ1Pi86m+5fbFNSxrQRALyxM4SnjqOEPMu3Cte4FbGuZYWza15p2HDYx7g==",
++      "version": "0.1.14",
++      "resolved": "file:../packages/xframes-node-0.1.14.tgz",
++      "integrity": "sha512-LMpGOYwQN15H5U0FQGmvoGjxqDKUY0JxZ+pBbefN7B8LF0dsAe2q6k/xDDM4AbH5y7uQv9irORkiaSbiiJJXtg==",
+       "license": "MIT",
+       "dependencies": {
+         "base64-js": "^1.5.1",
+@@ -789,8 +792,8 @@
+         "whatwg-fetch": "^3.6.20"
+       },
+       "peerDependencies": {
+-        "@xframes/common": "^0.1.0",
+-        "react": "^18.2.0"
++        "@xframes/common": "^0.1.7",
++        "react": "^19.2.3"
+       }
+     },
+     "node_modules/aggregate-error": {
+@@ -1484,13 +1487,10 @@
+       "license": "MIT"
+     },
+     "node_modules/react": {
+-      "version": "18.3.1",
+-      "resolved": "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
+-      "integrity": "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==",
++      "version": "19.2.3",
++      "resolved": "https://registry.npmjs.org/react/-/react-19.2.3.tgz",
++      "integrity": "sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==",
+       "license": "MIT",
+-      "dependencies": {
+-        "loose-envify": "^1.1.0"
+-      },
+       "engines": {
+         "node": ">=0.10.0"
+       }
+@@ -1689,6 +1689,13 @@
+         "node-gyp-build-test": "build-test.js"
+       }
+     },
++    "node_modules/undici-types": {
++      "version": "6.21.0",
++      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
++      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/uuid": {
+       "version": "9.0.1",
+       "resolved": "https://registry.npmjs.org/uuid/-/uuid-9.0.1.tgz",
+diff --git a/package.json b/package.json
+index 2a09432..a237482 100644
+--- a/package.json
++++ b/package.json
+@@ -7,17 +7,20 @@
+   "license": "MPL-2.0",
+   "author": "Andrea Mancuso",
+   "scripts": {
+-    "start": "tsx ./src/index.tsx"
++    "start": "tsx ./src/index.tsx",
++    "typecheck": "tsc --noEmit",
++    "test:serial": "tsx ./tests/serial-lifecycle.ts"
+   },
+   "dependencies": {
+-    "@xframes/common": "^0.1.6",
+-    "@xframes/node": "^0.1.13",
+-    "react": "^18.2.0",
++    "@xframes/common": "file:../packages/xframes-common-0.1.7.tgz",
++    "@xframes/node": "file:../packages/xframes-node-0.1.14.tgz",
++    "react": "19.2.3",
+     "serialport": "^12.0.0",
+     "ubx-parser": "^0.2.6"
+   },
+   "devDependencies": {
+-    "@types/react": "^18.2.66",
++    "@types/node": "20.19.0",
++    "@types/react": "19.2.0",
+     "tsx": "^4.19.1",
+     "typescript": "^5.4.5"
+   }
+diff --git a/src/App.tsx b/src/App.tsx
+index 3ba29ee..b6895cc 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,6 +1,6 @@
+ import * as React from "react";
+ import { XFrames } from "@xframes/node";
+-import { WidgetPropsMap } from "@xframes/common";
++import { ImGuiCol } from "@xframes/common";
+ import { ConnectionPanel } from "./panels/ConnectionPanel";
+ import { ConsoleView } from "./panels/ConsoleView";
+ import { MessageView } from "./panels/MessageView";
+@@ -18,15 +18,17 @@ const ACTIVE_COLOR = "#2ecc71";
+ const INACTIVE_COLOR = "#808080";
+ const DORMANT_COLOR = "#d0d0d0";
+ 
+-type Indicator = WidgetPropsMap["TabItem"]["indicator"];
++// Current packages expose per-tab text color for the activity status.
+ 
+ export const App = () => {
+   const activity = useDataActivity();
+   const { status } = useSerialConnection();
+   const connected = status === "connected";
+ 
+-  const dot = (active: boolean): Indicator =>
+-    ({ color: connected ? (active ? ACTIVE_COLOR : INACTIVE_COLOR) : DORMANT_COLOR });
++  const tabStyle = (active: boolean) => ({
++    flex: 1, width: "100%",
++    colors: { [ImGuiCol.Text]: connected ? (active ? ACTIVE_COLOR : INACTIVE_COLOR) : DORMANT_COLOR },
++  });
+ 
+   return (
+     <XFrames.Node root style={{ height: "100%", padding: { all: 8 } }}>
+@@ -37,64 +39,55 @@ export const App = () => {
+       <XFrames.TabBar style={{ flex: 1, width: "100%" }}>
+         <XFrames.TabItem
+           label="Connection"
+-          indicator={{ color: connected ? ACTIVE_COLOR : DORMANT_COLOR }}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(connected)}
+         >
+           <ConnectionPanel />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Console"
+-          indicator={dot(activity["rawdata"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["rawdata"])}
+         >
+           <ConsoleView />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Messages"
+-          indicator={dot(activity["message"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["message"])}
+         >
+           <MessageView />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Navigation"
+-          indicator={dot(activity["NAV-PVT"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["NAV-PVT"])}
+         >
+           <NavigationStatus />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Map"
+-          indicator={dot(activity["NAV-PVT"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["NAV-PVT"])}
+         >
+           <MapPanel />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Position"
+-          indicator={dot(activity["NAV-PVT"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["NAV-PVT"])}
+         >
+           <PositionTrackingPanel />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Sky View"
+-          indicator={dot(activity["NAV-SAT"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["NAV-SAT"])}
+         >
+           <SkyViewPanel />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Signals"
+-          indicator={dot(activity["NAV-SAT"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["NAV-SAT"])}
+         >
+           <SignalStrengthPanel />
+         </XFrames.TabItem>
+         <XFrames.TabItem
+           label="Hardware"
+-          indicator={dot(activity["MON-HW"] || activity["MON-RF"])}
+-          style={{ flex: 1, width: "100%" }}
++          style={tabStyle(activity["MON-HW"] || activity["MON-RF"])}
+         >
+           <HardwareStatusPanel />
+         </XFrames.TabItem>
+diff --git a/src/components/LabelRow.tsx b/src/components/LabelRow.tsx
+index 4b90003..ed04145 100644
+--- a/src/components/LabelRow.tsx
++++ b/src/components/LabelRow.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { XFrames } from "@xframes/node";
+ import { themeColors } from "../themes";
+@@ -6,11 +7,11 @@ export const LabelRow = ({ label, value, color }: { label: string; value: string
+   <XFrames.Node style={{ flexDirection: "row", gap: { column: 8 }, height: 22 }}>
+     <XFrames.UnformattedText
+       text={label}
+-      style={{ width: 100, color: themeColors.lightSlate }}
++      style={{ width: 100, colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+     />
+     <XFrames.UnformattedText
+       text={value}
+-      style={color ? { color } : undefined}
++      style={color ? { colors: { [ImGuiCol.Text]: color } } : undefined}
+     />
+   </XFrames.Node>
+ );
+diff --git a/src/components/SectionHeader.tsx b/src/components/SectionHeader.tsx
+index 5c3a656..72dbd06 100644
+--- a/src/components/SectionHeader.tsx
++++ b/src/components/SectionHeader.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { XFrames } from "@xframes/node";
+ import { themeColors } from "../themes";
+@@ -5,6 +6,6 @@ import { themeColors } from "../themes";
+ export const SectionHeader = ({ text }: { text: string }) => (
+   <XFrames.UnformattedText
+     text={text}
+-    style={{ color: themeColors.offWhite, font: { name: "roboto-regular", size: 18 } }}
++    style={{ colors: { [ImGuiCol.Text]: themeColors.offWhite }, font: { name: "roboto-regular", size: 18 } }}
+   />
+ );
+diff --git a/src/components/StatusBar.tsx b/src/components/StatusBar.tsx
+index b4c1586..fdf3439 100644
+--- a/src/components/StatusBar.tsx
++++ b/src/components/StatusBar.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { XFrames } from "@xframes/node";
+ import { useSerialConnection } from "../hooks/useSerialConnection";
+@@ -30,8 +31,8 @@ const FIX_COLORS: Record<number, string> = {
+   5: "#3498db",
+ };
+ 
+-const dividerStyle = { color: themeColors.slate };
+-const labelStyle = { color: themeColors.lightSlate };
++const dividerStyle = { colors: { [ImGuiCol.Text]: themeColors.slate } };
++const labelStyle = { colors: { [ImGuiCol.Text]: themeColors.lightSlate } };
+ 
+ export const StatusBar = () => {
+   const { status } = useSerialConnection();
+@@ -70,29 +71,29 @@ export const StatusBar = () => {
+       />
+       <XFrames.UnformattedText text={status} style={labelStyle} />
+ 
+-      <XFrames.UnformattedText text="\u2502" style={dividerStyle} />
++      <XFrames.UnformattedText text={"\u2502"} style={dividerStyle} />
+ 
+       <XFrames.UnformattedText
+         text={isStale
+           ? `${messageRate} msg/s (stale ${timeSinceLastMessage}s)`
+           : `${messageRate} msg/s`}
+-        style={isStale ? { color: "#e67e22" } : labelStyle}
++        style={isStale ? { colors: { [ImGuiCol.Text]: "#e67e22" } } : labelStyle}
+       />
+ 
+-      {status === "connected" && baudRate && (
++      {status === "connected" && baudRate !== null && (
+         <>
+-          <XFrames.UnformattedText text="\u2502" style={dividerStyle} />
++          <XFrames.UnformattedText text={"\u2502"} style={dividerStyle} />
+           <XFrames.UnformattedText
+             text={`${kbPerSec} KB/s (${utilizationPct}%)`}
+-            style={{ color: bwColor }}
++            style={{ colors: { [ImGuiCol.Text]: bwColor } }}
+           />
+           <XFrames.ProgressBar fraction={fraction} style={{ width: 80, height: 14 }} />
+         </>
+       )}
+ 
+-      <XFrames.UnformattedText text="\u2502" style={dividerStyle} />
++      <XFrames.UnformattedText text={"\u2502"} style={dividerStyle} />
+ 
+-      <XFrames.UnformattedText text={fixLabel} style={{ color: fixColor }} />
++      <XFrames.UnformattedText text={fixLabel} style={{ colors: { [ImGuiCol.Text]: fixColor } }} />
+       <XFrames.UnformattedText text={`${satCount} sats`} style={labelStyle} />
+     </XFrames.Node>
+   );
+diff --git a/src/connection/SerialManager.ts b/src/connection/SerialManager.ts
+index b05700b..4f94d95 100644
+--- a/src/connection/SerialManager.ts
++++ b/src/connection/SerialManager.ts
+@@ -1,5 +1,6 @@
+ import { EventEmitter } from "events";
+-import { SerialPort } from "serialport";
++import { physicalSerialTransport } from "./SerialTransport";
++import type { SerialTransport, SerialTransportPort } from "./SerialTransport";
+ import { UbxParser } from "ubx-parser";
+ import type { ConnectionStatus, SerialPortInfo } from "./types";
+ import { enableUbxNavMessages, coldStart, warmStart, hotStart } from "./ubx-commands";
+@@ -7,8 +8,8 @@ import { enableUbxNavMessages, coldStart, warmStart, hotStart } from "./ubx-comm
+ const MAX_RECONNECT_ATTEMPTS = 5;
+ const RECONNECT_INTERVAL_MS = 2000;
+ 
+-class SerialManager extends EventEmitter {
+-  private port: SerialPort | null = null;
++export class SerialManager extends EventEmitter {
++  private port: SerialTransportPort | null = null;
+   private parser: UbxParser | null = null;
+   private status: ConnectionStatus = "disconnected";
+   private intentionalDisconnect = false;
+@@ -16,9 +17,21 @@ class SerialManager extends EventEmitter {
+   private reconnectAttempt = 0;
+   private lastPath: string | null = null;
+   private lastBaudRate: number | null = null;
++  private detachListeners: (() => void) | null = null;
++
++  constructor(private transport: SerialTransport = physicalSerialTransport) {
++    super();
++  }
++
++  setTransport(transport: SerialTransport): void {
++    if (this.status !== "disconnected" || this.port || this.reconnectTimer) {
++      throw new Error("Change serial transport only while disconnected");
++    }
++    this.transport = transport;
++  }
+ 
+   async listPorts(): Promise<SerialPortInfo[]> {
+-    const ports = await SerialPort.list();
++    const ports = await this.transport.list();
+     return ports.map((p) => ({
+       path: p.path,
+       manufacturer: p.manufacturer || undefined,
+@@ -39,12 +52,16 @@ class SerialManager extends EventEmitter {
+     this.emit("status", this.status);
+     this.emit("baudrate", baudRate);
+ 
+-    this.port = new SerialPort({ path, baudRate }, (err) => {
++    const port = this.transport.open({ path, baudRate }, (err) => {
++      if (this.port !== port) {
++        if (!err && port.isOpen) port.close(() => {});
++        return;
++      }
+       if (err) {
+         this.status = "disconnected";
+         this.emit("status", this.status);
+         this.emit("error", err.message);
+-        this.port = null;
++        this.releasePort();
+         return;
+       }
+ 
+@@ -53,6 +70,7 @@ class SerialManager extends EventEmitter {
+       this.emit("status", this.status);
+     });
+ 
++    this.port = port;
+     this.parser = new UbxParser();
+     this.setupPortListeners();
+   }
+@@ -61,11 +79,7 @@ class SerialManager extends EventEmitter {
+     this.intentionalDisconnect = true;
+     this.clearReconnect();
+ 
+-    if (this.port && this.port.isOpen) {
+-      this.port.close();
+-    }
+-    this.port = null;
+-    this.parser = null;
++    this.releasePort();
+     this.status = "disconnected";
+     this.emit("status", this.status);
+     this.emit("baudrate", null);
+@@ -93,79 +107,59 @@ class SerialManager extends EventEmitter {
+     return this.status;
+   }
+ 
++  private releasePort(): void {
++    const port = this.port;
++    this.port = null;
++    this.detachListeners?.();
++    this.detachListeners = null;
++    this.parser = null;
++    if (port?.isOpen) port.close(() => {});
++    // An opening transport is closed by its completion callback if superseded.
++  }
++
+   private setupPortListeners(): void {
+-    this.port!.on("data", (chunk: Buffer) => {
++    const port = this.port!;
++    // ubx-parser 0.2.x extends EventEmitter but omits its removal methods from
++    // the declaration file. Keep this compatibility assertion at the owner.
++    const parser = this.parser! as UbxParser & EventEmitter;
++    const current = () => this.port === port && this.parser === parser;
++    const onData = (chunk: Buffer) => {
++      if (!current()) return;
+       this.emit("rawdata", chunk);
+-      this.parser!.feed(chunk);
+-    });
+-
+-    this.parser!.on("message", (msg) => {
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("NAV-PVT", (msg) => {
+-      this.emit("NAV-PVT", msg);
+-    });
+-
+-    this.parser!.on("ACK-ACK", (msg) => {
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("ACK-NAK", (msg) => {
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("MON-HW", (msg) => {
+-      this.emit("MON-HW", msg);
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("MON-HW3", (msg) => {
+-      this.emit("MON-HW3", msg);
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("MON-RF", (msg) => {
+-      this.emit("MON-RF", msg);
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("NAV-STATUS", (msg) => {
+-      this.emit("NAV-STATUS", msg);
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("NAV-DOP", (msg) => {
+-      this.emit("NAV-DOP", msg);
+-      this.emit("message", msg);
+-    });
+-
+-    this.parser!.on("NAV-SAT", (msg) => {
+-      this.emit("NAV-SAT", msg);
+-    });
+-
+-    this.port!.on("close", () => {
+-      if (this.intentionalDisconnect) {
+-        this.status = "disconnected";
+-        this.emit("status", this.status);
+-      } else {
+-        this.port = null;
+-        this.parser = null;
+-        this.startReconnect();
+-      }
+-    });
+-
+-    this.port!.on("error", (err) => {
+-      this.emit("error", err.message);
+-      if (this.intentionalDisconnect) {
+-        this.status = "disconnected";
+-        this.emit("status", this.status);
+-      } else {
+-        this.port = null;
+-        this.parser = null;
+-        this.startReconnect();
+-      }
++      parser.feed(chunk);
++    };
++    const onMessage = (msg: unknown) => {
++      if (current()) this.emit("message", msg);
++    };
++    parser.on("message", onMessage);
++    // UbxParser already emits each decoded message on `message` exactly once.
++    const events = ["NAV-PVT", "MON-HW", "MON-HW3", "MON-RF", "NAV-STATUS", "NAV-DOP", "NAV-SAT"];
++    const handlers = events.map((event) => {
++      const handler = (msg: unknown) => { if (current()) this.emit(event, msg); };
++      parser.on(event, handler);
++      return [event, handler] as const;
+     });
++    const onClose = () => {
++      if (!current()) return;
++      this.releasePort();
++      if (!this.intentionalDisconnect) this.startReconnect();
++    };
++    const onError = (error: Error) => {
++      if (!current()) return;
++      this.emit("error", error.message);
++      this.releasePort();
++      if (!this.intentionalDisconnect) this.startReconnect();
++    };
++    port.on("data", onData);
++    port.on("close", onClose);
++    port.on("error", onError);
++    this.detachListeners = () => {
++      port.off("data", onData);
++      port.off("close", onClose);
++      port.off("error", onError);
++      parser.off("message", onMessage);
++      for (const [event, handler] of handlers) parser.off(event, handler);
++    };
+   }
+ 
+   private clearReconnect(): void {
+@@ -208,15 +202,15 @@ class SerialManager extends EventEmitter {
+   }
+ 
+   private attemptReconnect(): void {
+-    if (this.port) {
+-      this.port.removeAllListeners();
+-      if (this.port.isOpen) this.port.close();
+-      this.port = null;
+-    }
+-    this.parser = null;
++    this.releasePort();
+ 
+-    this.port = new SerialPort({ path: this.lastPath!, baudRate: this.lastBaudRate! }, (err) => {
++    const port = this.transport.open({ path: this.lastPath!, baudRate: this.lastBaudRate! }, (err) => {
++      if (this.port !== port) {
++        if (!err && port.isOpen) port.close(() => {});
++        return;
++      }
+       if (err) {
++        this.releasePort();
+         if (!this.intentionalDisconnect) {
+           this.scheduleReconnectAttempt();
+         }
+@@ -228,6 +222,7 @@ class SerialManager extends EventEmitter {
+       this.emit("status", this.status);
+     });
+ 
++    this.port = port;
+     this.parser = new UbxParser();
+     this.setupPortListeners();
+   }
+diff --git a/src/connection/SerialTransport.ts b/src/connection/SerialTransport.ts
+new file mode 100644
+index 0000000..17d8903
+--- /dev/null
++++ b/src/connection/SerialTransport.ts
+@@ -0,0 +1,21 @@
++import { EventEmitter } from "events";
++import { SerialPort } from "serialport";
++import type { SerialPortInfo } from "./types";
++
++export interface SerialTransportPort extends EventEmitter {
++  readonly isOpen: boolean;
++  close(callback?: (error: Error | null) => void): void;
++  write(data: Buffer): unknown;
++}
++
++// Only the byte transport varies. Connection state, parsing and subscriptions
++// remain owned by SerialManager. open's callback must run asynchronously.
++export interface SerialTransport {
++  list(): Promise<SerialPortInfo[]>;
++  open(options: { path: string; baudRate: number }, callback: (error: Error | null) => void): SerialTransportPort;
++}
++
++export const physicalSerialTransport: SerialTransport = {
++  list: () => SerialPort.list(),
++  open: (options, callback) => new SerialPort(options, callback),
++};
+diff --git a/src/connection/config.ts b/src/connection/config.ts
+index d1a1c7e..244c1a9 100644
+--- a/src/connection/config.ts
++++ b/src/connection/config.ts
+@@ -14,12 +14,12 @@ let cache: AppConfig | null = null;
+ export function getConfig(): AppConfig {
+   if (!cache) {
+     try {
+-      cache = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
++      cache = JSON.parse(readFileSync(CONFIG_PATH, "utf-8")) ?? {};
+     } catch {
+       cache = {};
+     }
+   }
+-  return cache;
++  return cache!;
+ }
+ 
+ export function updateConfig(partial: Partial<AppConfig>): void {
+diff --git a/src/hooks/useDataActivity.ts b/src/hooks/useDataActivity.ts
+index 05f9f9e..2494d3f 100644
+--- a/src/hooks/useDataActivity.ts
++++ b/src/hooks/useDataActivity.ts
+@@ -33,7 +33,8 @@ export function useDataActivity(): Record<string, boolean> {
+       for (const evt of TRACKED_EVENTS) {
+         next[evt] = now - (lastSeen.current[evt] ?? 0) < STALE_THRESHOLD_MS;
+       }
+-      setActivity(next);
++      setActivity((previous) => TRACKED_EVENTS.every((event) => !!previous[event] === next[event])
++        ? previous : next);
+     }, 1000);
+ 
+     return () => {
+diff --git a/src/hooks/useUbxMessages.ts b/src/hooks/useUbxMessages.ts
+index fcb3c3a..fbb1396 100644
+--- a/src/hooks/useUbxMessages.ts
++++ b/src/hooks/useUbxMessages.ts
+@@ -67,6 +67,8 @@ export function useUbxMessages() {
+ 
+     const onStatus = (s: ConnectionStatus) => {
+       if (s === "disconnected") {
++        timestampsRef.current = [];
++        setMessageRate(0);
+         lastMessageTimeRef.current = 0;
+         setTimeSinceLastMessage(0);
+         byteChunksRef.current = [];
+@@ -85,6 +87,8 @@ export function useUbxMessages() {
+       // Decay bytes/sec when no data arrives
+       const now = Date.now();
+       const cutoff = now - 1000;
++      timestampsRef.current = timestampsRef.current.filter((time) => time > cutoff);
++      setMessageRate(timestampsRef.current.length);
+       byteChunksRef.current = byteChunksRef.current.filter((c) => c.time > cutoff);
+       setBytesPerSec(byteChunksRef.current.reduce((sum, c) => sum + c.bytes, 0));
+     }, 1000);
+diff --git a/src/index.tsx b/src/index.tsx
+index 98066ea..a97e3ef 100644
+--- a/src/index.tsx
++++ b/src/index.tsx
+@@ -15,4 +15,4 @@ const fontDefs = {
+ 
+ const assetsBasePath = resolve("./assets");
+ 
+-render(App, assetsBasePath, fontDefs, theme);
++export const dispose = render(App, assetsBasePath, fontDefs, theme);
+diff --git a/src/panels/ConnectionPanel.tsx b/src/panels/ConnectionPanel.tsx
+index e270c55..4f5831e 100644
+--- a/src/panels/ConnectionPanel.tsx
++++ b/src/panels/ConnectionPanel.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useState, useCallback, useEffect, useRef } from "react";
+ import { XFrames } from "@xframes/node";
+@@ -20,8 +21,7 @@ const statusColors: Record<string, string> = {
+ 
+ const disabledComboStyle = {
+   width: 250,
+-  color: themeColors.slate,
+-  backgroundColor: themeColors.deepNavy,
++  colors: { [ImGuiCol.Text]: themeColors.slate, [ImGuiCol.FrameBg]: themeColors.deepNavy },
+ };
+ 
+ export const ConnectionPanel = () => {
+@@ -128,7 +128,7 @@ export const ConnectionPanel = () => {
+       {error && (
+         <XFrames.UnformattedText
+           text={`Error: ${error}`}
+-          style={{ color: "#e74c3c" }}
++          style={{ colors: { [ImGuiCol.Text]: "#e74c3c" } }}
+         />
+       )}
+     </XFrames.Node>
+diff --git a/src/panels/ConsoleView.tsx b/src/panels/ConsoleView.tsx
+index e3b180c..d9392d3 100644
+--- a/src/panels/ConsoleView.tsx
++++ b/src/panels/ConsoleView.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useEffect, useRef, useState } from "react";
+ import { XFrames } from "@xframes/node";
+@@ -51,11 +52,31 @@ export const ConsoleView = () => {
+   const offsetRef = useRef(0);
+   const frameBufferRef = useRef<Buffer>(Buffer.alloc(0));
+   const [hasData, setHasData] = useState(false);
++  const historyRef = useRef("");
++  const replayRef = useRef(true);
++  const [historyGeneration, setHistoryGeneration] = useState(0);
++
++  // The native text handle is append-only. Rotate its lifetime when trimming
++  // the console so both retained JS text and native text stay bounded.
++  useEffect(() => {
++    if (textRef.current && replayRef.current) {
++      textRef.current.appendTextToClippedMultiLineTextRenderer(historyRef.current);
++      replayRef.current = false;
++    }
++  }, [hasData, historyGeneration]);
+ 
+   useEffect(() => {
+     const onRawData = (chunk: Buffer) => {
+       if (!hasData) setHasData(true);
+-      if (!textRef.current) return;
++      const appendText = (text: string) => {
++        historyRef.current += text;
++        if (historyRef.current.length > 65536) {
++          historyRef.current = historyRef.current.slice(-32768);
++          replayRef.current = true;
++          setHistoryGeneration((value) => value + 1);
++        }
++        if (!replayRef.current) textRef.current?.appendTextToClippedMultiLineTextRenderer(text);
++      };
+ 
+       frameBufferRef.current = Buffer.concat([frameBufferRef.current, chunk]);
+       const buf = frameBufferRef.current;
+@@ -75,7 +96,7 @@ export const ConsoleView = () => {
+           // No sync found — dump remaining, keep last byte if it could be start of sync
+           const keep = buf[buf.length - 1] === 0xb5 ? 1 : 0;
+           if (buf.length - keep > pos) {
+-            textRef.current.appendTextToClippedMultiLineTextRenderer(
++            appendText(
+               formatHexDump(buf.subarray(pos, buf.length - keep), offsetRef.current),
+             );
+             offsetRef.current += buf.length - keep - pos;
+@@ -86,7 +107,7 @@ export const ConsoleView = () => {
+ 
+         // Dump non-UBX bytes before sync
+         if (syncPos > pos) {
+-          textRef.current.appendTextToClippedMultiLineTextRenderer(
++          appendText(
+             formatHexDump(buf.subarray(pos, syncPos), offsetRef.current),
+           );
+           offsetRef.current += syncPos - pos;
+@@ -108,7 +129,7 @@ export const ConsoleView = () => {
+         const name = ubxName(cls, id);
+         const separator = `\n──── ${name} [${cls.toString(16).padStart(2, "0")}:${id.toString(16).padStart(2, "0")}] ${payloadLen} bytes ────\n`;
+         const frame = buf.subarray(pos, pos + frameLen);
+-        textRef.current.appendTextToClippedMultiLineTextRenderer(
++        appendText(
+           separator + formatHexDump(frame, offsetRef.current),
+         );
+         offsetRef.current += frameLen;
+@@ -131,7 +152,7 @@ export const ConsoleView = () => {
+       <XFrames.Node style={{ padding: { all: 8 } }}>
+         <XFrames.UnformattedText
+           text="No data received"
+-          style={{ color: themeColors.lightSlate }}
++          style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+         />
+       </XFrames.Node>
+     );
+@@ -140,6 +161,7 @@ export const ConsoleView = () => {
+   return (
+     <XFrames.Node style={{ padding: { all: 8 }, flex: 1 }}>
+       <XFrames.ClippedMultiLineTextRenderer
++        key={historyGeneration}
+         ref={textRef}
+         style={{ flex: 1, font: { name: "roboto-mono", size: 14 } }}
+       />
+diff --git a/src/panels/HardwareStatusPanel.tsx b/src/panels/HardwareStatusPanel.tsx
+index ee44b61..d4a2ae4 100644
+--- a/src/panels/HardwareStatusPanel.tsx
++++ b/src/panels/HardwareStatusPanel.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useRef, useEffect } from "react";
+ import { XFrames } from "@xframes/node";
+@@ -65,7 +66,7 @@ export const HardwareStatusPanel = () => {
+       <XFrames.Node style={{ padding: { all: 8 } }}>
+         <XFrames.UnformattedText
+           text="No data \u2014 connect to a receiver"
+-          style={{ color: themeColors.lightSlate }}
++          style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+         />
+       </XFrames.Node>
+     );
+diff --git a/src/panels/MapPanel.tsx b/src/panels/MapPanel.tsx
+index a6c641d..35d5db9 100644
+--- a/src/panels/MapPanel.tsx
++++ b/src/panels/MapPanel.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useRef, useEffect, useState } from "react";
+ import { XFrames } from "@xframes/node";
+@@ -70,14 +71,14 @@ export const MapPanel = () => {
+         <XFrames.Node style={{ padding: { all: 8 } }}>
+           <XFrames.UnformattedText
+             text="Awaiting fix\u2026"
+-            style={{ color: themeColors.lightSlate }}
++            style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+           />
+         </XFrames.Node>
+       ) : (
+         <XFrames.Node style={{ padding: { left: 8, top: 4, bottom: 4 } }}>
+           <XFrames.UnformattedText
+             text={`Z${zoom} \u00b7 ${formatCoord(data.lat, data.lon)}`}
+-            style={{ color: themeColors.lightSlate, font: { name: "roboto-mono", size: 14 } }}
++            style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate }, font: { name: "roboto-mono", size: 14 } }}
+           />
+         </XFrames.Node>
+       )}
+@@ -86,7 +87,9 @@ export const MapPanel = () => {
+         style={{ flex: 1, width: "100%" }}
+         minZoom={3}
+         maxZoom={18}
+-        cachePath="./tile_cache"
++        cachePath={process.env.UBX_MONITOR_TILE_CACHE ?? "./tile_cache"}
++        tileUrlTemplate={process.env.UBX_MONITOR_TILE_URL}
++        attribution={process.env.UBX_MONITOR_TILE_URL ? "Local synthetic map fixture" : undefined}
+         onChange={(e: any) => setZoom(Math.round(e.nativeEvent.value))}
+       />
+     </XFrames.Node>
+diff --git a/src/panels/NavigationStatus.tsx b/src/panels/NavigationStatus.tsx
+index e310e1b..49412ae 100644
+--- a/src/panels/NavigationStatus.tsx
++++ b/src/panels/NavigationStatus.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { XFrames } from "@xframes/node";
+ import { ComboChangeEvent } from "@xframes/common";
+@@ -116,7 +117,7 @@ export const NavigationStatus = () => {
+       <XFrames.Node style={{ padding: { all: 8 } }}>
+         <XFrames.UnformattedText
+           text="No data \u2014 connect to a receiver"
+-          style={{ color: themeColors.lightSlate }}
++          style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+         />
+       </XFrames.Node>
+     );
+@@ -129,7 +130,7 @@ export const NavigationStatus = () => {
+   return (
+     <XFrames.Node style={{ padding: { all: 8 }, gap: { row: 4 } }}>
+       <XFrames.Node style={{ flexDirection: "row", gap: { column: 8 }, height: 22, alignItems: "center" }}>
+-        <XFrames.UnformattedText text="Coord:" style={{ width: 100, color: themeColors.lightSlate }} />
++        <XFrames.UnformattedText text="Coord:" style={{ width: 100, colors: { [ImGuiCol.Text]: themeColors.lightSlate } }} />
+         <XFrames.Combo
+           options={COORD_FORMATS}
+           initialSelectedIndex={coordFormat}
+diff --git a/src/panels/PositionTrackingPanel.tsx b/src/panels/PositionTrackingPanel.tsx
+index 1441013..2711159 100644
+--- a/src/panels/PositionTrackingPanel.tsx
++++ b/src/panels/PositionTrackingPanel.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useRef, useEffect } from "react";
+ import { XFrames } from "@xframes/node";
+@@ -69,7 +70,7 @@ export const PositionTrackingPanel = () => {
+       <XFrames.Node style={{ padding: { all: 8 } }}>
+         <XFrames.UnformattedText
+           text="No data \u2014 connect to a receiver"
+-          style={{ color: themeColors.lightSlate }}
++          style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+         />
+       </XFrames.Node>
+     );
+@@ -102,7 +103,7 @@ export const PositionTrackingPanel = () => {
+           text={headerText}
+           style={{
+             font: { name: "roboto-mono", size: 14 },
+-            color: themeColors.silver,
++            colors: { [ImGuiCol.Text]: themeColors.silver },
+           }}
+         />
+       </XFrames.Node>
+@@ -126,7 +127,7 @@ export const PositionTrackingPanel = () => {
+             text={statsText}
+             style={{
+               font: { name: "roboto-mono", size: 14 },
+-              color: themeColors.silver,
++              colors: { [ImGuiCol.Text]: themeColors.silver },
+             }}
+           />
+         </XFrames.Node>
+diff --git a/src/panels/SignalStrengthPanel.tsx b/src/panels/SignalStrengthPanel.tsx
+index 34dd79a..9dcd507 100644
+--- a/src/panels/SignalStrengthPanel.tsx
++++ b/src/panels/SignalStrengthPanel.tsx
+@@ -1,3 +1,4 @@
++import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useRef, useEffect, useMemo, useState, useCallback } from "react";
+ import { XFrames } from "@xframes/node";
+@@ -109,7 +110,7 @@ export const SignalStrengthPanel = () => {
+       <XFrames.Node style={{ padding: { all: 8 } }}>
+         <XFrames.UnformattedText
+           text="No data \u2014 connect to a receiver"
+-          style={{ color: themeColors.lightSlate }}
++          style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+         />
+       </XFrames.Node>
+     );
+@@ -121,7 +122,7 @@ export const SignalStrengthPanel = () => {
+         {stats && (
+           <XFrames.UnformattedText
+             text={`${stats.totalTracked} sats, ${stats.totalUsed} used \u2014 Mean CNO: ${stats.meanCno.toFixed(1)} dB-Hz`}
+-            style={{ font: { name: "roboto-mono", size: 14 }, color: themeColors.silver }}
++            style={{ font: { name: "roboto-mono", size: 14 }, colors: { [ImGuiCol.Text]: themeColors.silver } }}
+           />
+         )}
+         <XFrames.Checkbox
+@@ -136,7 +137,7 @@ export const SignalStrengthPanel = () => {
+             <XFrames.UnformattedText
+               key={c.gnssId}
+               text={`${c.name.padEnd(8)} ${String(c.count).padStart(2)} (${String(c.used).padStart(2)} used) \u00B7 ${c.meanCno.toFixed(1)} dB-Hz`}
+-              style={{ font: { name: "roboto-mono", size: 14 }, color: c.color }}
++              style={{ font: { name: "roboto-mono", size: 14 }, colors: { [ImGuiCol.Text]: c.color } }}
+             />
+           ))}
+         </XFrames.Node>
+diff --git a/src/panels/SkyViewPanel.tsx b/src/panels/SkyViewPanel.tsx
+index 859505c..3fe9b51 100644
+--- a/src/panels/SkyViewPanel.tsx
++++ b/src/panels/SkyViewPanel.tsx
+@@ -11,6 +11,8 @@ export const SkyViewPanel = () => {
+ 
+   useEffect(() => {
+     if (!canvasRef.current) return;
++    // sky-view.js draws only the current dimensions and satellite data.
++    canvasRef.current.setContinuous(false);
+     canvasRef.current.setScriptFile("./src/scripts/sky-view.js");
+     scriptLoaded.current = true;
+   }, []);
+diff --git a/tests/serial-lifecycle.ts b/tests/serial-lifecycle.ts
+new file mode 100644
+index 0000000..43741fb
+--- /dev/null
++++ b/tests/serial-lifecycle.ts
+@@ -0,0 +1,71 @@
++import assert from "node:assert/strict";
++import { EventEmitter } from "node:events";
++import { SerialManager } from "../src/connection/SerialManager";
++import type { SerialTransport } from "../src/connection/SerialTransport";
++
++class Port extends EventEmitter {
++  isOpen = false;
++  close() { this.isOpen = false; queueMicrotask(() => this.emit("close")); }
++  write() { return true; }
++}
++const openings: { port: Port; complete: (error: Error | null) => void }[] = [];
++const transport: SerialTransport = {
++  list: async () => [{ path: "synthetic" }],
++  open: (_options, callback) => {
++    const port = new Port();
++    openings.push({ port, complete: (error) => { port.isOpen = !error; callback(error); } });
++    return port;
++  },
++};
++const manager = new SerialManager(transport);
++const errors: string[] = [];
++manager.on("error", (message) => errors.push(message));
++const statuses: string[] = [];
++manager.on("status", (status) => statuses.push(status));
++let messages = 0;
++manager.on("message", () => ++messages);
++// UBX ACK-ACK for NAV-PVT, with valid checksum. Generic delivery occurs once.
++const ack = Buffer.from([0xb5, 0x62, 5, 1, 2, 0, 1, 7, 16, 52]);
++manager.connect("synthetic", 38400);
++const first = openings[0];
++first.complete(null);
++first.port.emit("data", ack.subarray(0, 3));
++first.port.emit("data", ack.subarray(3));
++assert.equal(messages, 1);
++manager.disconnect();
++assert.deepEqual(first.port.eventNames(), []);
++assert.doesNotThrow(() => first.port.emit("data", ack));
++assert.equal(messages, 1);
++// A completion arriving after disconnect cannot publish connected state.
++manager.connect("synthetic", 38400);
++manager.disconnect();
++openings[1].complete(null);
++assert.equal(manager.getStatus(), "disconnected");
++assert.equal(openings[1].port.isOpen, false);
++// An old close or open completion must not affect a newer connection.
++manager.connect("synthetic", 38400);
++const pending = openings[2];
++manager.connect("synthetic", 38400);
++const current = openings[3];
++current.complete(null);
++pending.complete(null);
++first.port.emit("close");
++assert.equal(manager.getStatus(), "connected");
++assert.equal(pending.port.isOpen, false);
++current.port.emit("data", ack);
++assert.equal(messages, 2);
++// Exercise the actual delayed reconnect path, then release all ownership.
++current.port.isOpen = false;
++current.port.emit("close");
++assert.equal(manager.getStatus(), "reconnecting");
++await new Promise((done) => setTimeout(done, 2100));
++assert.equal(openings.length, 5);
++openings[4].complete(null);
++assert.equal(manager.getStatus(), "connected");
++openings[4].port.emit("data", ack);
++assert.equal(messages, 3);
++manager.disconnect();
++await new Promise((done) => setImmediate(done));
++assert.ok(openings.every(({ port }) => !port.isOpen && port.eventNames().length === 0));
++assert.deepEqual(errors, []);
++console.log(JSON.stringify({ status: "passed", openings: openings.length, messages, statuses, retainedPortListeners: 0 }));
+diff --git a/tsconfig.json b/tsconfig.json
+index e467c14..071fafd 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -1,9 +1,9 @@
+ {
+   "compilerOptions": {
+     "target": "ES2022",
+-    "module": "Node16",
++    "module": "ESNext",
+     "lib": ["ES2022"],
+-    "moduleResolution": "Node16",
++    "moduleResolution": "Bundler",
+     "esModuleInterop": true,
+     "skipLibCheck": true,
+     "skipDefaultLibCheck": true,

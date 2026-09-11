@@ -237,6 +237,11 @@ json XFrames::BuildDiagnosticsStateUnlocked() {
         const auto resources = element->GetResourceDiagnostics();
         if (!resources.is_null()) record["resources"] = resources;
         if (auto* plot = dynamic_cast<PlotBar*>(element.get())) record["state"] = plot->GetDiagnosticsState();
+        if (auto* plot = dynamic_cast<PlotLine*>(element.get())) record["state"] = plot->GetDiagnosticsState();
+        if (auto* plot = dynamic_cast<PlotScatter*>(element.get())) record["state"] = plot->GetDiagnosticsState();
+        if (auto* map = dynamic_cast<MapView*>(element.get())) record["state"] = map->GetDiagnosticsState();
+        if (auto* text = dynamic_cast<ClippedMultiLineTextRenderer*>(element.get()))
+            record["state"] = {{"byteCount", text->m_textBuffer.size()}, {"lineCount", text->m_lineOffsets.Size}};
         if (auto* table = dynamic_cast<Table*>(element.get())) {
             record["state"] = {{"rowCount", table->m_data.size()}, {"columnCount", table->m_columns.size()},
                 {"filterDirty", table->m_filterDirty}, {"filteredCount", table->m_filteredIndices.size()},

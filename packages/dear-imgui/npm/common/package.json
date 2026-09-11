@@ -18,7 +18,7 @@
         "extract-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts",
         "check-rn-fabric-renderer": "tsx ./scripts/extract-rn-fabric-renderer.ts --check",
         "typecheck:fabric-tools": "tsc --noEmit --project ./scripts/tsconfig.json",
-        "test:fabric-host": "tsx ./scripts/test-rn-fabric-host.ts",
+        "test:fabric-host": "tsx ./scripts/test-rn-fabric-host.ts && tsx ./scripts/test-imgui-col-abi.ts",
         "verify:rn-fabric": "npm run check-rn-fabric-renderer && npm run typecheck:fabric-tools && npm run test:fabric-host",
         "tsup": "tsup --format cjs --external react,react-dom",
         "build:library": "npm run verify:rn-fabric && rimraf ./dist && npm run tsup",

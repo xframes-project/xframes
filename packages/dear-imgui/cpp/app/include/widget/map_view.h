@@ -147,6 +147,17 @@ private:
     std::string BuildTileUrl(int x, int y, int zoom);
 
 public:
+    json GetDiagnosticsState() const {
+        size_t points = 0;
+        for (const auto& line : m_polylines) points += line.points.size();
+        return {{"zoom", m_zoom}, {"centerLon", m_centerLon}, {"centerLat", m_centerLat},
+            {"markerCount", m_markers.size()}, {"overlayCount", m_overlays.size()},
+            {"polylineCount", m_polylines.size()}, {"polylinePoints", points},
+            {"firstPolylineLimit", m_polylines.empty() ? 0 : m_polylines.front().pointsLimit},
+            {"lastMarker", m_markers.empty() ? json(nullptr) : json{{"lat", m_markers.back().lat}, {"lon", m_markers.back().lon}}},
+            {"lastOverlayRadiusMeters", m_overlays.empty() ? json(nullptr) : json(m_overlays.back().radiusMeters)}};
+    }
+
     static std::unique_ptr<MapView> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         auto widget = std::make_unique<MapView>(view, id, maybeStyle);

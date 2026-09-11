@@ -345,6 +345,48 @@ preparation/construction and is not GPU execution or presentation.
 
 ## Isolated ubx-monitor telemetry
 
+This existing command mounts the actual signal panel through a custom diagnostic
+host. It validates the parser/subscription/CNO path; it does not launch the
+ordinary complete App. The [completed application slice](../../../../docs/engineering/ubx-monitor-application-2026-09.md)
+below uses the public Node render/disposal path and includes Table, Map, Canvas
+and connection lifecycle in one production Windows session.
+
+## Ordinary complete ubx-monitor application
+
+The complete application integration is retained in `ubx-application.patch`,
+targeting application revision `571f5569bb923c3d4a8f37db8f8ada555323667a`.
+Build current-source Release Node native artifacts first, as described above.
+From the npm workspace:
+
+```powershell
+node diagnostics/ubx-application-setup.mjs --source=C:/dev/ubx-monitor --output=C:/path/to/new/isolated/output
+$env:NODE_ENV='production'
+$env:TSX_TSCONFIG_PATH='diagnostics/tsconfig.json'
+$env:XFRAMES_UBX_APP_DIR='C:/path/to/new/isolated/output/app'
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario
+```
+
+Announce desktop runs: this Windows fixture moves the real mouse and acquires
+focus for about two minutes. It waits for hover before clicking, verifies the
+selected tab and retries missed targets. It uses the actual `src/index.tsx`,
+public Node render function, returned disposer, App and callbacks. Only physical
+serial transport and map resources are substituted. Receiver packets contain
+valid checksums; delivery timers run independently of observation and input.
+The local resource server uses the deterministic PNG in `resource-server.mjs`.
+
+Omit `--scenario` and use `NODE_ENV=development` for the shorter whole-App
+startup/panel/disposal probe. That probe is not sustained acceptance. Setup runs
+the complete application `typecheck` and `test:serial` scripts and records package,
+source, dirty-diff and asset identities. It leaves the original checkout intact.
+The [application record](../../../../docs/engineering/ubx-monitor-application-2026-09.md)
+records the completed Windows slice, failed exploratory probes and remaining
+milestone limits. For ordinary development startup, run `npm start` from the
+prepared application directory with `NODE_ENV=development` and no diagnostic
+`TSX_TSCONFIG_PATH` override; close the native window normally.
+
+### Legacy panel-only command
+
 Read the external checkout's `AGENTS.md`; clone it into an ignored validation
 directory and install locally packed current-source `@xframes/common` and
 `@xframes/node` with React 19.2.3. Keep its original settings and dependency graph

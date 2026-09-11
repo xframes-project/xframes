@@ -390,7 +390,10 @@ void StyledWidget::PreRender(XFrames* view) {
     const float left = YGNodeLayoutGetLeft(m_layoutNode->m_node);
     const float top = YGNodeLayoutGetTop(m_layoutNode->m_node);
 
-    if (!YGFloatIsUndefined(left)) {
+    // Tab headers use ImGui's tab-bar cursor flow. Inactive tabs submit no
+    // content item, so positioning them from Yoga can extend the parent without
+    // an item and trigger ImGui's SetCursorPos boundary assertion.
+    if (m_type != "tab-item" && !YGFloatIsUndefined(left)) {
         // printf("%d %s %f %f\n", m_id, m_type.c_str(), left, top);
         ImGui::SetCursorPos(ImVec2(left, top));
     }

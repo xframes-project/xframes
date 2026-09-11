@@ -770,3 +770,16 @@ or physical byte-to-pixel latency. Mixed-DPI hardware transitions, every native
 drag/navigation gesture, hardware WebGPU and presentation are not independently
 measured here. Resolve these evidence gaps before expanding into Stage 5 replay
 or Stage 6 general automation.
+
+## Completed bounded application qualification slice
+
+The [ordinary ubx-monitor application record](ubx-monitor-application-2026-09.md)
+extends the isolated CNO evidence to the complete App through its public Node
+render/disposal entry. It covers current-package integration and whole-project
+typechecking, sustained synthetic NAV-SAT/NAV-PVT input, visible
+Plot/Table/Map/Canvas interaction, connection lifecycle, disconnected inactivity
+and cleanup. The bounded Windows Node/OpenGL slice passed on 11 September 2026
+with synthetic receiver bytes, deterministic local tiles and preserved original
+application settings. The record retains the reproducible patch/setup and results.
+Controlled performance, broader hardware evidence and sustained CI history remain
+separate milestone gaps; the completed CI stabilization is not being reopened.
