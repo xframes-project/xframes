@@ -1,8 +1,10 @@
 # ubx-monitor ordinary application qualification
 
 Status: bounded Windows Node/OpenGL application slice passed on 11 September
-2026. The executable task is in [goal.txt](../../goal.txt). Broader milestone and
-controlled performance qualification remain open.
+2026. This record describes that completed slice. The subsequent completed
+[UI update pacing slice](ubx-monitor-streaming-2026-09.md) is recorded separately,
+with its [paired cost results](ubx-monitor-pacing-cost-2026-09.md). Broader milestone and framework performance
+qualification remain open.
 
 ## Purpose and starting boundary
 
@@ -345,3 +347,13 @@ serial, public tile services, other desktop environments, controlled UI update
 rates/performance, hardware WebGPU, mixed DPI, GPU completion/presentation,
 equivalent Electron/GPUIX comparisons and consistently green CI over later changes
 remain unqualified here. Stages 5–6 and the broader milestone remain open.
+
+## Subsequent bounded slice
+
+The completed [UI update pacing slice](ubx-monitor-streaming-2026-09.md) continues
+from XFrames `54bc382` and application `e7de9e2`, adding source-owned histories,
+persisted 10/20/60 display rates, native rate-change/lifetime checks and a final
+reproducible patch. Its [three paired cost runs](ubx-monitor-pacing-cost-2026-09.md)
+use a retention-correct unpaced control because this qualified baseline skipped
+intermediate position samples at high input. The evidence above remains the
+historical integration result, not equivalent pacing or controlled-cost evidence.

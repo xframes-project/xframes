@@ -385,6 +385,108 @@ milestone limits. For ordinary development startup, run `npm start` from the
 prepared application directory with `NODE_ENV=development` and no diagnostic
 `TSX_TSCONFIG_PATH` override; close the native window normally.
 
+### Application pacing and paired costs
+
+The completed [streaming slice](../../../../docs/engineering/ubx-monitor-streaming-2026-09.md)
+implements persisted 10/20/60 display rates, exact source-owned histories and
+production interaction/lifetime checks. [All three quiet-window cost pairs](../../../../docs/engineering/ubx-monitor-pacing-cost-2026-09.md)
+report fewer snapshots and lower measured CPU with higher observed latency;
+broader framework performance targets remain open. The preceding qualified app is
+committed as `e7de9e2` on `qualification/current-xframes-application`. Setup now
+supports `--base=qualified`, checking out that exact revision without reapplying
+the migration, and an optional `--patch=absolute/path/to/ubx-pacing.patch` for
+the incremental candidate. `--packages=directory` reuses the two existing local
+tarballs, recording their hashes and verifying the installed native binary matches
+the current Release target; omit it to build/pack the JavaScript packages.
+The default `--base=migration` preserves the old reproduction command.
+Keep historical acceptance artifacts separate from new measurements. Announce desktop runs,
+retry verified input misses, and arrange quiet measurement periods as needed.
+
+```powershell
+node diagnostics/ubx-application-setup.mjs --base=qualified --source=C:/dev/ubx-monitor --output=C:/path/to/fresh/pacing-reproduction --packages=C:/dev/xframes/packages/dear-imgui/npm/build/diagnostics/ubx-application/packages --patch=C:/dev/xframes/packages/dear-imgui/npm/diagnostics/ubx-pacing.patch
+```
+
+Setup executes `typecheck`, `test:serial` and, when present, `test:pacing` (including
+real-parser retention and restart/persistence regressions). Final reproduction
+`build/diagnostics/ubx-pacing-reproduction-final` passed these checks and ordinary
+development `npm start`. The incremental patch SHA-256 is
+`2a2dc7b044427497e4063d2a2339e373450332445d3bf46e901d70018453e8b0`.
+It applies to `e7de9e2`, not the original main; setup refuses an existing app
+output and records original-file preservation and package/native identities.
+
+From the npm workspace, set the prepared app and choose a **new evidence
+directory for each run**. Announce every desktop run: full functional scenarios
+use mouse/focus for about three minutes; fixed-view comparisons take about
+90 seconds each, with input only before/after the measured interval.
+
+```powershell
+$env:NODE_ENV='production'
+$env:TSX_TSCONFIG_PATH='diagnostics/tsconfig.json'
+$env:XFRAMES_UBX_APP_DIR='C:/path/to/fresh/pacing-reproduction/app'
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/20hz-evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=20 --ui-hz=20 --check-histories
+
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/rate-transition-evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=120 --ui-hz=20 --rate-changes --check-histories
+```
+
+The rate-transition mode selects 20 → 10 → 60 → 20 through ordinary connected
+UI input while receiver delivery continues. It verifies config/cadence agreement,
+unchanged serial settings/writes and submitted source samples. Both full modes
+exercise populated panels, sort, map zoom, Sky resize, Position Reset, Console,
+pause/resume, reconnect, ten disconnected seconds without frames, held resources,
+public disposal and verified native terminal shutdown. `--receiver-hz=20|120`
+and `--ui-hz=10|20|60` default to 20. `--check-histories` enables exact ordered
+widget API-call tails plus native submitted bounds/final-state checks. It is not
+a complete native-buffer readback. Source packets use a monotonic clock and
+bounded debt batches independent of frame waits; unmet delivery rates are
+explicitly reported even when functional assertions pass.
+
+For the bounded comparison, first prepare a second `--base=qualified` app **without
+the pacing patch** and run `--comparison=qualified` at 120/20. Its retained
+history characterization established source-tail loss, so use the patched app's
+diagnostic-only `--comparison=unpaced` control for equivalent paired costs:
+
+```powershell
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/unpaced-evidence'
+# Describe actual host conditions; claim quiet only after user confirmation.
+$env:XFRAMES_UBX_HOST_CONDITIONS='shared-host; quiet window not confirmed'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=120 --ui-hz=20 --comparison=unpaced
+
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/paced-evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=120 --ui-hz=20 --comparison=paced
+```
+
+Run three pairs sequentially in U/P, P/U, U/P order, using identical host/resource/
+observer conditions. Signals stays visible and all App owners remain mounted;
+no screenshots, desktop helpers, builds or other tests run during measurement.
+Comparison mode performs a shorter public/native teardown after measuring;
+the full functional gates separately cover reset/reconnect and late resources.
+Do not combine comparison mode with rate transitions. Unpaced mode is selected
+before mount and never persisted as a product setting.
+
+Each run records source/build/observer hashes and diffs, source delivery, receipts,
+publication preparation/React enqueue, observed submitted samples, CPU/RSS,
+native API counts, exact retained histories, final screenshot and terminal
+ownership. CPU/native counters stop at source completion; trailing delivery has
+separate endpoints. Stage/observation coverage and instrumentation costs are
+explicit, and GPU completion/presentation is unavailable.
+
+The executed six-run dataset lives at
+`build/diagnostics/ubx-pacing/quiet-pair-{1,2,3}-{unpaced,paced}`. After all desktop
+runs stop, recompute its checked summary with:
+
+```powershell
+node diagnostics/ubx-comparison-report.mjs
+# Optional first argument overrides the evidence root, preserving that naming.
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-source.test.ts
+```
+
+The offline report validates matched identities, all packets/rates, exact retention
+and trailing samples, then writes `quiet-comparison-summary.json`. It does not
+launch or repeat measurements. Retain failed/interrupted runs and diagnostic
+reasons for any repeat; the six quiet-window runs did not require repeats.
+
 ### Legacy panel-only command
 
 Read the external checkout's `AGENTS.md`; clone it into an ignored validation

@@ -1,0 +1,2255 @@
+diff --git a/package.json b/package.json
+index a237482..836cc7a 100644
+--- a/package.json
++++ b/package.json
+@@ -9,7 +9,8 @@
+   "scripts": {
+     "start": "tsx ./src/index.tsx",
+     "typecheck": "tsc --noEmit",
+-    "test:serial": "tsx ./tests/serial-lifecycle.ts"
++    "test:serial": "tsx ./tests/serial-lifecycle.ts",
++    "test:pacing": "tsx ./tests/pacing.ts && tsx ./tests/parser-retention.ts && tsx ./tests/config.ts"
+   },
+   "dependencies": {
+     "@xframes/common": "file:../packages/xframes-common-0.1.7.tgz",
+diff --git a/src/connection/config.ts b/src/connection/config.ts
+index 244c1a9..fd78cdc 100644
+--- a/src/connection/config.ts
++++ b/src/connection/config.ts
+@@ -1,10 +1,12 @@
+ import { readFileSync, writeFileSync } from "fs";
++import { validateUiUpdateRate, type UiUpdateRate } from "../telemetry/PublicationCadence";
+ 
+ interface AppConfig {
+   portPath?: string;
+   baudRate?: number;
+   coordFormat?: number;
+   signalSortByCno?: boolean;
++  uiUpdateRate?: UiUpdateRate;
+ }
+ 
+ const CONFIG_PATH = "./config.json";
+@@ -14,16 +16,19 @@ let cache: AppConfig | null = null;
+ export function getConfig(): AppConfig {
+   if (!cache) {
+     try {
+-      cache = JSON.parse(readFileSync(CONFIG_PATH, "utf-8")) ?? {};
++      const parsed = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
++      cache = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+     } catch {
+       cache = {};
+     }
+   }
++  cache!.uiUpdateRate = validateUiUpdateRate(cache!.uiUpdateRate);
+   return cache!;
+ }
+ 
+ export function updateConfig(partial: Partial<AppConfig>): void {
+   Object.assign(getConfig(), partial);
++  getConfig();
+ }
+ 
+ process.on("exit", () => {
+diff --git a/src/hooks/useMapHistory.ts b/src/hooks/useMapHistory.ts
+new file mode 100644
+index 0000000..e3dcd2d
+--- /dev/null
++++ b/src/hooks/useMapHistory.ts
+@@ -0,0 +1,33 @@
++import { onPresentationStatus } from "../telemetry/connectionStatus";
++import { useEffect, useState } from "react";
++import { serialManager } from "../connection";
++import type { ConnectionStatus } from "../connection";
++import type { NavPvt } from "ubx-parser";
++import { BoundedHistory } from "../telemetry/BoundedHistory";
++import { presentation } from "../telemetry/presentation";
++
++export function useMapHistory() {
++  const [points, setPoints] = useState<{ lat: number; lon: number }[]>([]);
++  useEffect(() => {
++    const history = new BoundedHistory<{ lat: number; lon: number }>(1000);
++    let active = true;
++    const owner = presentation.register(() => setPoints(history.snapshot()), "map-trail");
++    const onPvt = (pvt: NavPvt) => {
++      if (!active || pvt.fixType < 2) return;
++      history.append({ lat: pvt.lat, lon: pvt.lon });
++      owner.request(pvt.iTOW);
++    };
++    const onStatus = (status: ConnectionStatus) => {
++      if (!active || status === "connected") return;
++      owner.cancel(); history.clear(); setPoints([]);
++    };
++    serialManager.on("NAV-PVT", onPvt);
++    const removeStatus = onPresentationStatus(onStatus);
++    return () => {
++      active = false; owner.dispose(); history.clear();
++      serialManager.off("NAV-PVT", onPvt);
++      removeStatus();
++    };
++  }, []);
++  return points;
++}
+diff --git a/src/hooks/useMonHw.ts b/src/hooks/useMonHw.ts
+index 5bfa7e5..a9c8e6a 100644
+--- a/src/hooks/useMonHw.ts
++++ b/src/hooks/useMonHw.ts
+@@ -1,111 +1,34 @@
+-import { useState, useEffect, useRef } from "react";
++import { useState, useEffect } from "react";
+ import { serialManager } from "../connection";
+ import type { MonHw, MonHw3, MonRf } from "ubx-parser";
++import { HardwareHistory } from "../telemetry/HardwareHistory";
++import { presentation } from "../telemetry/presentation";
++import { onPresentationStatus } from "../telemetry/connectionStatus";
+ 
+-export interface RfStatusData {
+-  noisePerMS: number;
+-  agcCnt: number;
+-  aStatus: number;
+-  aPower: number;
+-  jammingState: number;
+-  jamInd: number;
+-  rtcCalib?: boolean;
+-  safeBoot?: boolean;
+-  xtalAbsent?: boolean;
+-}
+-
+-export interface HwStatusData {
+-  hwVersion: string;
+-  nPins: number;
+-  rtcCalib: boolean;
+-  safeBoot: boolean;
+-  xtalAbsent: boolean;
+-}
+-
+-export function useRfStatus() {
+-  const [data, setData] = useState<RfStatusData | null>(null);
+-
+-  useEffect(() => {
+-    const onMonHw = (msg: MonHw) => {
+-      if ("variant" in msg) return;
+-      setData({
+-        noisePerMS: msg.noisePerMS,
+-        agcCnt: msg.agcCnt,
+-        aStatus: msg.aStatus,
+-        aPower: msg.aPower,
+-        jammingState: msg.flags.jammingState,
+-        jamInd: msg.jamInd,
+-        rtcCalib: msg.flags.rtcCalib,
+-        safeBoot: msg.flags.safeBoot,
+-        xtalAbsent: msg.flags.xtalAbsent,
+-      });
+-    };
+-
+-    const onMonRf = (msg: MonRf) => {
+-      if ("variant" in msg) return;
+-      if (!msg.list || msg.list.length === 0) return;
+-      const rf = msg.list[0];
+-      setData({
+-        noisePerMS: rf.noisePerMS,
+-        agcCnt: rf.agcCnt,
+-        aStatus: rf.antStatus,
+-        aPower: rf.antPower,
+-        jammingState: rf.flags.jammingState,
+-        jamInd: rf.jamInd,
+-      });
+-    };
+-
+-    serialManager.on("MON-HW", onMonHw);
+-    serialManager.on("MON-RF", onMonRf);
+-    return () => {
+-      serialManager.off("MON-HW", onMonHw);
+-      serialManager.off("MON-RF", onMonRf);
+-    };
+-  }, []);
+-
+-  return data;
+-}
+-
+-export function useHwStatus() {
+-  const [data, setData] = useState<HwStatusData | null>(null);
+-
++export function useHardwareTelemetry() {
++  const [snapshot, setSnapshot] = useState(() => new HardwareHistory().snapshot());
+   useEffect(() => {
+-    const onMonHw3 = (msg: MonHw3) => {
+-      if ("variant" in msg) return;
+-      setData({
+-        hwVersion: msg.hwVersion,
+-        nPins: msg.nPins,
+-        rtcCalib: msg.flags.rctCalib,
+-        safeBoot: msg.flags.safeBoot,
+-        xtalAbsent: msg.flags.xtalAbsent,
+-      });
++    let active = true;
++    const history = new HardwareHistory();
++    const owner = presentation.register(() => setSnapshot(history.snapshot()), "hardware");
++    const onHw = (msg: MonHw) => {
++      if (active && history.ingestHw(msg, performance.now())) owner.request();
+     };
+-
+-    serialManager.on("MON-HW3", onMonHw3);
+-    return () => {
+-      serialManager.off("MON-HW3", onMonHw3);
++    const onRf = (msg: MonRf) => {
++      if (active && history.ingestRf(msg)) owner.request();
+     };
+-  }, []);
+-
+-  return data;
+-}
+-
+-export function useJamTrend() {
+-  const [latest, setLatest] = useState<{ x: number; y: number } | null>(null);
+-  const startRef = useRef<number | null>(null);
+-
+-  useEffect(() => {
+-    const onMonHw = (msg: MonHw) => {
+-      if ("variant" in msg) return;
+-      const now = Date.now();
+-      if (startRef.current === null) startRef.current = now;
+-      setLatest({ x: (now - startRef.current) / 1000, y: msg.jamInd });
++    const onHw3 = (msg: MonHw3) => {
++      if (active && history.ingestHw3(msg)) owner.request();
+     };
+-    serialManager.on("MON-HW", onMonHw);
++    const removeStatus = onPresentationStatus(status => {
++      if (!active || status === "connected") return;
++      owner.cancel(); history.reset(); setSnapshot(history.snapshot());
++    });
++    serialManager.on("MON-HW", onHw); serialManager.on("MON-RF", onRf); serialManager.on("MON-HW3", onHw3);
+     return () => {
+-      serialManager.off("MON-HW", onMonHw);
++      active = false; owner.dispose(); removeStatus(); history.reset();
++      serialManager.off("MON-HW", onHw); serialManager.off("MON-RF", onRf); serialManager.off("MON-HW3", onHw3);
+     };
+   }, []);
+-
+-  return latest;
++  return snapshot;
+ }
+diff --git a/src/hooks/useNavDop.ts b/src/hooks/useNavDop.ts
+index 9c00d06..2b570af 100644
+--- a/src/hooks/useNavDop.ts
++++ b/src/hooks/useNavDop.ts
+@@ -1,6 +1,5 @@
+-import { useState, useEffect } from "react";
+-import { serialManager } from "../connection";
+ import type { NavDop } from "ubx-parser";
++import { usePacedValue } from "./usePacedValue";
+ 
+ export interface NavDopData {
+   gDOP: number;
+@@ -12,27 +11,8 @@ export interface NavDopData {
+   eDOP: number;
+ }
+ 
+-export function useNavDop() {
+-  const [data, setData] = useState<NavDopData | null>(null);
+-
+-  useEffect(() => {
+-    const onNavDop = (msg: NavDop) => {
+-      setData({
+-        gDOP: msg.gDOP,
+-        pDOP: msg.pDOP,
+-        tDOP: msg.tDOP,
+-        vDOP: msg.vDOP,
+-        hDOP: msg.hDOP,
+-        nDOP: msg.nDOP,
+-        eDOP: msg.eDOP,
+-      });
+-    };
++const select = (message: NavDop): NavDopData => message;
+ 
+-    serialManager.on("NAV-DOP", onNavDop);
+-    return () => {
+-      serialManager.off("NAV-DOP", onNavDop);
+-    };
+-  }, []);
+-
+-  return data;
++export function useNavDop() {
++  return usePacedValue("NAV-DOP", select);
+ }
+diff --git a/src/hooks/useNavPvt.ts b/src/hooks/useNavPvt.ts
+index df64afa..014df17 100644
+--- a/src/hooks/useNavPvt.ts
++++ b/src/hooks/useNavPvt.ts
+@@ -1,6 +1,5 @@
+-import { useState, useEffect } from "react";
+-import { serialManager } from "../connection";
+ import type { NavPvt } from "ubx-parser";
++import { usePacedValue } from "./usePacedValue";
+ 
+ export interface NavPvtData {
+   fixType: number;
+@@ -22,37 +21,8 @@ export interface NavPvtData {
+   heading: number;
+ }
+ 
+-export function useNavPvt() {
+-  const [data, setData] = useState<NavPvtData | null>(null);
+-
+-  useEffect(() => {
+-    const onNavPvt = (msg: NavPvt) => {
+-      setData({
+-        fixType: msg.fixType,
+-        lat: msg.lat,
+-        lon: msg.lon,
+-        height: msg.height,
+-        hMSL: msg.hMSL,
+-        hAcc: msg.hAcc,
+-        vAcc: msg.vAcc,
+-        numSV: msg.numSV,
+-        year: msg.year,
+-        month: msg.month,
+-        day: msg.day,
+-        hour: msg.hour,
+-        min: msg.min,
+-        sec: msg.sec,
+-        tAcc: msg.tAcc,
+-        gSpeed: msg.gSpeed,
+-        heading: msg.heading,
+-      });
+-    };
++const select = (message: NavPvt): NavPvtData => message;
+ 
+-    serialManager.on("NAV-PVT", onNavPvt);
+-    return () => {
+-      serialManager.off("NAV-PVT", onNavPvt);
+-    };
+-  }, []);
+-
+-  return data;
++export function useNavPvt() {
++  return usePacedValue("NAV-PVT", select);
+ }
+diff --git a/src/hooks/useNavSat.ts b/src/hooks/useNavSat.ts
+index 384eb1b..0624b15 100644
+--- a/src/hooks/useNavSat.ts
++++ b/src/hooks/useNavSat.ts
+@@ -1,5 +1,5 @@
+-import { useState, useEffect } from "react";
+-import { serialManager } from "../connection";
++import type { NavSat } from "ubx-parser";
++import { usePacedValue } from "./usePacedValue";
+ 
+ export interface SatInfo {
+   gnssId: number;
+@@ -10,28 +10,8 @@ export interface SatInfo {
+   svUsed: boolean;
+ }
+ 
+-export function useNavSat(): SatInfo[] | null {
+-  const [satellites, setSatellites] = useState<SatInfo[] | null>(null);
++const select = (message: NavSat): SatInfo[] => message.list.map((sv) => ({ gnssId: sv.gnssId, svid: sv.svid, cno: sv.cno, elev: sv.elev, azim: sv.azim, svUsed: sv.flags.svUsed }));
+ 
+-  useEffect(() => {
+-    const onNavSat = (msg: any) => {
+-      setSatellites(
+-        msg.list.map((sv: any) => ({
+-          gnssId: sv.gnssId,
+-          svid: sv.svid,
+-          cno: sv.cno,
+-          elev: sv.elev,
+-          azim: sv.azim,
+-          svUsed: sv.flags.svUsed,
+-        })),
+-      );
+-    };
+-
+-    serialManager.on("NAV-SAT", onNavSat);
+-    return () => {
+-      serialManager.off("NAV-SAT", onNavSat);
+-    };
+-  }, []);
+-
+-  return satellites;
++export function useNavSat() {
++  return usePacedValue("NAV-SAT", select);
+ }
+diff --git a/src/hooks/useNavStatus.ts b/src/hooks/useNavStatus.ts
+index 8d36c2f..d3d97d2 100644
+--- a/src/hooks/useNavStatus.ts
++++ b/src/hooks/useNavStatus.ts
+@@ -1,6 +1,5 @@
+-import { useState, useEffect } from "react";
+-import { serialManager } from "../connection";
+ import type { NavStatus } from "ubx-parser";
++import { usePacedValue } from "./usePacedValue";
+ 
+ export interface NavStatusData {
+   gpsFix: number;
+@@ -11,26 +10,8 @@ export interface NavStatusData {
+   carrSoln: number;
+ }
+ 
+-export function useNavStatus() {
+-  const [data, setData] = useState<NavStatusData | null>(null);
+-
+-  useEffect(() => {
+-    const onNavStatus = (msg: NavStatus) => {
+-      setData({
+-        gpsFix: msg.gpsFix,
+-        ttff: msg.ttff,
+-        msss: msg.msss,
+-        spoofDetState: msg.flags2.spoofDetState,
+-        diffCorr: msg.fixStat.diffCorr,
+-        carrSoln: msg.flags2.carrSoln,
+-      });
+-    };
++const select = (message: NavStatus): NavStatusData => ({ gpsFix: message.gpsFix, ttff: message.ttff, msss: message.msss, spoofDetState: message.flags2.spoofDetState, diffCorr: message.fixStat.diffCorr, carrSoln: message.flags2.carrSoln });
+ 
+-    serialManager.on("NAV-STATUS", onNavStatus);
+-    return () => {
+-      serialManager.off("NAV-STATUS", onNavStatus);
+-    };
+-  }, []);
+-
+-  return data;
++export function useNavStatus() {
++  return usePacedValue("NAV-STATUS", select);
+ }
+diff --git a/src/hooks/usePacedValue.ts b/src/hooks/usePacedValue.ts
+new file mode 100644
+index 0000000..5e1d888
+--- /dev/null
++++ b/src/hooks/usePacedValue.ts
+@@ -0,0 +1,39 @@
++import { onPresentationStatus } from "../telemetry/connectionStatus";
++import { useEffect, useState } from "react";
++import { serialManager } from "../connection";
++import { presentation } from "../telemetry/presentation";
++import type { ConnectionStatus } from "../connection";
++
++/** Latest-value displays only. Source histories subscribe before coalescing. */
++export function usePacedValue<T, M>(event: string, select: (message: M) => T) {
++  const [value, setValue] = useState<T | null>(null);
++  useEffect(() => {
++    let active = true;
++    let latest: M | null = null;
++    const owner = presentation.register(() => {
++      if (latest !== null) setValue(select(latest));
++      latest = null;
++    }, event);
++    const onMessage = (message: M) => {
++      if (!active) return;
++      latest = message;
++      owner.request(typeof (message as { iTOW?: number }).iTOW === "number" ? (message as { iTOW: number }).iTOW : undefined);
++    };
++    const onStatus = (status: ConnectionStatus) => {
++      if (!active || status === "connected") return;
++      latest = null;
++      owner.cancel();
++      setValue(null);
++    };
++    serialManager.on(event, onMessage);
++    const removeStatus = onPresentationStatus(onStatus);
++    return () => {
++      active = false;
++      latest = null;
++      owner.dispose();
++      serialManager.off(event, onMessage);
++      removeStatus();
++    };
++  }, [event, select]);
++  return value;
++}
+diff --git a/src/hooks/usePositionHistory.ts b/src/hooks/usePositionHistory.ts
+index 21bf046..4fd1fdf 100644
+--- a/src/hooks/usePositionHistory.ts
++++ b/src/hooks/usePositionHistory.ts
+@@ -1,126 +1,47 @@
++import { onPresentationStatus } from "../telemetry/connectionStatus";
+ import { useState, useEffect, useRef, useCallback } from "react";
+-import { useNavPvt } from "./useNavPvt";
+-
+-const MAX_SAMPLES = 3000;
+-const DEG_TO_M = 111320;
+-
+-interface PositionSample {
+-  lat: number;
+-  lon: number;
+-  hMSL: number;
+-  gSpeed: number;
+-  elapsedSec: number;
+-}
+-
+-export interface CepStats {
+-  cep50: number;
+-  cep95: number;
+-  meanHAcc: number;
+-  sampleCount: number;
+-}
+-
+-export interface PositionHistory {
+-  scatterPoints: { x: number; y: number }[];
+-  latestAltitude: { x: number; y: number } | null;
+-  latestSpeed: { x: number; y: number } | null;
+-  latestHAcc: { x: number; y: number } | null;
+-  cepStats: CepStats | null;
+-  sampleCount: number;
+-  elapsedSec: number;
+-  resetCounter: number;
+-}
++import { serialManager } from "../connection";
++import type { ConnectionStatus } from "../connection";
++import type { NavPvt } from "ubx-parser";
++import { PositionHistoryStore } from "../telemetry/PositionHistory";
++import { presentation } from "../telemetry/presentation";
+ 
+ export function usePositionHistory() {
+-  const pvt = useNavPvt();
+-  const samplesRef = useRef<PositionSample[]>([]);
+-  const startTimeRef = useRef<number | null>(null);
+-
+-  const [history, setHistory] = useState<PositionHistory>({
+-    scatterPoints: [],
+-    latestAltitude: null,
+-    latestSpeed: null,
+-    latestHAcc: null,
+-    cepStats: null,
+-    sampleCount: 0,
+-    elapsedSec: 0,
+-    resetCounter: 0,
+-  });
+-
++  const store = useRef<PositionHistoryStore | null>(null);
++  if (!store.current) store.current = new PositionHistoryStore();
++  const [history, setHistory] = useState(() => store.current!.snapshot());
++  const cancel = useRef<(() => void) | null>(null);
+   const reset = useCallback(() => {
+-    samplesRef.current = [];
+-    startTimeRef.current = null;
+-    setHistory((prev) => ({
+-      scatterPoints: [],
+-      latestAltitude: null,
+-      latestSpeed: null,
+-      latestHAcc: null,
+-      cepStats: null,
+-      sampleCount: 0,
+-      elapsedSec: 0,
+-      resetCounter: prev.resetCounter + 1,
+-    }));
++    cancel.current?.();
++    store.current!.resetPosition();
++    setHistory(store.current!.snapshot());
+   }, []);
+ 
+   useEffect(() => {
+-    if (!pvt || pvt.fixType < 2) return;
+-
+-    const now = Date.now();
+-    if (startTimeRef.current === null) startTimeRef.current = now;
+-    const elapsedSec = (now - startTimeRef.current) / 1000;
+-
+-    const samples = samplesRef.current;
+-    samples.push({
+-      lat: pvt.lat,
+-      lon: pvt.lon,
+-      hMSL: pvt.hMSL,
+-      gSpeed: pvt.gSpeed,
+-      elapsedSec,
+-    });
+-    if (samples.length > MAX_SAMPLES) {
+-      samples.splice(0, samples.length - MAX_SAMPLES);
+-    }
+-
+-    // Compute mean lat/lon
+-    let sumLat = 0;
+-    let sumLon = 0;
+-    for (const s of samples) {
+-      sumLat += s.lat;
+-      sumLon += s.lon;
+-    }
+-    const meanLat = sumLat / samples.length;
+-    const meanLon = sumLon / samples.length;
+-
+-    // Convert to East/North offsets in meters
+-    const cosLat = Math.cos(meanLat * (Math.PI / 180));
+-    const scatterPoints = samples.map((s) => ({
+-      x: (s.lon - meanLon) * cosLat * DEG_TO_M,
+-      y: (s.lat - meanLat) * DEG_TO_M,
+-    }));
+-
+-    // CEP computation
+-    const distances = scatterPoints.map((p) =>
+-      Math.sqrt(p.x * p.x + p.y * p.y),
+-    );
+-    distances.sort((a, b) => a - b);
+-    const cep50 = distances[Math.floor(distances.length * 0.5)] ?? 0;
+-    const cep95 = distances[Math.floor(distances.length * 0.95)] ?? 0;
+-
+-    setHistory((prev) => ({
+-      scatterPoints,
+-      latestAltitude: { x: elapsedSec, y: pvt.hMSL / 1000 },
+-      latestSpeed: { x: elapsedSec, y: pvt.gSpeed * 0.0036 },
+-      latestHAcc: { x: elapsedSec, y: pvt.hAcc / 1000 },
+-      cepStats: {
+-        cep50,
+-        cep95,
+-        meanHAcc: pvt.hAcc / 1000,
+-        sampleCount: samples.length,
+-      },
+-      sampleCount: samples.length,
+-      elapsedSec,
+-      resetCounter: prev.resetCounter,
+-    }));
+-  }, [pvt]);
+-
++    let active = true;
++    const owner = presentation.register(() => setHistory(store.current!.snapshot()), "position");
++    cancel.current = owner.cancel;
++    const onPvt = (pvt: NavPvt) => {
++      if (!active) return;
++      store.current!.ingest(pvt, performance.now());
++      if (pvt.fixType >= 2) owner.request(pvt.iTOW);
++    };
++    const onStatus = (status: ConnectionStatus) => {
++      if (!active || status === "connected") return;
++      owner.cancel();
++      store.current!.resetConnection();
++      setHistory(store.current!.snapshot());
++    };
++    serialManager.on("NAV-PVT", onPvt);
++    const removeStatus = onPresentationStatus(onStatus);
++    return () => {
++      active = false;
++      owner.dispose();
++      cancel.current = null;
++      serialManager.off("NAV-PVT", onPvt);
++      removeStatus();
++      store.current!.resetConnection();
++    };
++  }, []);
+   return { ...history, reset };
+ }
+diff --git a/src/hooks/useUbxMessages.ts b/src/hooks/useUbxMessages.ts
+index fbb1396..ecb3d49 100644
+--- a/src/hooks/useUbxMessages.ts
++++ b/src/hooks/useUbxMessages.ts
+@@ -1,111 +1,66 @@
+-import { useState, useEffect, useRef } from "react";
++import { onPresentationStatus } from "../telemetry/connectionStatus";
++import { useState, useEffect } from "react";
+ import { serialManager } from "../connection";
+ import type { ConnectionStatus } from "../connection";
+ import type { UbxMessage } from "ubx-parser";
++import { MessageHistory, type MessageRow } from "../telemetry/MessageHistory";
++import { ArrivalWindow } from "../telemetry/ArrivalWindow";
++import { presentation } from "../telemetry/presentation";
+ 
+-interface MessageRow {
+-  timestamp: string;
+-  name: string;
+-  length: string;
+-}
+-
+-const MAX_MESSAGES = 500;
++const initial = () => ({ messages: [] as MessageRow[], messageRate: 0, timeSinceLastMessage: 0,
++  bytesPerSec: 0, baudRate: null as number | null, receivedMessages: 0, receivedBytes: 0, evictedMessages: 0 });
+ 
+ export function useUbxMessages() {
+-  const [messages, setMessages] = useState<MessageRow[]>([]);
+-  const [messageRate, setMessageRate] = useState(0);
+-  const [timeSinceLastMessage, setTimeSinceLastMessage] = useState(0);
+-  const [bytesPerSec, setBytesPerSec] = useState(0);
+-  const [baudRate, setBaudRate] = useState<number | null>(null);
+-  const timestampsRef = useRef<number[]>([]);
+-  const lastMessageTimeRef = useRef(0);
+-  const byteChunksRef = useRef<{ time: number; bytes: number }[]>([]);
+-
++  const [state, setState] = useState(initial);
+   useEffect(() => {
+-    const onMessage = (msg: UbxMessage) => {
++    let active = true, lastMessage: number | null = null, receivedBytes = 0, rowsDirty = false;
++    const history = new MessageHistory();
++    const messages = new ArrivalWindow(), bytes = new ArrivalWindow();
++    const rates = () => {
+       const now = Date.now();
+-      lastMessageTimeRef.current = now;
+-      const ts = new Date(now);
+-      const timeStr =
+-        ts.getHours().toString().padStart(2, "0") +
+-        ":" +
+-        ts.getMinutes().toString().padStart(2, "0") +
+-        ":" +
+-        ts.getSeconds().toString().padStart(2, "0") +
+-        "." +
+-        ts.getMilliseconds().toString().padStart(3, "0");
+-
+-      const row: MessageRow = {
+-        timestamp: timeStr,
+-        name: msg.name,
+-        length: String(JSON.stringify(msg).length),
+-      };
+-
+-      setMessages((prev) => {
+-        const next = [...prev, row];
+-        if (next.length > MAX_MESSAGES) {
+-          return next.slice(next.length - MAX_MESSAGES);
+-        }
+-        return next;
+-      });
+-
+-      // Track message rate (rolling 1s window)
+-      timestampsRef.current.push(now);
+-      const cutoff = now - 1000;
+-      timestampsRef.current = timestampsRef.current.filter((t) => t > cutoff);
+-      setMessageRate(timestampsRef.current.length);
++      return { messageRate: messages.total(now), bytesPerSec: bytes.total(now),
++        timeSinceLastMessage: lastMessage === null ? 0 : Math.max(0, Math.floor((now - lastMessage) / 1000)) };
++    };
++    const owner = presentation.register(() => {
++      const rows = rowsDirty ? history.snapshot() : null;
++      rowsDirty = false;
++      const nextRates = rates();
++      setState(previous => ({ ...previous, ...nextRates, messages: rows ?? previous.messages,
++        receivedMessages: history.received, receivedBytes, evictedMessages: history.evicted }));
++    }, "messages");
++    const onMessage = (message: UbxMessage) => {
++      if (!active) return;
++      const now = Date.now(); lastMessage = now;
++      history.ingest(message, now); messages.add(now);
++      rowsDirty = true; owner.request();
+     };
+-
+     const onRawData = (chunk: Buffer) => {
+-      const now = Date.now();
+-      byteChunksRef.current.push({ time: now, bytes: chunk.length });
+-      const cutoff = now - 1000;
+-      byteChunksRef.current = byteChunksRef.current.filter((c) => c.time > cutoff);
+-      const total = byteChunksRef.current.reduce((sum, c) => sum + c.bytes, 0);
+-      setBytesPerSec(total);
++      if (!active) return;
++      receivedBytes += chunk.length; bytes.add(Date.now(), chunk.length); owner.request();
+     };
+-
+-    const onStatus = (s: ConnectionStatus) => {
+-      if (s === "disconnected") {
+-        timestampsRef.current = [];
+-        setMessageRate(0);
+-        lastMessageTimeRef.current = 0;
+-        setTimeSinceLastMessage(0);
+-        byteChunksRef.current = [];
+-        setBytesPerSec(0);
+-      }
++    const onStatus = (status: ConnectionStatus) => {
++      if (!active || status === "connected") return;
++      owner.cancel(); history.clear(); messages.clear(); bytes.clear();
++      receivedBytes = 0; lastMessage = null; rowsDirty = false;
++      setState(initial());
+     };
+-
+-    const onBaudRate = (rate: number | null) => {
+-      setBaudRate(rate);
++    const onBaudRate = (baudRate: number | null) => {
++      if (active) setState(previous => ({ ...previous, baudRate }));
+     };
+-
++    // Stale-time and rate decay are status work, independent of presentation ticks.
+     const interval = setInterval(() => {
+-      if (lastMessageTimeRef.current > 0) {
+-        setTimeSinceLastMessage(Math.floor((Date.now() - lastMessageTimeRef.current) / 1000));
+-      }
+-      // Decay bytes/sec when no data arrives
+-      const now = Date.now();
+-      const cutoff = now - 1000;
+-      timestampsRef.current = timestampsRef.current.filter((time) => time > cutoff);
+-      setMessageRate(timestampsRef.current.length);
+-      byteChunksRef.current = byteChunksRef.current.filter((c) => c.time > cutoff);
+-      setBytesPerSec(byteChunksRef.current.reduce((sum, c) => sum + c.bytes, 0));
++      const next = rates();
++      setState(previous => previous.messageRate === next.messageRate && previous.bytesPerSec === next.bytesPerSec
++        && previous.timeSinceLastMessage === next.timeSinceLastMessage ? previous : { ...previous, ...next });
+     }, 1000);
+-
+-    serialManager.on("message", onMessage);
+-    serialManager.on("rawdata", onRawData);
+-    serialManager.on("status", onStatus);
+-    serialManager.on("baudrate", onBaudRate);
+-
++    serialManager.on("message", onMessage); serialManager.on("rawdata", onRawData);
++    const removeStatus = onPresentationStatus(onStatus); serialManager.on("baudrate", onBaudRate);
+     return () => {
+-      serialManager.off("message", onMessage);
+-      serialManager.off("rawdata", onRawData);
+-      serialManager.off("status", onStatus);
+-      serialManager.off("baudrate", onBaudRate);
++      active = false; owner.dispose(); history.clear(); messages.clear(); bytes.clear();
+       clearInterval(interval);
++      serialManager.off("message", onMessage); serialManager.off("rawdata", onRawData);
++      removeStatus(); serialManager.off("baudrate", onBaudRate);
+     };
+   }, []);
+-
+-  return { messages, messageRate, timeSinceLastMessage, bytesPerSec, baudRate };
++  return state;
+ }
+diff --git a/src/panels/ConnectionPanel.tsx b/src/panels/ConnectionPanel.tsx
+index 4f5831e..efe8a1c 100644
+--- a/src/panels/ConnectionPanel.tsx
++++ b/src/panels/ConnectionPanel.tsx
+@@ -6,6 +6,8 @@ import { ComboChangeEvent } from "@xframes/common";
+ import { useSerialConnection } from "../hooks/useSerialConnection";
+ import { getConfig, updateConfig } from "../connection/config";
+ import { themeColors } from "../themes";
++import { UI_UPDATE_RATES } from "../telemetry/PublicationCadence";
++import { setUiUpdateRate } from "../telemetry/presentation";
+ 
+ const BAUD_RATES = ["9600", "38400", "115200", "921600"];
+ const DEFAULT_BAUD_INDEX = 1; // 38400
+@@ -131,6 +133,15 @@ export const ConnectionPanel = () => {
+           style={{ colors: { [ImGuiCol.Text]: "#e74c3c" } }}
+         />
+       )}
++      <XFrames.Node style={{ flexDirection: "row", gap: { column: 8 }, alignItems: "center" }}>
++        <XFrames.UnformattedText text="Display updates/sec:" />
++        <XFrames.Combo
++          options={UI_UPDATE_RATES.map(String)}
++          initialSelectedIndex={UI_UPDATE_RATES.indexOf(getConfig().uiUpdateRate!)}
++          onChange={(event: ComboChangeEvent) => setUiUpdateRate(UI_UPDATE_RATES[event.nativeEvent.value])}
++          style={{ width: 150 }}
++        />
++      </XFrames.Node>
+     </XFrames.Node>
+   );
+ };
+diff --git a/src/panels/ConsoleView.tsx b/src/panels/ConsoleView.tsx
+index d9392d3..a9557f9 100644
+--- a/src/panels/ConsoleView.tsx
++++ b/src/panels/ConsoleView.tsx
+@@ -1,3 +1,4 @@
++import { onPresentationStatus } from "../telemetry/connectionStatus";
+ import { ImGuiCol } from "@xframes/common";
+ import * as React from "react";
+ import { useEffect, useRef, useState } from "react";
+@@ -6,165 +7,55 @@ import { ClippedMultiLineTextRendererImperativeHandle } from "@xframes/common";
+ import { serialManager } from "../connection";
+ import { themeColors } from "../themes";
+ 
+-const UBX_NAMES: Record<string, string> = {
+-  "01:07": "NAV-PVT",
+-  "01:35": "NAV-SAT",
+-  "01:04": "NAV-DOP",
+-  "01:03": "NAV-STATUS",
+-  "0a:09": "MON-HW",
+-  "0a:37": "MON-HW3",
+-  "0a:38": "MON-RF",
+-  "05:01": "ACK-ACK",
+-  "05:00": "ACK-NAK",
+-};
+-
+-function ubxName(cls: number, id: number): string {
+-  const key = `${cls.toString(16).padStart(2, "0")}:${id.toString(16).padStart(2, "0")}`;
+-  return UBX_NAMES[key] ?? `UBX-${key.toUpperCase()}`;
+-}
+-
+-function formatHexDump(chunk: Buffer, offset: number): string {
+-  let result = "";
+-  for (let i = 0; i < chunk.length; i += 16) {
+-    const addr = (offset + i).toString(16).padStart(8, "0");
+-    const bytes = chunk.subarray(i, Math.min(i + 16, chunk.length));
+-
+-    let hex = "";
+-    let ascii = "";
+-    for (let j = 0; j < 16; j++) {
+-      if (j === 8) hex += " ";
+-      if (j < bytes.length) {
+-        hex += bytes[j].toString(16).padStart(2, "0") + " ";
+-        ascii += bytes[j] >= 0x20 && bytes[j] <= 0x7e ? String.fromCharCode(bytes[j]) : ".";
+-      } else {
+-        hex += "   ";
+-        ascii += " ";
+-      }
+-    }
+-
+-    result += `${addr}  ${hex} |${ascii}|\n`;
+-  }
+-  return result;
+-}
++import { ConsoleHistory } from "../telemetry/ConsoleHistory";
++import { presentation } from "../telemetry/presentation";
++import type { ConnectionStatus } from "../connection";
+ 
+ export const ConsoleView = () => {
+   const textRef = useRef<ClippedMultiLineTextRendererImperativeHandle>(null);
+-  const offsetRef = useRef(0);
+-  const frameBufferRef = useRef<Buffer>(Buffer.alloc(0));
+-  const [hasData, setHasData] = useState(false);
+-  const historyRef = useRef("");
+-  const replayRef = useRef(true);
+-  const [historyGeneration, setHistoryGeneration] = useState(0);
+-
+-  // The native text handle is append-only. Rotate its lifetime when trimming
+-  // the console so both retained JS text and native text stay bounded.
++  const [snapshot, setSnapshot] = useState({ text: "", generation: 0 });
++  const appended = useRef({ generation: -1, length: 0 });
+   useEffect(() => {
+-    if (textRef.current && replayRef.current) {
+-      textRef.current.appendTextToClippedMultiLineTextRenderer(historyRef.current);
+-      replayRef.current = false;
+-    }
+-  }, [hasData, historyGeneration]);
++    if (!textRef.current) return;
++    if (appended.current.generation !== snapshot.generation)
++      appended.current = { generation: snapshot.generation, length: 0 };
++    const tail = snapshot.text.slice(appended.current.length);
++    if (tail) textRef.current.appendTextToClippedMultiLineTextRenderer(tail);
++    appended.current.length = snapshot.text.length;
++  }, [snapshot]);
+ 
+   useEffect(() => {
++    const history = new ConsoleHistory();
++    let active = true;
++    const owner = presentation.register(() => setSnapshot(history.snapshot()), "console");
+     const onRawData = (chunk: Buffer) => {
+-      if (!hasData) setHasData(true);
+-      const appendText = (text: string) => {
+-        historyRef.current += text;
+-        if (historyRef.current.length > 65536) {
+-          historyRef.current = historyRef.current.slice(-32768);
+-          replayRef.current = true;
+-          setHistoryGeneration((value) => value + 1);
+-        }
+-        if (!replayRef.current) textRef.current?.appendTextToClippedMultiLineTextRenderer(text);
+-      };
+-
+-      frameBufferRef.current = Buffer.concat([frameBufferRef.current, chunk]);
+-      const buf = frameBufferRef.current;
+-      let pos = 0;
+-
+-      while (pos < buf.length) {
+-        // Find next UBX sync (0xB5 0x62)
+-        let syncPos = -1;
+-        for (let i = pos; i < buf.length - 1; i++) {
+-          if (buf[i] === 0xb5 && buf[i + 1] === 0x62) {
+-            syncPos = i;
+-            break;
+-          }
+-        }
+-
+-        if (syncPos === -1) {
+-          // No sync found — dump remaining, keep last byte if it could be start of sync
+-          const keep = buf[buf.length - 1] === 0xb5 ? 1 : 0;
+-          if (buf.length - keep > pos) {
+-            appendText(
+-              formatHexDump(buf.subarray(pos, buf.length - keep), offsetRef.current),
+-            );
+-            offsetRef.current += buf.length - keep - pos;
+-          }
+-          pos = buf.length - keep;
+-          break;
+-        }
+-
+-        // Dump non-UBX bytes before sync
+-        if (syncPos > pos) {
+-          appendText(
+-            formatHexDump(buf.subarray(pos, syncPos), offsetRef.current),
+-          );
+-          offsetRef.current += syncPos - pos;
+-          pos = syncPos;
+-        }
+-
+-        // Need at least 6 bytes for header
+-        if (pos + 6 > buf.length) break;
+-
+-        const cls = buf[pos + 2];
+-        const id = buf[pos + 3];
+-        const payloadLen = buf[pos + 4] | (buf[pos + 5] << 8);
+-        const frameLen = payloadLen + 8;
+-
+-        // Need complete frame
+-        if (pos + frameLen > buf.length) break;
+-
+-        // Complete frame — print separator header + hex dump
+-        const name = ubxName(cls, id);
+-        const separator = `\n──── ${name} [${cls.toString(16).padStart(2, "0")}:${id.toString(16).padStart(2, "0")}] ${payloadLen} bytes ────\n`;
+-        const frame = buf.subarray(pos, pos + frameLen);
+-        appendText(
+-          separator + formatHexDump(frame, offsetRef.current),
+-        );
+-        offsetRef.current += frameLen;
+-        pos += frameLen;
+-      }
+-
+-      // Save unprocessed bytes
+-      frameBufferRef.current =
+-        pos < buf.length ? buf.subarray(pos) : Buffer.alloc(0);
++      if (!active) return;
++      history.ingest(chunk);
++      owner.request();
++    };
++    const onStatus = (status: ConnectionStatus) => {
++      if (!active || status === "connected") return;
++      owner.cancel(); history.reset(); setSnapshot(history.snapshot());
+     };
+-
+     serialManager.on("rawdata", onRawData);
++    const removeStatus = onPresentationStatus(onStatus);
+     return () => {
++      active = false; owner.dispose(); history.reset();
+       serialManager.off("rawdata", onRawData);
++      removeStatus();
+     };
+-  }, [hasData]);
+-
+-  if (!hasData) {
+-    return (
+-      <XFrames.Node style={{ padding: { all: 8 } }}>
+-        <XFrames.UnformattedText
+-          text="No data received"
+-          style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }}
+-        />
+-      </XFrames.Node>
+-    );
+-  }
++  }, []);
+ 
++  if (!snapshot.text) return (
++    <XFrames.Node style={{ padding: { all: 8 } }}>
++      <XFrames.UnformattedText text="No data received"
++        style={{ colors: { [ImGuiCol.Text]: themeColors.lightSlate } }} />
++    </XFrames.Node>
++  );
+   return (
+     <XFrames.Node style={{ padding: { all: 8 }, flex: 1 }}>
+-      <XFrames.ClippedMultiLineTextRenderer
+-        key={historyGeneration}
+-        ref={textRef}
+-        style={{ flex: 1, font: { name: "roboto-mono", size: 14 } }}
+-      />
++      <XFrames.ClippedMultiLineTextRenderer key={snapshot.generation} ref={textRef}
++        style={{ flex: 1, font: { name: "roboto-mono", size: 14 } }} />
+     </XFrames.Node>
+   );
+ };
+diff --git a/src/panels/HardwareStatusPanel.tsx b/src/panels/HardwareStatusPanel.tsx
+index d4a2ae4..b717dde 100644
+--- a/src/panels/HardwareStatusPanel.tsx
++++ b/src/panels/HardwareStatusPanel.tsx
+@@ -3,7 +3,7 @@ import * as React from "react";
+ import { useRef, useEffect } from "react";
+ import { XFrames } from "@xframes/node";
+ import type { PlotLineImperativeHandle } from "@xframes/common";
+-import { useRfStatus, useHwStatus, useJamTrend } from "../hooks/useMonHw";
++import { useHardwareTelemetry } from "../hooks/useMonHw";
+ import { themeColors } from "../themes";
+ import { SectionHeader } from "../components/SectionHeader";
+ import { LabelRow } from "../components/LabelRow";
+@@ -51,15 +51,22 @@ function jamIndColor(val: number): string {
+ }
+ 
+ export const HardwareStatusPanel = () => {
+-  const rf = useRfStatus();
+-  const hw = useHwStatus();
+-  const latestJamInd = useJamTrend();
++  const { rf, hw, jam, epoch } = useHardwareTelemetry();
+   const jamRef = useRef<PlotLineImperativeHandle>(null);
+ 
++  const appended = useRef({ epoch: -1, sequence: 0 });
+   useEffect(() => {
+-    if (!jamRef.current || !latestJamInd) return;
+-    jamRef.current.appendData(latestJamInd.x, latestJamInd.y);
+-  }, [latestJamInd]);
++    if (!jamRef.current) return;
++    const cursor = appended.current;
++    if (cursor.epoch !== epoch || (jam.length && cursor.sequence < jam[0].sequence - 1)) {
++      jamRef.current.resetData(); cursor.epoch = epoch; cursor.sequence = 0;
++    }
++    for (const sample of jam) {
++      if (sample.sequence <= cursor.sequence) continue;
++      jamRef.current.appendData(sample.x, sample.y);
++      cursor.sequence = sample.sequence;
++    }
++  }, [jam, epoch]);
+ 
+   if (!rf && !hw) {
+     return (
+diff --git a/src/panels/MapPanel.tsx b/src/panels/MapPanel.tsx
+index 35d5db9..851e5f3 100644
+--- a/src/panels/MapPanel.tsx
++++ b/src/panels/MapPanel.tsx
+@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
+ import { XFrames } from "@xframes/node";
+ import type { MapImperativeHandle } from "@xframes/common";
+ import { useNavPvt } from "../hooks/useNavPvt";
++import { useMapHistory } from "../hooks/useMapHistory";
+ import { themeColors } from "../themes";
+ 
+ const FIX_COLORS: Record<number, string> = {
+@@ -25,22 +26,27 @@ export const MapPanel = () => {
+   const mapRef = useRef<MapImperativeHandle>(null);
+   const data = useNavPvt();
+   const hasCentered = useRef(false);
+-  const polylineReady = useRef(false);
++  const points = useMapHistory();
+   const [zoom, setZoom] = useState(15);
+ 
+   useEffect(() => {
+     if (!mapRef.current) return;
+     mapRef.current.setPolylines([
+-      { points: [], color: "#FF8800", thickness: 2, pointsLimit: 1000 },
++      { points, color: "#FF8800", thickness: 2, pointsLimit: 1000 },
+     ]);
+-    polylineReady.current = true;
+-  }, []);
++    if (!points.length) hasCentered.current = false;
++  }, [points]);
+ 
+   useEffect(() => {
+-    if (!mapRef.current || !data || data.fixType < 2) return;
++    if (!mapRef.current) return;
++    if (!data || data.fixType < 2) {
++      mapRef.current.setMarkers([]);
++      mapRef.current.setOverlays([]);
++      return;
++    }
+ 
+     if (!hasCentered.current) {
+-      mapRef.current.render(data.lon, data.lat, 15);
++      mapRef.current.render(data.lon, data.lat, zoom);
+       hasCentered.current = true;
+     }
+ 
+@@ -60,9 +66,6 @@ export const MapPanel = () => {
+       },
+     ]);
+ 
+-    if (polylineReady.current) {
+-      mapRef.current.appendPolylinePoint(0, data.lat, data.lon);
+-    }
+   }, [data]);
+ 
+   return (
+diff --git a/src/panels/MessageView.tsx b/src/panels/MessageView.tsx
+index f99b050..de67294 100644
+--- a/src/panels/MessageView.tsx
++++ b/src/panels/MessageView.tsx
+@@ -15,7 +15,7 @@ export const MessageView = () => {
+   const tableRef = useRef<TableImperativeHandle>(null);
+ 
+   useEffect(() => {
+-    if (tableRef.current && messages.length > 0) {
++    if (tableRef.current) {
+       tableRef.current.setTableData(messages);
+     }
+   }, [messages]);
+diff --git a/src/panels/PositionTrackingPanel.tsx b/src/panels/PositionTrackingPanel.tsx
+index 2711159..5257095 100644
+--- a/src/panels/PositionTrackingPanel.tsx
++++ b/src/panels/PositionTrackingPanel.tsx
+@@ -19,9 +19,7 @@ export const PositionTrackingPanel = () => {
+ 
+   const {
+     scatterPoints,
+-    latestAltitude,
+-    latestSpeed,
+-    latestHAcc,
++    samples,
+     cepStats,
+     sampleCount,
+     elapsedSec,
+@@ -47,23 +45,24 @@ export const PositionTrackingPanel = () => {
+     scatterRef.current.setData(scatterPoints);
+   }, [scatterPoints]);
+ 
+-  // Append to altitude plot
++  // Replay every unseen retained source sample, even if React skipped a snapshot.
++  const appended = useRef({ epoch: -1, sequence: 0 });
+   useEffect(() => {
+-    if (!altitudeRef.current || !latestAltitude) return;
+-    altitudeRef.current.appendData(latestAltitude.x, latestAltitude.y);
+-  }, [latestAltitude]);
+-
+-  // Append to speed plot
+-  useEffect(() => {
+-    if (!speedRef.current || !latestSpeed) return;
+-    speedRef.current.appendData(latestSpeed.x, latestSpeed.y);
+-  }, [latestSpeed]);
+-
+-  // Append to hAcc plot
+-  useEffect(() => {
+-    if (!hAccRef.current || !latestHAcc) return;
+-    hAccRef.current.appendData(latestHAcc.x, latestHAcc.y);
+-  }, [latestHAcc]);
++    if (!altitudeRef.current || !speedRef.current || !hAccRef.current) return;
++    const cursor = appended.current;
++    if (cursor.epoch !== resetCounter || (samples.length && cursor.sequence < samples[0].sequence - 1)) {
++      altitudeRef.current.resetData(); speedRef.current.resetData(); hAccRef.current.resetData();
++      cursor.epoch = resetCounter;
++      cursor.sequence = 0;
++    }
++    for (const sample of samples) {
++      if (sample.sequence <= cursor.sequence) continue;
++      altitudeRef.current.appendData(sample.elapsedSec, sample.hMSL / 1000);
++      speedRef.current.appendData(sample.elapsedSec, sample.gSpeed * 0.0036);
++      hAccRef.current.appendData(sample.elapsedSec, sample.hAcc / 1000);
++      cursor.sequence = sample.sequence;
++    }
++  }, [samples, resetCounter]);
+ 
+   if (sampleCount === 0) {
+     return (
+diff --git a/src/panels/SkyViewPanel.tsx b/src/panels/SkyViewPanel.tsx
+index 3fe9b51..77c958a 100644
+--- a/src/panels/SkyViewPanel.tsx
++++ b/src/panels/SkyViewPanel.tsx
+@@ -18,8 +18,8 @@ export const SkyViewPanel = () => {
+   }, []);
+ 
+   useEffect(() => {
+-    if (!canvasRef.current || !scriptLoaded.current || !satellites) return;
+-    canvasRef.current.setData(satellites);
++    if (!canvasRef.current || !scriptLoaded.current) return;
++    canvasRef.current.setData(satellites ?? []);
+   }, [satellites]);
+ 
+   return (
+diff --git a/src/telemetry/ArrivalWindow.ts b/src/telemetry/ArrivalWindow.ts
+new file mode 100644
+index 0000000..c49cd7a
+--- /dev/null
++++ b/src/telemetry/ArrivalWindow.ts
+@@ -0,0 +1,23 @@
++/** Exact rolling one-second totals at the application's millisecond clock
++ * resolution. Storage is fixed even when a callback contains a large burst.
++ */
++export class ArrivalWindow {
++  private times = new Float64Array(1001).fill(-Infinity);
++  private values = new Float64Array(1001);
++  add(now: number, value = 1): void {
++    const time = Math.floor(now);
++    const slot = ((time % 1001) + 1001) % 1001;
++    if (this.times[slot] !== time) {
++      this.times[slot] = time;
++      this.values[slot] = 0;
++    }
++    this.values[slot] += value;
++  }
++  total(now: number): number {
++    let result = 0;
++    for (let i = 0; i < 1001; i++)
++      if (this.times[i] > Math.floor(now) - 1000 && this.times[i] <= Math.floor(now)) result += this.values[i];
++    return result;
++  }
++  clear(): void { this.times.fill(-Infinity); this.values.fill(0); }
++}
+diff --git a/src/telemetry/BoundedHistory.ts b/src/telemetry/BoundedHistory.ts
+new file mode 100644
+index 0000000..72fd21a
+--- /dev/null
++++ b/src/telemetry/BoundedHistory.ts
+@@ -0,0 +1,34 @@
++/** Source-owned ordered retention. Eviction is explicit; snapshots cannot mutate it. */
++export class BoundedHistory<T> {
++  private slots: T[] = [];
++  private first = 0;
++  received = 0;
++  evicted = 0;
++
++  constructor(readonly capacity: number) {
++    if (!Number.isInteger(capacity) || capacity < 1) throw new Error("Invalid history capacity");
++  }
++
++  append(value: T): void {
++    this.received++;
++    if (this.slots.length < this.capacity) this.slots.push(value);
++    else {
++      this.slots[this.first] = value;
++      this.first = (this.first + 1) % this.capacity;
++      this.evicted++;
++    }
++  }
++
++  snapshot(): T[] {
++    return this.slots.slice(this.first).concat(this.slots.slice(0, this.first));
++  }
++
++  clear(): void {
++    this.slots = [];
++    this.first = 0;
++    this.received = 0;
++    this.evicted = 0;
++  }
++
++  get size(): number { return this.slots.length; }
++}
+diff --git a/src/telemetry/ConsoleHistory.ts b/src/telemetry/ConsoleHistory.ts
+new file mode 100644
+index 0000000..a3754fc
+--- /dev/null
++++ b/src/telemetry/ConsoleHistory.ts
+@@ -0,0 +1,132 @@
++// Console retention is defined by complete wire frames and byte offsets, not UI ticks.
++const UBX_NAMES: Record<string, string> = {
++  "01:07": "NAV-PVT",
++  "01:35": "NAV-SAT",
++  "01:04": "NAV-DOP",
++  "01:03": "NAV-STATUS",
++  "0a:09": "MON-HW",
++  "0a:37": "MON-HW3",
++  "0a:38": "MON-RF",
++  "05:01": "ACK-ACK",
++  "05:00": "ACK-NAK",
++};
++
++function ubxName(cls: number, id: number): string {
++  const key = `${cls.toString(16).padStart(2, "0")}:${id.toString(16).padStart(2, "0")}`;
++  return UBX_NAMES[key] ?? `UBX-${key.toUpperCase()}`;
++}
++
++function formatHexDump(chunk: Buffer, offset: number): string {
++  let result = "";
++  for (let i = 0; i < chunk.length; i += 16) {
++    const addr = (offset + i).toString(16).padStart(8, "0");
++    const bytes = chunk.subarray(i, Math.min(i + 16, chunk.length));
++
++    let hex = "";
++    let ascii = "";
++    for (let j = 0; j < 16; j++) {
++      if (j === 8) hex += " ";
++      if (j < bytes.length) {
++        hex += bytes[j].toString(16).padStart(2, "0") + " ";
++        ascii += bytes[j] >= 0x20 && bytes[j] <= 0x7e ? String.fromCharCode(bytes[j]) : ".";
++      } else {
++        hex += "   ";
++        ascii += " ";
++      }
++    }
++
++    result += `${addr}  ${hex} |${ascii}|\n`;
++  }
++  return result;
++}
++
++export class ConsoleHistory {
++  private frameBuffer: Buffer = Buffer.alloc(0);
++  offset = 0;
++  text = "";
++  generation = 0;
++  receivedBytes = 0;
++  evictedCodeUnits = 0;
++  private appendText(text: string) {
++    this.text += text;
++    if (this.text.length > 65536) {
++      this.evictedCodeUnits += this.text.length - 32768;
++      this.text = this.text.slice(-32768);
++      this.generation++;
++    }
++  }
++  ingest(chunk: Buffer) {
++    this.receivedBytes += chunk.length;
++      this.frameBuffer = Buffer.concat([this.frameBuffer, chunk]);
++      const buf = this.frameBuffer;
++      let pos = 0;
++
++      while (pos < buf.length) {
++        // Find next UBX sync (0xB5 0x62)
++        let syncPos = -1;
++        for (let i = pos; i < buf.length - 1; i++) {
++          if (buf[i] === 0xb5 && buf[i + 1] === 0x62) {
++            syncPos = i;
++            break;
++          }
++        }
++
++        if (syncPos === -1) {
++          // No sync found — dump remaining, keep last byte if it could be start of sync
++          const keep = buf[buf.length - 1] === 0xb5 ? 1 : 0;
++          if (buf.length - keep > pos) {
++            this.appendText(
++              formatHexDump(buf.subarray(pos, buf.length - keep), this.offset),
++            );
++            this.offset += buf.length - keep - pos;
++          }
++          pos = buf.length - keep;
++          break;
++        }
++
++        // Dump non-UBX bytes before sync
++        if (syncPos > pos) {
++          this.appendText(
++            formatHexDump(buf.subarray(pos, syncPos), this.offset),
++          );
++          this.offset += syncPos - pos;
++          pos = syncPos;
++        }
++
++        // Need at least 6 bytes for header
++        if (pos + 6 > buf.length) break;
++
++        const cls = buf[pos + 2];
++        const id = buf[pos + 3];
++        const payloadLen = buf[pos + 4] | (buf[pos + 5] << 8);
++        const frameLen = payloadLen + 8;
++
++        // Need complete frame
++        if (pos + frameLen > buf.length) break;
++
++        // Complete frame — print separator header + hex dump
++        const name = ubxName(cls, id);
++        const separator = `\n──── ${name} [${cls.toString(16).padStart(2, "0")}:${id.toString(16).padStart(2, "0")}] ${payloadLen} bytes ────\n`;
++        const frame = buf.subarray(pos, pos + frameLen);
++        this.appendText(
++          separator + formatHexDump(frame, this.offset),
++        );
++        this.offset += frameLen;
++        pos += frameLen;
++      }
++
++      // Save unprocessed bytes
++      this.frameBuffer =
++        pos < buf.length ? Buffer.from(buf.subarray(pos)) : Buffer.alloc(0);
++  }
++  snapshot() { return { text: this.text, generation: this.generation }; }
++  get pendingBytes() { return this.frameBuffer.length; }
++  reset() {
++    this.frameBuffer = Buffer.alloc(0);
++    this.offset = 0;
++    this.text = "";
++    this.receivedBytes = 0;
++    this.evictedCodeUnits = 0;
++    this.generation++;
++  }
++}
+diff --git a/src/telemetry/HardwareHistory.ts b/src/telemetry/HardwareHistory.ts
+new file mode 100644
+index 0000000..a88279a
+--- /dev/null
++++ b/src/telemetry/HardwareHistory.ts
+@@ -0,0 +1,59 @@
++import type { MonHw, MonHw3, MonRf } from "ubx-parser";
++import { BoundedHistory } from "./BoundedHistory";
++
++export interface RfStatusData {
++  noisePerMS: number;
++  agcCnt: number;
++  aStatus: number;
++  aPower: number;
++  jammingState: number;
++  jamInd: number;
++  rtcCalib?: boolean;
++  safeBoot?: boolean;
++  xtalAbsent?: boolean;
++}
++
++export interface HwStatusData {
++  hwVersion: string;
++  nPins: number;
++  rtcCalib: boolean;
++  safeBoot: boolean;
++  xtalAbsent: boolean;
++}
++
++export class HardwareHistory {
++  rf: RfStatusData | null = null;
++  hw: HwStatusData | null = null;
++  readonly jam = new BoundedHistory<{ sequence: number; x: number; y: number }>(3000);
++  private start: number | null = null;
++  private sequence = 0;
++  epoch = 0;
++
++  ingestHw(msg: MonHw, now: number): boolean {
++    if ("variant" in msg) return false;
++    this.rf = { noisePerMS: msg.noisePerMS, agcCnt: msg.agcCnt, aStatus: msg.aStatus,
++      aPower: msg.aPower, jammingState: msg.flags.jammingState, jamInd: msg.jamInd,
++      rtcCalib: msg.flags.rtcCalib, safeBoot: msg.flags.safeBoot, xtalAbsent: msg.flags.xtalAbsent };
++    if (this.start === null) this.start = now;
++    this.jam.append({ sequence: ++this.sequence, x: (now - this.start) / 1000, y: msg.jamInd });
++    return true;
++  }
++  ingestRf(msg: MonRf): boolean {
++    if ("variant" in msg || !msg.list?.length) return false;
++    const rf = msg.list[0];
++    this.rf = { noisePerMS: rf.noisePerMS, agcCnt: rf.agcCnt, aStatus: rf.antStatus,
++      aPower: rf.antPower, jammingState: rf.flags.jammingState, jamInd: rf.jamInd };
++    return true;
++  }
++  ingestHw3(msg: MonHw3): boolean {
++    if ("variant" in msg) return false;
++    this.hw = { hwVersion: msg.hwVersion, nPins: msg.nPins, rtcCalib: msg.flags.rctCalib,
++      safeBoot: msg.flags.safeBoot, xtalAbsent: msg.flags.xtalAbsent };
++    return true;
++  }
++  snapshot() { return { rf: this.rf, hw: this.hw, jam: this.jam.snapshot(), epoch: this.epoch }; }
++  reset() {
++    this.rf = null; this.hw = null; this.start = null;
++    this.jam.clear(); this.epoch++;
++  }
++}
+diff --git a/src/telemetry/MessageHistory.ts b/src/telemetry/MessageHistory.ts
+new file mode 100644
+index 0000000..93ad20a
+--- /dev/null
++++ b/src/telemetry/MessageHistory.ts
+@@ -0,0 +1,43 @@
++import type { UbxMessage } from "ubx-parser";
++import { BoundedHistory } from "./BoundedHistory";
++
++export interface MessageRow {
++  timestamp: string;
++  name: string;
++  length: string;
++  // Arrival ordinal within the connection. The ordinary table keeps its three
++  // visible columns; this identity makes retained-source accounting unambiguous.
++  sequence: number;
++}
++interface Entry { message: UbxMessage; time: number; sequence: number; row?: MessageRow; }
++
++export class MessageHistory {
++  private entries = new BoundedHistory<Entry>(500);
++  private formatted = 0;
++  ingest(message: UbxMessage, time: number): void {
++    this.entries.append({ message, time, sequence: this.entries.received + 1 });
++  }
++  snapshot(): MessageRow[] {
++    return this.entries.snapshot().map(entry => {
++      if (!entry.row) {
++        const date = new Date(entry.time);
++        entry.row = {
++          timestamp: [date.getHours(), date.getMinutes(), date.getSeconds()]
++            .map(value => String(value).padStart(2, "0")).join(":")
++            + "." + String(date.getMilliseconds()).padStart(3, "0"),
++          name: entry.message.name, length: String(JSON.stringify(entry.message).length), sequence: entry.sequence,
++        };
++        this.formatted++;
++      }
++      return entry.row;
++    });
++  }
++  get received() { return this.entries.received; }
++  get evicted() { return this.entries.evicted; }
++  getDiagnostics() {
++    const retainedFormatted = this.entries.snapshot().filter(entry => entry.row !== undefined).length;
++    return { received: this.received, retained: this.entries.size, evicted: this.evicted,
++      formatted: this.formatted, evictedBeforeFormatting: this.evicted - (this.formatted - retainedFormatted) };
++  }
++  clear(): void { this.entries.clear(); this.formatted = 0; }
++}
+diff --git a/src/telemetry/PositionHistory.ts b/src/telemetry/PositionHistory.ts
+new file mode 100644
+index 0000000..a42a7de
+--- /dev/null
++++ b/src/telemetry/PositionHistory.ts
+@@ -0,0 +1,67 @@
++import type { NavPvtData } from "../hooks/useNavPvt";
++import { BoundedHistory } from "./BoundedHistory";
++
++export interface PositionSample {
++  sequence: number;
++  lat: number;
++  lon: number;
++  hMSL: number;
++  gSpeed: number;
++  hAcc: number;
++  elapsedSec: number;
++}
++
++/** Ingest before presentation. Reset creates a new epoch, with no old sample replay. */
++export class PositionHistoryStore {
++  readonly positions = new BoundedHistory<PositionSample>(3000);
++  readonly trail = new BoundedHistory<PositionSample>(1000);
++  private start: number | null = null;
++  private sequence = 0;
++  resetCounter = 0;
++  received = 0;
++  filtered = 0;
++
++  ingest(pvt: NavPvtData, now: number): void {
++    this.received++;
++    if (pvt.fixType < 2) { this.filtered++; return; }
++    if (this.start === null) this.start = now;
++    const sample: PositionSample = { sequence: ++this.sequence, lat: pvt.lat, lon: pvt.lon,
++      hMSL: pvt.hMSL, gSpeed: pvt.gSpeed, hAcc: pvt.hAcc, elapsedSec: (now - this.start) / 1000 };
++    this.positions.append(sample);
++    this.trail.append(sample);
++  }
++
++  resetPosition(): void {
++    this.positions.clear();
++    this.start = null;
++    this.resetCounter++;
++  }
++
++  resetConnection(): void {
++    this.resetPosition();
++    this.trail.clear();
++    this.received = 0;
++    this.filtered = 0;
++  }
++
++  snapshot() {
++    const samples = this.positions.snapshot();
++    const count = samples.length;
++    const last = samples.at(-1);
++    const meanLat = count ? samples.reduce((sum, s) => sum + s.lat, 0) / count : 0;
++    const meanLon = count ? samples.reduce((sum, s) => sum + s.lon, 0) / count : 0;
++    const cosLat = Math.cos(meanLat * Math.PI / 180);
++    const scatterPoints = samples.map(s => ({ x: (s.lon - meanLon) * cosLat * 111320,
++      y: (s.lat - meanLat) * 111320 }));
++    const distances = scatterPoints.map(p => Math.hypot(p.x, p.y)).sort((a, b) => a - b);
++    return { samples, scatterPoints, sampleCount: count, elapsedSec: last?.elapsedSec ?? 0,
++      resetCounter: this.resetCounter,
++      latestAltitude: last ? { x: last.elapsedSec, y: last.hMSL / 1000 } : null,
++      latestSpeed: last ? { x: last.elapsedSec, y: last.gSpeed * 0.0036 } : null,
++      latestHAcc: last ? { x: last.elapsedSec, y: last.hAcc / 1000 } : null,
++      cepStats: count ? { cep50: distances[Math.floor(count * 0.5)],
++        cep95: distances[Math.floor(count * 0.95)],
++        meanHAcc: samples.reduce((sum, s) => sum + s.hAcc, 0) / count / 1000,
++        sampleCount: count } : null };
++  }
++}
+diff --git a/src/telemetry/PublicationCadence.ts b/src/telemetry/PublicationCadence.ts
+new file mode 100644
+index 0000000..7fd5a5c
+--- /dev/null
++++ b/src/telemetry/PublicationCadence.ts
+@@ -0,0 +1,170 @@
++export const UI_UPDATE_RATES = [10, 20, 60] as const;
++export type UiUpdateRate = typeof UI_UPDATE_RATES[number];
++export const validateUiUpdateRate = (value: unknown): UiUpdateRate =>
++  value === 10 || value === 20 || value === 60 ? value : 20;
++
++export interface CadenceClock {
++  now(): number;
++  schedule(callback: () => void, delayMs: number): unknown;
++  cancel(handle: unknown): void;
++}
++
++const realClock: CadenceClock = {
++  now: () => performance.now(),
++  schedule: (callback, delay) => setTimeout(callback, delay),
++  cancel: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
++};
++
++export interface PublicationObservation {
++  label: string;
++  flush: number;
++  requestedAt: number;
++  firstPendingAt: number;
++  startedAt: number;
++  finishedAt: number;
++  sourceSample?: number;
++  coalesced: number;
++}
++interface Owner {
++  publish: () => void;
++  label: string;
++  requests: number;
++  coalesced: number;
++  publications: number;
++  cancelled: number;
++  firstPendingAt: number;
++  requestedAt: number;
++  sourceSample?: number;
++  pendingRequests: number;
++}
++
++/** One application timer; one pending bit per registered presentation owner.
++ * Source data belongs to the owners, never to this queue. A late tick flushes
++ * once, anchored to actual execution time. The drained queue owns no timer.
++ */
++export class PublicationCadence {
++  private owners = new Map<symbol, Owner>();
++  private observer: ((event: PublicationObservation) => void) | null = null;
++  private unpaced = false;
++  private pending = new Set<symbol>();
++  private timer: unknown = null;
++  private generation = 0;
++  private lastFlush = -Infinity;
++  private disposed = false;
++  private rate: UiUpdateRate;
++  private requests = 0;
++  private coalesced = 0;
++  private flushes = 0;
++  private publications = 0;
++  private cancelled = 0;
++
++  constructor(rate: unknown = 20, private clock: CadenceClock = realClock) {
++    this.rate = validateUiUpdateRate(rate);
++  }
++
++  register(publish: () => void, label = "presentation") {
++    if (this.disposed) throw new Error("Publication cadence is disposed");
++    const key = Symbol();
++    const owner: Owner = { publish, label, requests: 0, coalesced: 0, publications: 0,
++      cancelled: 0, firstPendingAt: 0, requestedAt: 0, pendingRequests: 0 };
++    this.owners.set(key, owner);
++    return {
++      request: (sourceSample?: number) => {
++        if (this.disposed || !this.owners.has(key)) return;
++        this.requests++; owner.requests++;
++        if (this.pending.has(key)) { this.coalesced++; owner.coalesced++; }
++        else { owner.firstPendingAt = this.clock.now(); owner.pendingRequests = 0; }
++        owner.requestedAt = this.clock.now(); owner.sourceSample = sourceSample; owner.pendingRequests++;
++        this.pending.add(key);
++        if (this.unpaced) { this.flushes++; this.publish(key); }
++        else this.schedule();
++      },
++      cancel: () => {
++        if (this.pending.delete(key)) { this.cancelled++; owner.cancelled++; }
++        if (!this.pending.size) this.cancelTimer();
++      },
++      dispose: () => {
++        if (this.pending.delete(key)) { this.cancelled++; owner.cancelled++; }
++        this.owners.delete(key);
++        if (!this.pending.size) this.cancelTimer();
++      },
++    };
++  }
++
++  setRate(value: unknown): void {
++    const rate = validateUiUpdateRate(value);
++    if (this.disposed || this.rate === rate) return;
++    this.rate = rate;
++    this.cancelTimer();
++    this.schedule();
++  }
++
++  private cancelTimer(): void {
++    ++this.generation;
++    if (this.timer !== null) this.clock.cancel(this.timer);
++    this.timer = null;
++  }
++
++  private schedule(): void {
++    if (this.disposed || this.timer !== null || !this.pending.size) return;
++    const generation = this.generation;
++    const delay = Math.max(0, this.lastFlush + 1000 / this.rate - this.clock.now());
++    this.timer = this.clock.schedule(() => {
++      if (this.disposed || generation !== this.generation) return;
++      this.timer = null;
++      // Timers can wake early; retain the lower-bound cadence guarantee.
++      if (this.clock.now() < this.lastFlush + 1000 / this.rate) {
++        this.schedule();
++        return;
++      }
++      const batch = [...this.pending];
++      this.lastFlush = this.clock.now();
++      this.flushes++;
++      for (const key of batch) {
++        this.publish(key);
++      }
++      this.schedule();
++    }, delay);
++  }
++
++  private publish(key: symbol): void {
++    const owner = this.owners.get(key);
++    if (!owner || !this.pending.delete(key)) return;
++    this.publications++; owner.publications++;
++    const observer = this.observer;
++    const event = observer ? { label: owner.label, flush: this.flushes,
++      requestedAt: owner.requestedAt, firstPendingAt: owner.firstPendingAt,
++      startedAt: this.clock.now(), finishedAt: 0, sourceSample: owner.sourceSample,
++      coalesced: owner.pendingRequests - 1 } : null;
++    owner.publish();
++    if (event) { event.finishedAt = this.clock.now(); observer!(event); }
++  }
++
++  // Diagnostic-only retention-correct control; not a persisted product setting.
++  // Select before App mount so a comparison cannot change policy mid-session.
++  setUnpacedForComparison(enabled: boolean): void {
++    if (this.owners.size || this.disposed) throw new Error("Select comparison policy before mounting telemetry");
++    this.unpaced = enabled;
++  }
++  observe(observer: ((event: PublicationObservation) => void) | null): void {
++    this.observer = observer;
++  }
++
++  getDiagnostics() {
++    return { rate: this.rate, unpaced: this.unpaced, observer: this.observer !== null, owners: this.owners.size, pending: this.pending.size,
++      timers: this.timer === null ? 0 : 1, requests: this.requests, coalesced: this.coalesced,
++      flushes: this.flushes, publications: this.publications, cancelled: this.cancelled,
++      disposed: this.disposed, ownerCounts: [...this.owners.values()].map(owner => ({
++        label: owner.label, requests: owner.requests, coalesced: owner.coalesced,
++        publications: owner.publications, cancelled: owner.cancelled })) };
++  }
++
++  dispose(): void {
++    this.disposed = true;
++    this.observer = null;
++    this.cancelled += this.pending.size;
++    this.pending.clear();
++    this.owners.clear();
++    this.cancelTimer();
++  }
++}
+diff --git a/src/telemetry/connectionStatus.ts b/src/telemetry/connectionStatus.ts
+new file mode 100644
+index 0000000..4b3d782
+--- /dev/null
++++ b/src/telemetry/connectionStatus.ts
+@@ -0,0 +1,18 @@
++import { serialManager } from "../connection";
++import type { ConnectionStatus } from "../connection";
++
++// One connection listener for all presentation owners, removed with the last
++// subscription. Controls still receive the original event synchronously.
++const listeners = new Set<(status: ConnectionStatus) => void>();
++const dispatch = (status: ConnectionStatus) => {
++  for (const listener of [...listeners]) if (listeners.has(listener)) listener(status);
++};
++export function onPresentationStatus(listener: (status: ConnectionStatus) => void) {
++  if (!listeners.size) serialManager.on("status", dispatch);
++  listeners.add(listener);
++  return () => {
++    listeners.delete(listener);
++    if (!listeners.size) serialManager.off("status", dispatch);
++  };
++}
++export const presentationStatusSubscriptions = () => listeners.size;
+diff --git a/src/telemetry/presentation.ts b/src/telemetry/presentation.ts
+new file mode 100644
+index 0000000..88b4926
+--- /dev/null
++++ b/src/telemetry/presentation.ts
+@@ -0,0 +1,12 @@
++import { getConfig, updateConfig } from "../connection/config";
++import { PublicationCadence, validateUiUpdateRate } from "./PublicationCadence";
++
++// Every presentation subscription shares this queue. Its lifetime contains no
++// timer or listener when the App has released its registrations.
++export const presentation = new PublicationCadence(getConfig().uiUpdateRate);
++
++export function setUiUpdateRate(value: unknown): void {
++  const rate = validateUiUpdateRate(value);
++  updateConfig({ uiUpdateRate: rate });
++  presentation.setRate(rate);
++}
+diff --git a/tests/config.ts b/tests/config.ts
+new file mode 100644
+index 0000000..de51c5d
+--- /dev/null
++++ b/tests/config.ts
+@@ -0,0 +1,39 @@
++import assert from "node:assert/strict";
++import { spawnSync } from "node:child_process";
++import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { basename, dirname, join, resolve } from "node:path";
++import { fileURLToPath, pathToFileURL } from "node:url";
++
++const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
++const scratch = mkdtempSync(join(tmpdir(), "ubx-pacing-config-"));
++const configModule = pathToFileURL(resolve(root, "src/connection/config.ts")).href;
++const loader = pathToFileURL(resolve(root, "node_modules/tsx/dist/loader.mjs")).href;
++function run(update = "") {
++  const result = spawnSync(process.execPath, ["--import", loader, "--input-type=module", "--eval",
++    `import { getConfig, updateConfig } from ${JSON.stringify(configModule)}; ${update}; console.log(JSON.stringify(getConfig()));`],
++  { cwd: scratch, encoding: "utf8", windowsHide: true });
++  assert.equal(result.status, 0, result.stderr);
++  return JSON.parse(result.stdout);
++}
++try {
++  assert.equal(run().uiUpdateRate, 20, "missing configuration defaults to 20");
++  for (const invalid of [null, [], "invalid", { uiUpdateRate: "60" }, { uiUpdateRate: 0 }, { uiUpdateRate: 30 }]) {
++    writeFileSync(join(scratch, "config.json"), JSON.stringify(invalid));
++    assert.equal(run().uiUpdateRate, 20);
++  }
++  writeFileSync(join(scratch, "config.json"), JSON.stringify({ portPath: "SYNTHETIC", baudRate: 38400 }));
++  for (const rate of [10, 60, 20]) {
++    assert.equal(run(`updateConfig({ uiUpdateRate: ${rate} })`).uiUpdateRate, rate);
++    assert.equal(JSON.parse(readFileSync(join(scratch, "config.json"), "utf8")).uiUpdateRate, rate);
++    const restarted = run();
++    assert.equal(restarted.uiUpdateRate, rate, "ordinary exit persists the setting across processes");
++    assert.equal(restarted.baudRate, 38400);
++    assert.equal(restarted.portPath, "SYNTHETIC");
++  }
++  console.log("Configuration: invalid/default rates, all choices persisted across exit/restart, receiver settings preserved");
++} finally {
++  assert.equal(dirname(resolve(scratch)), resolve(tmpdir()));
++  assert.ok(basename(scratch).startsWith("ubx-pacing-config-"));
++  rmSync(scratch, { recursive: true });
++}
+diff --git a/tests/fixtures/ubx-bytes.ts b/tests/fixtures/ubx-bytes.ts
+new file mode 100644
+index 0000000..95519a2
+--- /dev/null
++++ b/tests/fixtures/ubx-bytes.ts
+@@ -0,0 +1,41 @@
++/** Deterministic UBX wire packets. Positions are synthetic, never receiver logs. */
++export function ubxPacket(messageId: number, payload: Buffer, messageClass = 1): Buffer {
++    const packet = Buffer.alloc(payload.length + 8);
++    packet.set([0xb5, 0x62, messageClass, messageId]);
++    packet.writeUInt16LE(payload.length, 4);
++    packet.set(payload, 6);
++    let a = 0, b = 0;
++    for (const byte of packet.subarray(2, -2)) { a = (a + byte) & 255; b = (b + a) & 255; }
++    packet[packet.length - 2] = a; packet[packet.length - 1] = b;
++    return packet;
++}
++export const cnoValues = (sequence: number) => [10 + sequence % 10, 20 + Math.floor(sequence / 10) % 10,
++    30 + Math.floor(sequence / 100) % 10, 40 + Math.floor(sequence / 1000) % 10];
++export function navSatPacket(sequence: number) {
++    const payload = Buffer.alloc(8 + 4 * 12);
++    payload.writeUInt32LE(sequence * 50, 0); payload[4] = 1; payload[5] = 4;
++    const cno = cnoValues(sequence);
++    for (let i = 0; i < 4; ++i) {
++        const offset = 8 + i * 12;
++        payload[offset] = [0, 2, 3, 6][i]; payload[offset + 1] = i + 1;
++        payload[offset + 2] = cno[i]; payload[offset + 3] = 30 + i * 10;
++        payload.writeInt16LE(10 + i * 90 + sequence % 15, offset + 4);
++        payload.writeUInt32LE(8, offset + 8);
++    }
++    return ubxPacket(0x35, payload);
++}
++export function navPvtPacket(sequence: number) {
++    const payload = Buffer.alloc(92);
++    payload.writeUInt32LE(sequence * 50, 0);
++    payload.writeUInt16LE(2026, 4); payload[6] = 9; payload[7] = 11;
++    payload[8] = 12; payload[9] = Math.floor(sequence / 1200) % 60; payload[10] = Math.floor(sequence / 20) % 60;
++    payload[11] = 7; payload.writeUInt32LE(100, 12);
++    payload[20] = 3; payload[21] = 1; payload[23] = 4;
++    payload.writeInt32LE(-1200000 + sequence * 10, 24);
++    payload.writeInt32LE(515000000 + (sequence % 100) * 10, 28);
++    payload.writeInt32LE(80000 + sequence, 32); payload.writeInt32LE(50000 + sequence, 36);
++    payload.writeUInt32LE(30000, 40); payload.writeUInt32LE(40000, 44);
++    payload.writeInt32LE(1000 + sequence, 60); payload.writeInt32LE(9000000, 64);
++    payload.writeUInt32LE(100, 68); payload.writeUInt32LE(1000, 72); payload.writeUInt16LE(120, 76);
++    return ubxPacket(7, payload);
++}
+diff --git a/tests/pacing.ts b/tests/pacing.ts
+new file mode 100644
+index 0000000..f4f9290
+--- /dev/null
++++ b/tests/pacing.ts
+@@ -0,0 +1,225 @@
++import assert from "node:assert/strict";
++import { PublicationCadence, validateUiUpdateRate, type CadenceClock } from "../src/telemetry/PublicationCadence";
++import { BoundedHistory } from "../src/telemetry/BoundedHistory";
++import { PositionHistoryStore } from "../src/telemetry/PositionHistory";
++import type { NavPvtData } from "../src/hooks/useNavPvt";
++import { ArrivalWindow } from "../src/telemetry/ArrivalWindow";
++import { ConsoleHistory } from "../src/telemetry/ConsoleHistory";
++import type { PublicationObservation } from "../src/telemetry/PublicationCadence";
++
++class Clock implements CadenceClock {
++  time = 0;
++  next = 0;
++  jobs = new Map<number, { at: number; callback: () => void }>();
++  now = () => this.time;
++  schedule(callback: () => void, delay: number) {
++    const id = ++this.next;
++    this.jobs.set(id, { at: this.time + delay, callback });
++    assert.ok(this.jobs.size <= 1, "shared cadence owns at most one timer");
++    return id;
++  }
++  cancel(id: unknown) { this.jobs.delete(id as number); }
++  advance(to: number) {
++    while (true) {
++      const next = [...this.jobs].sort((a, b) => a[1].at - b[1].at)[0];
++      if (!next || next[1].at > to) break;
++      this.time = next[1].at;
++      this.jobs.delete(next[0]);
++      next[1].callback();
++    }
++    this.time = to;
++  }
++}
++
++for (const value of [undefined, null, "10", 0, -1, 30, NaN, Infinity, {}, []])
++  assert.equal(validateUiUpdateRate(value), 20);
++
++for (const rate of [10, 20, 60] as const) {
++  const clock = new Clock();
++  const cadence = new PublicationCadence(rate, clock);
++  let source = 0;
++  const observed: { time: number; sample: number }[] = [];
++  const owner = cadence.register(() => observed.push({ time: clock.now(), sample: source }));
++  clock.advance(1000);
++  assert.equal(clock.jobs.size, 0, "no idle pacing");
++  for (let i = 0; i <= 240; i++) {
++    clock.advance(1000 + i * 1000 / 240);
++    source = i;
++    owner.request();
++  }
++  assert.ok(observed.length <= 1 + rate);
++  assert.ok(observed.length >= rate, "continuous source must actually publish");
++  clock.advance(2200);
++  assert.equal(observed.at(-1)!.sample, 240, "trailing sample requires no new input");
++  for (let i = 1; i < observed.length; i++)
++    assert.ok(observed[i].time - observed[i - 1].time >= 1000 / rate - 1e-9);
++  assert.equal(clock.jobs.size, 0);
++  const d = cadence.getDiagnostics();
++  assert.equal(d.requests, d.coalesced + d.publications);
++  owner.dispose();
++  assert.equal(cadence.getDiagnostics().owners, 0);
++}
++
++{
++  const clock = new Clock();
++  const cadence = new PublicationCadence(20, clock);
++  const seen: number[] = [];
++  const a = cadence.register(() => seen.push(clock.now()));
++  const b = cadence.register(() => seen.push(-clock.now()));
++  a.request(); b.request(); clock.advance(0);
++  assert.deepEqual(seen, [0, -0], "all owners share a tick");
++  clock.advance(10); a.request(); b.request();
++  const late = [...clock.jobs.values()][0].callback;
++  cadence.setRate(10);
++  late();
++  clock.advance(99); assert.equal(seen.length, 2);
++  clock.advance(100); assert.deepEqual(seen.slice(2), [100, -100]);
++  clock.advance(110); a.request(); cadence.setRate(60);
++  clock.advance(117); assert.equal(seen.at(-1), 100 + 1000 / 60);
++  a.request(); b.request();
++  // A blocked event loop runs the due timer once, without replaying missed ticks.
++  clock.time = 1000;
++  const delayed = [...clock.jobs.entries()][0];
++  clock.jobs.delete(delayed[0]); delayed[1].callback();
++  assert.equal(seen.at(-1), -1000);
++  assert.equal(clock.jobs.size, 0);
++  a.request(); b.request();
++  const afterDispose = [...clock.jobs.values()][0].callback;
++  const count = seen.length;
++  a.dispose(); b.dispose();
++  afterDispose(); a.request(); b.request();
++  assert.equal(seen.length, count);
++  assert.equal(clock.jobs.size, 0);
++  const fresh = cadence.register(() => seen.push(9999));
++  fresh.request(); fresh.cancel(); clock.advance(2000);
++  assert.equal(seen.length, count, "reset cancels pre-reset work");
++  fresh.request();
++  const afterTerminal = [...clock.jobs.values()][0].callback;
++  cadence.dispose(); afterTerminal(); fresh.request();
++  assert.equal(seen.length, count);
++  assert.equal(cadence.getDiagnostics().owners, 0);
++  assert.equal(clock.jobs.size, 0);
++}
++
++{
++  const history = new BoundedHistory<number>(500);
++  for (let i = 1; i <= 7200; i++) history.append(i);
++  assert.deepEqual(history.snapshot(), Array.from({ length: 500 }, (_, i) => 6701 + i));
++  assert.equal(history.received, 7200);
++  assert.equal(history.evicted, 6700);
++  history.snapshot().push(-1);
++  assert.equal(history.size, 500);
++  history.clear(); history.append(7201);
++  assert.deepEqual(history.snapshot(), [7201]);
++}
++
++{
++  const history = new PositionHistoryStore();
++  const clock = new Clock();
++  const cadence = new PublicationCadence(10, clock);
++  let snapshot = history.snapshot();
++  const owner = cadence.register(() => { snapshot = history.snapshot(); });
++  const packet = (i: number, fixType = 3): NavPvtData => ({ fixType, lat: 0,
++    lon: i / 111320, hMSL: i * 1000, hAcc: i * 1000, gSpeed: i,
++    height: 0, vAcc: 0, numSV: 4, year: 2026, month: 9, day: 11,
++    hour: 0, min: 0, sec: 0, tAcc: 0, heading: 0 });
++  for (let i = 1; i <= 7200; i++) {
++    history.ingest(packet(i), i);
++    owner.request();
++  }
++  history.ingest(packet(9999, 1), 7201);
++  assert.equal(snapshot.sampleCount, 0, "ingestion does not publish or derive snapshots");
++  clock.advance(0);
++  assert.deepEqual(snapshot.samples.map(s => s.sequence), Array.from({ length: 3000 }, (_, i) => 4201 + i));
++  assert.deepEqual(history.trail.snapshot().map(s => s.sequence), Array.from({ length: 1000 }, (_, i) => 6201 + i));
++  assert.equal(history.positions.evicted, 4200);
++  assert.equal(history.trail.evicted, 6200);
++  assert.equal(history.received, 7201);
++  assert.equal(history.filtered, 1);
++  assert.equal(snapshot.latestAltitude!.y, 7200);
++  assert.equal(snapshot.latestSpeed!.y, 7200 * 0.0036);
++  assert.equal(snapshot.latestHAcc!.y, 7200);
++  assert.equal(snapshot.cepStats!.meanHAcc, 5700.5);
++  assert.ok(Math.abs(snapshot.cepStats!.cep50 - 750.5) < 1e-8);
++  assert.ok(Math.abs(snapshot.cepStats!.cep95 - 1425.5) < 1e-8);
++  assert.equal(cadence.getDiagnostics().publications, 1);
++  assert.equal(cadence.getDiagnostics().coalesced, 7199);
++  history.ingest(packet(7201), 7300); owner.request();
++  owner.cancel(); history.resetPosition(); snapshot = history.snapshot();
++  clock.advance(200);
++  assert.equal(snapshot.sampleCount, 0);
++  assert.equal(history.trail.size, 1000, "Position reset preserves independent map trail");
++  history.ingest(packet(7202), 8000); owner.request(); clock.advance(201);
++  assert.equal(snapshot.sampleCount, 1);
++  assert.equal(snapshot.elapsedSec, 0);
++  assert.equal(snapshot.latestAltitude!.y, 7202);
++  history.resetConnection(); owner.cancel();
++  assert.equal(history.positions.size, 0);
++  assert.equal(history.trail.size, 0);
++  owner.dispose();
++}
++
++{
++  const window = new ArrivalWindow();
++  for (let i = 0; i < 10000; i++) window.add(0, 164);
++  window.add(999, 7);
++  assert.equal(window.total(999), 1640007);
++  assert.equal(window.total(1000), 7);
++  window.add(1001, 11);
++  assert.equal(window.total(1001), 18);
++  assert.equal(window.total(2001), 0);
++  window.add(10000, 9); window.clear();
++  assert.equal(window.total(10000), 0);
++}
++
++{
++  const console = new ConsoleHistory();
++  const ack = Buffer.from([0xb5, 0x62, 5, 1, 2, 0, 1, 7, 16, 52]);
++  let expected = "", evicted = 0;
++  for (let i = 0; i < 1000; i++) {
++    // Independent literal rendering oracle for this known frame.
++    const line = (i * 10).toString(16).padStart(8, "0")
++      + "  b5 62 05 01 02 00 01 07  10 34                    |.b.......4      |\n";
++    expected += "\n──── ACK-ACK [05:01] 2 bytes ────\n" + line;
++    if (expected.length > 65536) { evicted += expected.length - 32768; expected = expected.slice(-32768); }
++    console.ingest(ack.subarray(0, 3));
++    assert.equal(console.pendingBytes, 3);
++    console.ingest(ack.subarray(3));
++    assert.equal(console.pendingBytes, 0);
++  }
++  assert.equal(console.text, expected);
++  assert.equal(console.evictedCodeUnits, evicted);
++  assert.equal(console.offset, 10000);
++  assert.equal(console.receivedBytes, 10000);
++  console.ingest(ack.subarray(0, 5)); console.reset();
++  console.ingest(ack);
++  assert.equal(console.offset, 10);
++  assert.equal(console.pendingBytes, 0);
++  assert.ok(console.text.includes("00000000  b5 62"));
++}
++
++{
++  const clock = new Clock();
++  const cadence = new PublicationCadence(20, clock);
++  const events: PublicationObservation[] = [];
++  cadence.observe(event => events.push(event));
++  const owner = cadence.register(() => { clock.time += 2; }, "NAV-PVT");
++  owner.request(50); owner.request(100); clock.advance(0);
++  assert.equal(events.length, 1);
++  assert.equal(events[0].sourceSample, 100);
++  assert.equal(events[0].coalesced, 1);
++  assert.equal(events[0].finishedAt - events[0].startedAt, 2);
++  assert.throws(() => cadence.setUnpacedForComparison(true));
++  owner.dispose(); cadence.observe(null);
++  cadence.setUnpacedForComparison(true);
++  let publishes = 0;
++  const control = cadence.register(() => publishes++, "control");
++  for (let i = 0; i < 7200; i++) control.request(i);
++  assert.equal(publishes, 7200);
++  assert.equal(clock.jobs.size, 0);
++  assert.equal(cadence.getDiagnostics().ownerCounts[0].coalesced, 0);
++  control.dispose();
++  assert.equal(cadence.getDiagnostics().owners, 0);
++}
++
++console.log("Pacing and retention: all deterministic cadence, lifecycle, exact-tail and derived-statistics checks passed");
+diff --git a/tests/parser-retention.ts b/tests/parser-retention.ts
+new file mode 100644
+index 0000000..7b60cb9
+--- /dev/null
++++ b/tests/parser-retention.ts
+@@ -0,0 +1,106 @@
++import assert from "node:assert/strict";
++import { EventEmitter } from "node:events";
++import type { NavPvt, NavSat, MonHw } from "ubx-parser";
++import { SerialManager } from "../src/connection/SerialManager";
++import { PositionHistoryStore } from "../src/telemetry/PositionHistory";
++import { ConsoleHistory } from "../src/telemetry/ConsoleHistory";
++import { HardwareHistory } from "../src/telemetry/HardwareHistory";
++import { MessageHistory } from "../src/telemetry/MessageHistory";
++import { PublicationCadence, type CadenceClock } from "../src/telemetry/PublicationCadence";
++import { navPvtPacket, navSatPacket } from "./fixtures/ubx-bytes";
++
++class Port extends EventEmitter {
++  isOpen = true;
++  close() { this.isOpen = false; }
++  write() { return true; }
++}
++let time = 0, callback: (() => void) | null = null;
++const clock: CadenceClock = { now: () => time, schedule: cb => {
++  assert.equal(callback, null); callback = cb; return cb;
++}, cancel: () => { callback = null; } };
++const ports: Port[] = [];
++const manager = new SerialManager({ list: async () => [], open: (_options, ready) => {
++  const port = new Port(); ports.push(port); queueMicrotask(() => ready(null)); return port;
++} });
++const position = new PositionHistoryStore();
++const consoleHistory = new ConsoleHistory();
++const rows = new MessageHistory();
++const cadence = new PublicationCadence(20, clock);
++let published = position.snapshot(), latestSat = -1, latestPvt = -1;
++let satCount = 0, pvtCount = 0, messageCount = 0, rawBytes = 0;
++const owner = cadence.register(() => { published = position.snapshot(); });
++manager.on("NAV-PVT", (msg: NavPvt) => {
++  assert.equal(msg.iTOW / 50, ++pvtCount);
++  latestPvt = msg.iTOW / 50; position.ingest(msg, time); owner.request();
++});
++manager.on("NAV-SAT", (msg: NavSat) => {
++  assert.equal(msg.iTOW / 50, ++satCount); latestSat = msg.iTOW / 50;
++});
++manager.on("message", msg => { rows.ingest(msg, time); messageCount++; });
++manager.on("rawdata", chunk => { rawBytes += chunk.length; consoleHistory.ingest(chunk); });
++manager.connect("fixture", 38400);
++await new Promise<void>(done => queueMicrotask(done));
++for (let sequence = 1; sequence <= 7200; sequence++) {
++  const sat = navSatPacket(sequence), pvt = navPvtPacket(sequence);
++  if (sequence % 2) {
++    ports[0].emit("data", sat.subarray(0, 9));
++    ports[0].emit("data", Buffer.concat([sat.subarray(9), pvt]));
++  } else ports[0].emit("data", Buffer.concat([sat, pvt]));
++}
++assert.equal(published.sampleCount, 0);
++assert.equal(satCount, 7200); assert.equal(pvtCount, 7200); assert.equal(messageCount, 14400);
++assert.equal(rawBytes, 7200 * 164);
++assert.equal(consoleHistory.receivedBytes, rawBytes); assert.equal(consoleHistory.offset, rawBytes);
++assert.equal(consoleHistory.pendingBytes, 0);
++assert.deepEqual(rows.snapshot().map(row => [row.name, row.sequence]),
++  Array.from({ length: 500 }, (_, i) => [i % 2 ? "NAV-PVT" : "NAV-SAT", 13901 + i]));
++assert.equal(rows.evicted, 13900);
++assert.equal(rows.getDiagnostics().formatted, 500);
++assert.equal(rows.getDiagnostics().evictedBeforeFormatting, 13900);
++const cachedRows = rows.snapshot();
++assert.strictEqual(rows.snapshot()[0], cachedRows[0]);
++assert.equal(rows.getDiagnostics().formatted, 500);
++time = 100; const trailing = callback!; callback = null; trailing();
++assert.equal(published.sampleCount, 3000);
++assert.deepEqual(published.samples.map(s => s.hMSL), Array.from({ length: 3000 }, (_, i) => 54201 + i));
++assert.deepEqual(position.trail.snapshot().map(s => s.hMSL), Array.from({ length: 1000 }, (_, i) => 56201 + i));
++assert.equal(published.latestAltitude?.y, 57.2);
++assert.equal(latestPvt, 7200); assert.equal(latestSat, 7200);
++assert.equal(cadence.getDiagnostics().publications, 1);
++assert.equal(cadence.getDiagnostics().coalesced, 7199);
++manager.disconnect();
++position.resetConnection(); consoleHistory.reset(); rows.clear(); owner.cancel();
++const before = messageCount;
++ports[0].emit("data", navPvtPacket(7201));
++assert.equal(messageCount, before);
++assert.equal(position.positions.size, 0);
++assert.equal(consoleHistory.receivedBytes, 0);
++assert.equal(ports[0].eventNames().length, 0);
++manager.connect("fixture", 38400);
++await new Promise<void>(done => queueMicrotask(done));
++ports[1].emit("data", Buffer.concat([navSatPacket(7201), navPvtPacket(7201)]));
++assert.equal(position.positions.size, 1);
++assert.equal(position.snapshot().latestAltitude?.y, 57.201);
++const late = callback!;
++owner.dispose(); cadence.dispose(); late();
++assert.equal(published.sampleCount, 3000, "disposed publication cannot overwrite the last delivered view");
++manager.disconnect(); manager.removeAllListeners();
++assert.equal(callback, null);
++assert.ok(ports.every(port => !port.isOpen && !port.eventNames().length));
++
++const hardware = new HardwareHistory();
++const hw: MonHw = { name: "MON-HW", pinSel: 0, pinBank: 0, pinDir: 0, pinVal: 0,
++  noisePerMS: 10, agcCnt: 20, aStatus: 2, aPower: 1,
++  flags: { rtcCalib: true, safeBoot: false, jammingState: 1, xtalAbsent: false },
++  reserved1: 0, usedMask: 0, VP: Buffer.alloc(17), jamInd: 0, reserved2: 0, pinIrq: 0, pullH: 0, pullL: 0 };
++for (let i = 1; i <= 7200; i++) hardware.ingestHw({ ...hw, jamInd: i % 256 }, i * 10);
++assert.equal(hardware.jam.received, 7200); assert.equal(hardware.jam.evicted, 4200);
++assert.deepEqual(hardware.snapshot().jam.map(s => [s.sequence, s.y]),
++  Array.from({ length: 3000 }, (_, i) => [4201 + i, (4201 + i) % 256]));
++assert.equal(hardware.rf?.jamInd, 7200 % 256);
++hardware.reset(); hardware.ingestHw(hw, 100000);
++assert.equal(hardware.snapshot().jam[0].x, 0);
++assert.equal(hardware.jam.size, 1);
++console.log(JSON.stringify({ status: "passed", decodedPerType: 7201, messageCount, rawBytes,
++  retainedMessageRows: 500, retainedPositions: 3000, retainedTrail: 1000, hardwareRetained: 3000,
++  trailingPublicationsBeforeReconnect: 1, lateDeliveryRejected: true }));

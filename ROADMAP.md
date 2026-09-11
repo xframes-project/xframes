@@ -18,7 +18,9 @@ See the [publication record](docs/engineering/fabric-publication-2026-09.md), [h
 
 The GPUIX assessment identifies bridge correctness, lifecycle discipline, automation, and performance evidence as gaps to close while concentrating product work on Plot, Table, Map, and Canvas. The August Fabric upgrade and screenshot smokes provide foundations for this work. End-to-end performance advantages still require measurement.
 
-The [ordinary ubx-monitor application slice](docs/engineering/ubx-monitor-application-2026-09.md) passed on Windows: current packed packages, complete application startup/typechecking, sustained synthetic NAV-SAT/NAV-PVT input, visible Plot/Table/Map/Canvas behavior and interaction, pause/resume, disconnect/reconnect and cleanup. The existing CNO panel is retained; configurable UI update rates remain follow-up work. Review the milestone against the acceptance criteria below before expanding into durable replay and comprehensive automation (Stages 5–6). General shell and rich-text work remain driven by demonstrated application needs; additional language bindings remain out of scope.
+The [ordinary ubx-monitor application slice](docs/engineering/ubx-monitor-application-2026-09.md) passed on Windows: current packed packages, complete application startup/typechecking, sustained synthetic NAV-SAT/NAV-PVT input, visible Plot/Table/Map/Canvas behavior and interaction, pause/resume, disconnect/reconnect and cleanup. The existing CNO panel is retained. Review the milestone against the acceptance criteria below before expanding into durable replay and comprehensive automation (Stages 5–6). General shell and rich-text work remain driven by demonstrated application needs; additional language bindings remain out of scope.
+
+The bounded [ubx-monitor UI update pacing slice](docs/engineering/ubx-monitor-streaming-2026-09.md) is complete: persisted 10/20/60 display rates, source-owned bounded histories, live rate-change and cleanup gates, final patch reproduction and three quiet-window paired comparisons. At 120 Hz/type, 20-Hz pacing reduced native snapshot work by 53–55% and instrumented process CPU by 25–30%, with higher observed latency. [Full paired results](docs/engineering/ubx-monitor-pacing-cost-2026-09.md) preserve coverage and evidence limits; broader framework performance targets remain open. [goal.txt](goal.txt) records the bounded task.
 
 ---
 
@@ -95,9 +97,9 @@ Once fixed:
 
 ### Streaming Architecture
 
-- [ ] Measure and improve the data pipeline: serial port → native parser → JS → XFrames render loop, using the Phase 12 baseline and instrumentation
-- [ ] Configurable update rates (throttle UI updates independently of message rate)
-- [ ] Validate ubx-monitor against repeatable telemetry input and the Phase 12 benchmark harness; distinguish measured data-to-frame latency from presentation timing where available
+- [ ] Measure and improve the data pipeline: serial port → native parser → JS → XFrames render loop, using the Phase 12 baseline and instrumentation — next bounded application comparison in the [streaming plan](docs/engineering/ubx-monitor-streaming-2026-09.md)
+- [ ] Configurable update rates (pace UI publication independently of message rate while preserving bounded histories) — next slice, planned 10/20/60 updates per second with default 20
+- [ ] Validate ubx-monitor against repeatable telemetry input and the Phase 12 benchmark harness; bounded ordinary-App correctness passed, while a matched streaming-cost comparison and broader performance targets remain open
 
 ---
 
@@ -285,8 +287,27 @@ cleanup. Focused integration/ownership/tab/color fixes passed 380 Windows native
 tests, affected package/Fabric/lifecycle checks, rebuilt Node/Wasm short suites
 and 65-result parity. The original external checkout remains unchanged.
 Shared-host timings are informational; synthetic transport/local tiles do not
-qualify physical serial or public services. Configurable UI rates, controlled
-performance, broader hardware and subsequent hosted CI remain follow-ups.
+qualify physical serial or public services. The separate pacing slice below adds
+UI rates and a bounded quiet comparison; broader hardware, framework performance
+and subsequent hosted CI remain follow-ups.
+
+### ubx-monitor UI Update Pacing (bounded slice complete)
+
+The [streaming record](docs/engineering/ubx-monitor-streaming-2026-09.md) delivers
+persisted 10/20/60 UI rates (default 20), bounded shared publication cadence and
+source-sample histories independent of React effects. It continues from XFrames
+`54bc382` / application `e7de9e2` in an isolated reproducible patch, preserving the
+original checkout. Final 20-Hz and high-input native rate-transition gates pass,
+including Position/Console exact tails, reset, pause/reconnect and disposal.
+Native rendering, input and resource wakes keep their scheduler contract.
+
+Three quiet-window pairs at 120 Hz/type passed with identical retained histories
+using a retention-correct unpaced control: the qualified baseline already skipped
+retained samples. Snapshot work fell 53–55%, measured process CPU 25–30%, and
+frames only 1–2%; observed latency increased. The [cost report](docs/engineering/ubx-monitor-pacing-cost-2026-09.md)
+includes every pair, source identities, coalescing, CPU/RSS, stage costs and
+latency coverage. Framework p95/p99 targets remain open, as do broader milestone
+criteria. Existing 1,000-cycle/extended gates and Stage 5–6 deferral remain intact.
 
 ### Milestone Review Gate — After Stages 0–4
 
