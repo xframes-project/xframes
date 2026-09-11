@@ -368,7 +368,7 @@ node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-applicat
 ```
 
 Announce desktop runs: this Windows fixture moves the real mouse and acquires
-focus for about two minutes. It waits for hover before clicking, verifies the
+focus for about three minutes. It waits for hover before clicking, verifies the
 selected tab and retries missed targets. It uses the actual `src/index.tsx`,
 public Node render function, returned disposer, App and callbacks. Only physical
 serial transport and map resources are substituted. Receiver packets contain
@@ -402,9 +402,23 @@ The default `--base=migration` preserves the old reproduction command.
 Keep historical acceptance artifacts separate from new measurements. Announce desktop runs,
 retry verified input misses, and arrange quiet measurement periods as needed.
 
+XFrames `880506ed5190f5375273d0dd77da903b2edcd8fa` contains the pacing harness,
+incremental patch and reports. The app implementation is also committed as
+`817f9316e0c14d9bdf8a17c4d8d962d31de4851f` on the **isolated local**
+`qualification/ui-pacing` branch. That app commit is not added to the original
+`C:/dev/ubx-monitor` checkout by this workflow. The setup below requires its
+qualified base `e7de9e2` to be available in `--source` and reproduces the app from
+the committed patch; it does not require access to the isolated branch.
+
 ```powershell
 node diagnostics/ubx-application-setup.mjs --base=qualified --source=C:/dev/ubx-monitor --output=C:/path/to/fresh/pacing-reproduction --packages=C:/dev/xframes/packages/dear-imgui/npm/build/diagnostics/ubx-application/packages --patch=C:/dev/xframes/packages/dear-imgui/npm/diagnostics/ubx-pacing.patch
 ```
+
+`--packages` above points to the retained local qualification cache, which is
+ignored by Git. If it is unavailable, omit that option after building the current
+Release Node native target; setup will build/pack common and Node itself. Native
+binary presence and installed/current-target hash equality are still required.
+New builds may have different hashes and must retain their own provenance.
 
 Setup executes `typecheck`, `test:serial` and, when present, `test:pacing` (including
 real-parser retention and restart/persistence regressions). Final reproduction
@@ -413,6 +427,10 @@ development `npm start`. The incremental patch SHA-256 is
 `2a2dc7b044427497e4063d2a2339e373450332445d3bf46e901d70018453e8b0`.
 It applies to `e7de9e2`, not the original main; setup refuses an existing app
 output and records original-file preservation and package/native identities.
+The quoted patch digest describes the retained measurement artifact. Git's
+Windows line-ending conversion can change a checked-out patch's byte hash;
+setup records the actual file hash. The final audit verified the app's source
+equivalence after CRLF normalization, including 12 source files and package.json.
 
 From the npm workspace, set the prepared app and choose a **new evidence
 directory for each run**. Announce every desktop run: full functional scenarios
@@ -474,7 +492,10 @@ explicit, and GPU completion/presentation is unavailable.
 
 The executed six-run dataset lives at
 `build/diagnostics/ubx-pacing/quiet-pair-{1,2,3}-{unpaced,paced}`. After all desktop
-runs stop, recompute its checked summary with:
+runs stop, recompute its checked summary with the commands below. These raw
+JSON/log/capture directories are local ignored evidence, not files provided by
+a Git clone. The offline script requires all six directories with their recorded
+files; use the harness to produce a fresh dataset when the retained one is absent.
 
 ```powershell
 node diagnostics/ubx-comparison-report.mjs

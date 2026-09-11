@@ -97,9 +97,9 @@ Once fixed:
 
 ### Streaming Architecture
 
-- [ ] Measure and improve the data pipeline: serial port → native parser → JS → XFrames render loop, using the Phase 12 baseline and instrumentation — next bounded application comparison in the [streaming plan](docs/engineering/ubx-monitor-streaming-2026-09.md)
-- [ ] Configurable update rates (pace UI publication independently of message rate while preserving bounded histories) — next slice, planned 10/20/60 updates per second with default 20
-- [ ] Validate ubx-monitor against repeatable telemetry input and the Phase 12 benchmark harness; bounded ordinary-App correctness passed, while a matched streaming-cost comparison and broader performance targets remain open
+- [ ] Measure and improve the complete data pipeline: serial port → parser → JS → XFrames render loop — the [bounded application comparison](docs/engineering/ubx-monitor-pacing-cost-2026-09.md) is complete; physical serial, uninstrumented costs and broader framework targets remain open
+- [x] Configurable update rates: persisted 10/20/60 UI publications per second, default 20, with source-owned bounded histories and native rate-change/lifetime checks — [implementation and evidence](docs/engineering/ubx-monitor-streaming-2026-09.md)
+- [ ] Complete broader Phase 12 performance qualification for ubx-monitor — repeatable full-App correctness and three matched quiet-window cost pairs passed; framework latency targets, hardware/backend coverage and equivalent external-app comparisons remain open
 
 ---
 
@@ -194,7 +194,7 @@ Establish reproducible current behavior and measurements before changing runtime
 - [x] Record three-repeat production Windows Node/OpenGL and browser SwiftShader/WebGPU baselines at 20/60/120 Hz, including startup, idle behavior, available memory/CPU, frame counts, and p50/p95/p99/maximum observations
 - [x] Record build/hardware/adapter/assets/workload metadata, explicit unavailable metrics, and proposed update-rate/latency targets
 - [ ] Extend benchmark coverage to map pan/zoom/tile completion/overlays and telemetry canvas rendering
-- [ ] Add hardware WebGPU and ubx-monitor application baselines; compare equivalent Electron/GPUIX implementations before claiming an end-to-end advantage
+- [ ] Extend baselines to hardware WebGPU and equivalent Electron/GPUIX implementations before claiming an end-to-end advantage — the bounded Windows ubx-monitor application and [pacing cost comparison](docs/engineering/ubx-monitor-pacing-cost-2026-09.md) are complete
 
 ### Stage 1 — Explicit Cross-Runtime Cleanup
 
@@ -296,8 +296,9 @@ and subsequent hosted CI remain follow-ups.
 The [streaming record](docs/engineering/ubx-monitor-streaming-2026-09.md) delivers
 persisted 10/20/60 UI rates (default 20), bounded shared publication cadence and
 source-sample histories independent of React effects. It continues from XFrames
-`54bc382` / application `e7de9e2` in an isolated reproducible patch, preserving the
-original checkout. Final 20-Hz and high-input native rate-transition gates pass,
+`54bc382` / application `e7de9e2`, with the delivered diagnostics and patch in
+XFrames `880506e` and the isolated app in `817f931`. The original checkout is
+preserved. Final 20-Hz and high-input native rate-transition gates pass,
 including Position/Console exact tails, reset, pause/reconnect and disposal.
 Native rendering, input and resource wakes keep their scheduler contract.
 

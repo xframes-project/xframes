@@ -42,6 +42,9 @@ eliminated. Every `source-identity.json` is identical across the six runs, inclu
 application source, package lock, fonts, native/common binaries and diagnostic
 hashes. The [streaming record](ubx-monitor-streaming-2026-09.md) lists reproduction
 and package identities.
+The measured diagnostics and app changes were subsequently committed in XFrames
+`880506e` and isolated ubx-monitor `817f931`. Historical run identities retain
+the pre-commit base revisions and diffs; these are the same tested sources.
 
 ## Counts and process costs
 
@@ -200,7 +203,10 @@ All run directories are under
 `packages/dear-imgui/npm/build/diagnostics/ubx-pacing/quiet-pair-{1,2,3}-{unpaced,paced}`.
 They contain source identities/diffs, independent source delivery, raw receipts
 and observations, publication stages, source-boundary measurement, exact retained
-data/oracle reports, final capture and terminal result. From the npm workspace:
+data/oracle reports, final capture and terminal result. These generated directories
+are retained locally and ignored by Git. This report and the analysis script are
+committed; a fresh clone must obtain the retained dataset or execute fresh runs
+before it can recompute a summary. With the dataset present, from the npm workspace:
 
 ```powershell
 node diagnostics/ubx-comparison-report.mjs

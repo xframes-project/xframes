@@ -231,14 +231,17 @@ The reviewable artifact is
 [`ubx-pacing.patch`](../../packages/dear-imgui/npm/diagnostics/ubx-pacing.patch),
 SHA-256 `2a2dc7b044427497e4063d2a2339e373450332445d3bf46e901d70018453e8b0`,
 based directly on app `e7de9e25ff3f608e8bb2613e471d0b97f47d58f2`.
-XFrames base is `54bc3827c57c8d8e3a02026ce5998c752e0d1783` plus the reviewable
-diagnostic/documentation changes. The working app is on isolated branch
+XFrames native/runtime base is `54bc3827c57c8d8e3a02026ce5998c752e0d1783`.
+The diagnostic sources, incremental patch and reports were subsequently committed
+in XFrames `880506ed5190f5375273d0dd77da903b2edcd8fa`. The working app is on isolated branch
 `qualification/ui-pacing` under `packages/dear-imgui/npm/build/diagnostics/ubx-pacing/app`.
 The final fresh reproduction is `build/diagnostics/ubx-pacing-reproduction-final/app`.
 The app changes were subsequently committed as
 `817f9316e0c14d9bdf8a17c4d8d962d31de4851f` on that isolated
 `qualification/ui-pacing` branch. The original application checkout remains
 unchanged; the incremental patch is the portable reproduction artifact.
+Recorded runs predate these commits and identify their original base revisions
+plus diffs and source hashes. Committing them did not change the tested runtime.
 The completion audit verified source equivalence after CRLF normalization:
 fresh Git patch application changed line endings in 12 source files and
 package.json, while package lock, fonts, native build and diagnostic source
@@ -352,6 +355,17 @@ failed on CJS/ESM syntax; the corrected probe passed exact 7,201-pair text equal
 Final whole-App evidence carries per-run source identities or saved patch/harness
 copies. `ubx-pacing-reproduction-final/provenance.json` and `commands.json`
 identify the final reproduction, preserved originals and headless checks.
+
+The patch, harness, regression sources and Markdown reports are committed.
+Raw JSON/log/capture evidence, tarballs, native binaries and isolated app checkouts
+are retained locally under ignored `build/diagnostics` directories; cloning
+XFrames does not retrieve those artifacts or the isolated app's Git branch.
+Use the setup command with `--base=qualified` and the committed incremental patch
+to recreate the app. If the recorded tarball cache is unavailable, omit
+`--packages` to build/pack the JavaScript packages after preparing the Release
+native target. New artifact hashes and fresh run results belong to that new
+reproduction, not the historical measurement. See the
+[reproduction guide](../../packages/dear-imgui/npm/diagnostics/README.md#application-pacing-and-paired-costs).
 
 The bounded goal is complete. The observed-frame framework p95/p99 targets remain
 open and are not met by these deliberately batched application observations.

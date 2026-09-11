@@ -783,3 +783,11 @@ with synthetic receiver bytes, deterministic local tiles and preserved original
 application settings. The record retains the reproducible patch/setup and results.
 Controlled performance, broader hardware evidence and sustained CI history remain
 separate milestone gaps; the completed CI stabilization is not being reopened.
+
+The subsequent [UI pacing slice](ubx-monitor-streaming-2026-09.md), committed in
+XFrames `880506e` with isolated app `817f931`, adds persisted 10/20/60 display
+rates and source-owned histories. Final production rate-change/cleanup checks
+and [three quiet-window cost pairs](ubx-monitor-pacing-cost-2026-09.md) passed.
+The comparison reports lower snapshot work and measured CPU with higher observed
+latency. It changes no shared runtime or native scheduler behavior and does not
+close the separate framework latency, hardware or ongoing CI criteria above.
