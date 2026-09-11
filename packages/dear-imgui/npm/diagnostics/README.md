@@ -96,7 +96,11 @@ machine. Timing is informational, not a universal CI threshold.
 For browser runs set `XFRAMES_BROWSER` to an installed Edge/Chrome executable
 when discovery is insufficient. The default is a headless SwiftShader WebGPU
 adapter. `XFRAMES_WEBGPU_ADAPTER=default` selects the normal adapter. Report these
-as separate environments. The harness requires port 3011 to be free so it can
+as separate environments. On Linux the SwiftShader harness explicitly selects
+Vulkan and ANGLE SwiftShader as well as the WebGPU adapter. Selecting only the
+WebGPU adapter can fail Chromium's canvas shared-image creation and lose the
+device before the initial frame. The normal-adapter and Windows flags are unchanged.
+The harness requires port 3011 to be free so it can
 build its own fixture with the selected options. Graphics initialization failure
 is a failed integration run, never a rendering pass.
 
@@ -216,7 +220,7 @@ and verify Yoga ownership in newer frames. --stress runs 1,000 ordinary cycles a
 
 `getCommitState` exposes always-current sequence/revision with diagnostics off.
 
-The Stage 4 working tree replaces numeric `frame` with decimal-string `frameId`,
+Stage 4 (`1de105f`) replaces numeric `frame` with decimal-string `frameId`,
 `nativeRevision` and `coveredGeneration`. The always-readable `scheduler` reports
 the live invalidation generation, completed coverage, submitted/constructed frame
 counts, wake/opportunity counts and fixed activity/deadline reasons. Queries do
@@ -295,8 +299,11 @@ which environments actually ran; workflow configuration is not hosted-run proof.
 
 The complete fixture drives real text, held-key repeat, wheel zoom, minimize,
 restore, exposure and idle close through a PID-scoped Windows helper or an owned
-X11 display/window manager. Linux requires `xvfb`, `xdotool`, `openbox` and
-`wmctrl`; run `bash diagnostics/x11-run.sh npm run diagnostics:node`. Browser
+X11 display/window manager. Linux requires `xvfb`, `xauth`, `xdotool`, `openbox`,
+`wmctrl` and `xprop` (Ubuntu package `x11-utils`); run
+`bash diagnostics/x11-run.sh npm run diagnostics:node`. The wrapper checks these
+commands before launching Xvfb/Openbox and prints the Ubuntu install command if
+one is missing. `xauth` is used internally by `xvfb-run`. Browser
 input/window state uses Chromium CDP. Native registrations, RAF/deadline handles,
 visibility listeners and pending screenshots must return to zero on terminal
 cleanup. A bounded DOM audit independently verifies native browser listeners.

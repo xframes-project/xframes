@@ -1,6 +1,6 @@
 # XFrames Roadmap
 
-Last reviewed against repository history and implementation: 8 September 2026.
+Last reviewed against repository history and runtime verification: 11 September 2026.
 
 ## Vision
 
@@ -232,16 +232,18 @@ schema-v2 replacement of the earlier alpha API, 343 native tests on Windows/Linu
 same-ID move cycles per real runtime. Each ordinary cycle abandons prospective
 work; all ten lifetime counters return to baseline. The structural workload
 separately verifies 200 publications/calls and 40 bailouts from 240 React updates
-per repetition. Desktop publication wakes GLFW once; Wasm retains its existing
-frame loop. This does not deliver Stage 4 invalidation scheduling or a presented
-frame acknowledgment. The local acceptance audit and three-repetition regular/
-100,000-row production comparisons are complete, with measured regressions and
-remaining timing limits recorded explicitly. These uncommitted changes have not
-run on hosted CI; the last Stage 2 hosted Wasm fixture failed.
+per repetition. At Stage 3, desktop publication woke GLFW once and Wasm retained
+its existing frame loop; Stage 4 replaced that scheduling policy. Publication
+acknowledgment is not a presented-frame acknowledgment. The local acceptance
+audit and three-repetition regular/100,000-row production comparisons are
+complete, with measured regressions and
+remaining timing limits recorded explicitly. Stage 3 was committed as `2cbb373`;
+its [hosted run](https://github.com/xframes-project/xframes/actions/runs/34245396897)
+failed the Wasm runtime fixture after successful native builds and tests.
 
 ### Stage 4 — Invalidation-Driven Rendering and Instrumentation
 
-MVP complete under the revised delivery scope. See the
+MVP delivered in commit `1de105f` under the revised delivery scope. See the
 [completion boundary and deferred qualification](docs/engineering/fabric-invalidation-2026-09.md#mvp-completion-boundary).
 This closes the scheduler MVP; it does not close the broader milestone below.
 
@@ -260,9 +262,15 @@ pass 378 native tests on Windows/Linux and both complete 1,000-cycle runtime
 lifetime/resource/move fixtures. Correlation ends at backend submission; physical
 serial arrival and presentation remain unavailable. Current-source production
 observations are recorded with shared-host limitations and an extended Node
-post-measurement editor-focus failure. Linux application execution remains
-unverified after its build was stopped at the user's wrap-up instruction; current
-working-tree changes have no hosted CI result. The milestone remains open.
+post-measurement editor-focus failure. The focused CI stabilization in `fa12b22`
+fixes missing X11 prerequisites, a repeated-motion wait in the Linux input fixture
+and Chromium's SwiftShader canvas graphics setup. Its complete
+[application run](https://github.com/xframes-project/xframes/actions/runs/34623926577)
+passed JavaScript, both 378-test native suites, Windows/Node/Wasm builds, both
+1,000-cycle runtime workloads, separate inactivity/activity gates, all required
+App smokes, the browser wrapper and 65-result Node/Wasm parity. Linux application
+execution is now verified. This closes the focused CI pass; consistently green
+CI over subsequent changes and the broader milestone remain open.
 
 ### Milestone Review Gate — After Stages 0–4
 

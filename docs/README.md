@@ -11,6 +11,12 @@ The live [xframes.dev](https://xframes.dev) website is maintained in a separate 
 - [React Native Fabric Embedding](../packages/dear-imgui/npm/FABRIC_EMBEDDING.md) — implemented React Native 0.87 snapshot generation, host contract, workspace rules, upgrade procedure, Node/Wasm verification, and known gaps.
 - [Fabric-Compatible Runtime Hardening](architecture/fabric-runtime-hardening.md) — atomic Fabric commits, explicit destruction, lifecycle tests, recording/replay, invalidation-driven rendering, performance instrumentation, and automation.
 
+## Engineering and verification
+
+- [Stage 4: Invalidation Scheduling](engineering/fabric-invalidation-2026-09.md) — delivered scheduler MVP, producer and lifetime boundaries, local validation, measurements, completed hosted CI stabilization and deferred qualification.
+- [Stage 3: Atomic Fabric Publication](engineering/fabric-publication-2026-09.md) — schema-v2 publication, committed ownership, visibility guarantees and historical acceptance evidence.
+- [Diagnostics and Reproduction Guide](../packages/dear-imgui/npm/diagnostics/README.md) — current fixture commands, platform prerequisites and measurement contracts.
+
 ## Existing design records
 
 - [Canvas Widget Design](../CANVAS.md) — canvas purpose, data flow, draw commands, performance model, and integration patterns.

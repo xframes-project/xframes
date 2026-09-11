@@ -269,7 +269,7 @@ must use the same schema and revision checks; hand off only after acknowledged
 empty publication and bridge disposal. Mixing writers does not silently rebase a
 stale Fabric snapshot. Native acknowledgment is not a presented-frame guarantee.
 
-The Stage 4 working tree uses one invalidation scheduler on both backends. Applied
+The Stage 4 MVP (`1de105f`) uses one invalidation scheduler on both backends. Applied
 publications invalidate once at the native visibility boundary. Imperative data,
 input, resources and window changes invalidate without advancing structural
 revision. Native draw construction captures revision/generation under the tree
@@ -279,7 +279,7 @@ real deadline; inactive browser modules pause their animation callbacks. Canvas
 handles expose `setContinuous(false)` for static scripts and `redraw()` for an
 explicit frame. Initialization/ready and synchronous schema-v2 publication remain
 unchanged. See [the invalidation record](../../../docs/engineering/fabric-invalidation-2026-09.md)
-for current verification and open acceptance work.
+for local verification, completed hosted CI stabilization and deferred qualification.
 
 Observation code must compare lossless decimal `frameId`, `nativeRevision` and
 `coveredGeneration` using `BigInt`. Capture the operation's target generation and
