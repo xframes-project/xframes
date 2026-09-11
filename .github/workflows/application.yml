@@ -74,7 +74,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build build-essential libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev autoconf automake autoconf-archive libtool nasm bison flex pkg-config xvfb mesa-utils xdotool openbox wmctrl
+          sudo apt-get install -y ninja-build build-essential libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev autoconf automake autoconf-archive libtool nasm bison flex pkg-config xvfb xauth x11-utils mesa-utils xdotool openbox wmctrl
       - run: npm ci --ignore-scripts
       - run: npm run build:common
       - name: VS2022 native unit build and all tests

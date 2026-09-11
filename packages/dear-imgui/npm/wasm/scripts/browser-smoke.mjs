@@ -35,6 +35,14 @@ const webGpuFlags =
         "--enable-webgpu-developer-features",
         "--use-gpu-in-tests",
         "--enable-accelerated-2d-canvas",
+        // Selecting the WebGPU adapter alone leaves Linux headless Chromium's
+        // compositor without a compatible backing for WebGPU canvas textures.
+        ...(process.platform === "linux" ? [
+          "--enable-features=Vulkan",
+          "--use-vulkan=swiftshader",
+          "--use-angle=swiftshader",
+          "--enable-unsafe-swiftshader",
+        ] : []),
       ];
 const browserCandidates = [
   process.env.XFRAMES_BROWSER,
