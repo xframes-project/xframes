@@ -149,33 +149,9 @@ void Element::ApplyStyle() {
             return;
         }
 
-        switch (state) {
-            case ElementState_Hover: {
-                if (m_elementStyle.value().maybeHover.has_value()) {
-                    m_layoutNode->ApplyStyle(m_elementStyle.value().maybeHover.value().styleDef);
-                }
-                break;
-            }
-            case ElementState_Active: {
-                if (m_elementStyle.value().maybeActive.has_value()) {
-                    m_layoutNode->ApplyStyle(m_elementStyle.value().maybeActive.value().styleDef);
-                }
-                break;
-            }
-            case ElementState_Disabled: {
-                if (m_elementStyle.value().maybeDisabled.has_value()) {
-                    m_layoutNode->ApplyStyle(m_elementStyle.value().maybeDisabled.value().styleDef);
-                }
-                break;
-            }
-
-            default: {
-                if (m_elementStyle.value().maybeBase.has_value()) {
-                    m_layoutNode->ApplyStyle(m_elementStyle.value().maybeBase.value().styleDef);
-                }
-                break;
-            }
-        }
+        const auto& parts = GetElementStyleParts(state);
+        if (parts) m_layoutNode->ApplyStyle(parts->styleDef);
+        else m_layoutNode->ResetStyle();
 
         m_lastAppliedState = state;
         m_styleDirty = false;
@@ -523,8 +499,20 @@ void Element::PostRender(XFrames* view) {
 };
 
 void Element::Patch(const json& elementPatchDef, XFrames* view) {
-    m_elementStyle = ExtractStyle(elementPatchDef);
-    m_styleDirty = true;
+    // Keep layout/effect families in sync with StyledWidget's partial patches.
+    const auto patchFamily = [&](const char* name, auto member) {
+        const auto it = elementPatchDef.find(name);
+        if (it == elementPatchDef.end() || (!it->is_object() && !it->is_null())) return;
+        if (!m_elementStyle) m_elementStyle.emplace();
+        auto& family = m_elementStyle.value().*member;
+        if (it->is_null()) family.reset();
+        else family = extractStyleParts(*it);
+        m_styleDirty = true;
+    };
+    patchFamily("style", &ElementStyle::maybeBase);
+    patchFamily("hoverStyle", &ElementStyle::maybeHover);
+    patchFamily("activeStyle", &ElementStyle::maybeActive);
+    patchFamily("disabledStyle", &ElementStyle::maybeDisabled);
 
     ApplyStyle();
 };

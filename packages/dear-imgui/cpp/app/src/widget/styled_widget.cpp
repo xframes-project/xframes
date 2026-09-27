@@ -104,8 +104,6 @@ bool WidgetStyle::HasCustomStyleVar(const std::optional<ElementState> widgetStat
 }
 
 StyleColors& WidgetStyle::GetCustomColors(std::optional<ElementState> widgetState) {
-    auto& baseColors = maybeBase.value().maybeColors.value();
-
     switch(widgetState.value_or(ElementState_Base)) {
         case ElementState_Disabled: {
             if (maybeDisabled.has_value() && maybeDisabled.value().maybeColors.has_value()) {
@@ -129,12 +127,10 @@ StyleColors& WidgetStyle::GetCustomColors(std::optional<ElementState> widgetStat
             break;
     }
 
-    return baseColors;
+    return maybeBase.value().maybeColors.value();
 }
 
 StyleVars& WidgetStyle::GetCustomStyleVars(std::optional<ElementState> widgetState) {
-    auto& baseStyleVars = maybeBase.value().maybeStyleVars.value();
-
     switch(widgetState.value_or(ElementState_Base)) {
         case ElementState_Disabled: {
             if (maybeDisabled.has_value() && maybeDisabled.value().maybeStyleVars.has_value()) {
@@ -158,7 +154,7 @@ StyleVars& WidgetStyle::GetCustomStyleVars(std::optional<ElementState> widgetSta
             break;
     }
 
-    return baseStyleVars;
+    return maybeBase.value().maybeStyleVars.value();
 }
 
 StyleColors* WidgetStyle::GetCustomColorsOrNull(std::optional<ElementState> widgetState) {
@@ -204,8 +200,6 @@ StyleVars* WidgetStyle::GetCustomStyleVarsOrNull(std::optional<ElementState> wid
 }
 
 int WidgetStyle::GetCustomFontId(std::optional<ElementState> widgetState, XFrames* view) {
-    auto fontIndex = maybeBase.value().maybeFontIndex.value();
-
     switch(widgetState.value_or(ElementState_Base)) {
         case ElementState_Disabled: {
             if (maybeDisabled.has_value() && maybeDisabled.value().maybeFontIndex.has_value()) {
@@ -229,7 +223,7 @@ int WidgetStyle::GetCustomFontId(std::optional<ElementState> widgetState, XFrame
             break;
     }
 
-    return fontIndex;
+    return maybeBase.value().maybeFontIndex.value();
 }
 
 // todo: is it really that difficult to return the variant by reference?
@@ -345,12 +339,20 @@ void StyledWidget::ReplaceStyle(WidgetStyle& newStyle) {
 void StyledWidget::Patch(const json& widgetPatchDef, XFrames* view) {
     Widget::Patch(widgetPatchDef, view);
 
-    // todo: we probably need to test all 4 state objects individually
-    auto maybeNewStyle = ExtractStyle(widgetPatchDef, view);
-
-    if (maybeNewStyle.has_value()) {
-        ReplaceStyle(maybeNewStyle.value());
-    }
+    // Creation extracts a complete definition. Patches replace only the named
+    // families: null removes one, and an object (including {}) replaces one.
+    const auto patchFamily = [&](const char* name, auto member) {
+        const auto it = widgetPatchDef.find(name);
+        if (it == widgetPatchDef.end() || (!it->is_object() && !it->is_null())) return;
+        if (!m_style) m_style.emplace(std::make_unique<WidgetStyle>());
+        auto& family = (*m_style.value()).*member;
+        if (it->is_null()) family.reset();
+        else family = extractStyleParts(*it, view);
+    };
+    patchFamily("style", &WidgetStyle::maybeBase);
+    patchFamily("hoverStyle", &WidgetStyle::maybeHover);
+    patchFamily("activeStyle", &WidgetStyle::maybeActive);
+    patchFamily("disabledStyle", &WidgetStyle::maybeDisabled);
 
     if (YGNodeGetParent(m_layoutNode->m_node) && YGNodeHasMeasureFunc(m_layoutNode->m_node)) {
         YGNodeMarkDirty(m_layoutNode->m_node);

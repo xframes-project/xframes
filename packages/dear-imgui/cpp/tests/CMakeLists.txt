@@ -208,6 +208,7 @@ add_executable(Google_Tests_run
         color_helpers_test.cpp
         yoga_helpers_test.cpp
         imgui_helpers_test.cpp
+        styled_widget_test.cpp
         element/layout_node_test.cpp
         element/element_test.cpp
         xframes_test.cpp

@@ -1,5 +1,31 @@
 # Fabric lifecycle and streaming diagnostics
 
+## Native style patch regression
+
+From `packages/dear-imgui/npm`, rebuild the addon with
+`cmake --build node/build --config Release`, then run `npm run test:styles:node`.
+The command rebuilds common and uses the real React/Fabric bridge and
+`node/build/Release/xframes.node` in both development and production. It opens a
+native window, moves the pointer to an unused area once, and closes the window
+afterward. Windows uses the existing PID-scoped helper; Linux needs the X11 tools
+described below (run through `diagnostics/x11-run.sh`).
+
+The test asserts that fresh, equivalent React style objects produce text-only
+and label-only native patches, then checks submitted heading/button heights and
+actual teal button pixels in native screenshots. It also replaces each style
+family independently, clears state families, clears/restores base styling, and
+replaces base styling with `{}`. JSON evidence includes wire publications,
+measured bounds, pixel counts and the loaded addon's SHA-256. Output defaults to
+`build/diagnostics/styles-node`; override it with `XFRAMES_DIAGNOSTICS_DIR`.
+
+Native `StyledWidget*PatchTest` cases in `cpp/tests/styled_widget_test.cpp` check
+all four families' fonts, colors, ImGui variables and layout/effect definitions.
+Patch semantics are shared by widgets and elements: omitted families are kept,
+objects replace the entire addressed family (including `{}`), and `null` removes
+that family. Clearing a state family restores base layout when appropriate;
+clearing base leaves the other families available. Creation still extracts a
+complete initial definition.
+
 The shared React PlotBar/Table fixture runs through Fabric and both real native
 bindings. Runs require all ten lifetime defect gates, prospective Fabric
 publication, final-tree wire checks and native visibility tests. See the
