@@ -27,6 +27,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout ImGui headers for the ABI check
+        working-directory: .
+        run: git submodule update --init --depth 1 -- packages/dear-imgui/cpp/deps/imgui
       - uses: actions/setup-node@v4
         with:
           node-version: 24.14.0
