@@ -20,6 +20,10 @@ private:
     std::string m_legendLabel = "scatter-plot";
 
 public:
+    json GetDiagnosticsState() const {
+        return {{"pointCount", m_xValues.size()}, {"pointsLimit", m_dataPointsLimit}};
+    }
+
     static std::unique_ptr<PlotScatter> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         bool axisAutoFit = false;

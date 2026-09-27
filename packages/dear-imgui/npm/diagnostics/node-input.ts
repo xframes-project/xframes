@@ -29,10 +29,13 @@ export async function nativeInput(request: FixtureInput) {
         return;
     }
     await execute("xdotool", ["windowfocus", "--sync", windowId], { timeout: 5000 });
+    // Ubuntu's xdotool 3.20160805 can wait forever on a repeated window-relative
+    // mousemove --sync. Keep motion/click ordered on the same X connection; the
+    // fixture's native event, focus and covering-frame assertions verify delivery.
     const args = request.action === "text" ? ["type", "--clearmodifiers", "--delay", "0", request.value!]
         : request.action === "keyDown" ? ["keydown", "BackSpace"]
         : request.action === "keyUp" ? ["keyup", "BackSpace"]
-        : ["mousemove", "--sync", "--window", windowId, String(request.x ?? 50), String(request.y ?? 24),
+        : ["mousemove", "--window", windowId, String(request.x ?? 50), String(request.y ?? 24),
             ...(request.action === "click" ? ["click", "1"] : request.action === "wheel" ? ["click", "4"] : [])];
     await execute("xdotool", args, { timeout: 5000 });
 }

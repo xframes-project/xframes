@@ -34,6 +34,12 @@ private:
     std::string m_legendLabel = "line-plot";
 
 public:
+    json GetDiagnosticsState() const {
+        size_t points = 0;
+        for (const auto& series : m_series) points += series.xValues.size();
+        return {{"seriesCount", m_series.size()}, {"pointCount", points}, {"pointsLimit", m_dataPointsLimit}};
+    }
+
     static std::unique_ptr<PlotLine> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();
         int xAxisDecimalDigits = 0;

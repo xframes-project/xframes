@@ -1,6 +1,6 @@
 # XFrames Roadmap
 
-Last reviewed against repository history and implementation: 8 September 2026.
+Last reviewed against repository history and runtime verification: 11 September 2026.
 
 ## Vision
 
@@ -12,13 +12,15 @@ The strategic basis for this focus is documented in [XFrames and GPUIX: Technica
 
 ## Next Milestone — Runtime Reliability & Measured Streaming Performance (in progress)
 
-Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 adds explicit native destruction and lifetime cleanup. Stage 2 supplied the first shared native transaction path. Stage 3 now replaces that alpha structural API with prospective Fabric descriptions, one atomic final-tree publication and committed ownership. Stage 4's scheduler MVP is complete with local Windows Node/browser application evidence, native tests on Windows/Linux, and shared resource/lifetime gates. Full Stage 0 benchmark coverage, controlled performance qualification, Linux application execution and current-source hosted CI remain open.
+Deliver Phase 12 Stages 0–4: establish lifecycle tests, application-code CI, and performance baselines; make cleanup explicit; publish atomic Fabric transactions; then add revision-aware, invalidation-driven rendering. The first Stage 0 PlotBar/Table slice supplies lifecycle characterizations, opt-in native frame diagnostics, cross-runtime fixture commands, production baselines, and application-code CI configuration. Stage 1 adds explicit native destruction and lifetime cleanup. Stage 2 supplied the first shared native transaction path. Stage 3 now replaces that alpha structural API with prospective Fabric descriptions, one atomic final-tree publication and committed ownership. Stage 4's scheduler MVP and focused CI stabilization are complete, including Linux application execution and a successful full hosted workflow on `fa12b22`. The bounded ordinary ubx-monitor Windows application slice now passes with synthetic receiver bytes and current local packages. Full Stage 0 benchmark coverage, controlled performance targets, broader hardware evidence and consistently green CI over subsequent changes remain open.
 
 See the [publication record](docs/engineering/fabric-publication-2026-09.md), [historical transaction record](docs/engineering/fabric-transactions-2026-09.md), [cleanup record](docs/engineering/fabric-cleanup-2026-09.md), [historical baseline](docs/engineering/fabric-baseline-2026-09.md), and [reproduction guide](packages/dear-imgui/npm/diagnostics/README.md). All ten lifetime defect IDs now execute passing gates, including abandonment and same-ID moves. Local verification and hosted coverage are recorded separately; consistently green hosted CI remains a milestone criterion.
 
 The GPUIX assessment identifies bridge correctness, lifecycle discipline, automation, and performance evidence as gaps to close while concentrating product work on Plot, Table, Map, and Canvas. The August Fabric upgrade and screenshot smokes provide foundations for this work. End-to-end performance advantages still require measurement.
 
-Use ubx-monitor as the application validation target, with its CNO quality-series panel and configurable UI update rates as bounded showcase work. Review the milestone against the acceptance criteria below before expanding into durable replay and comprehensive automation (Stages 5–6). General shell and rich-text work remain driven by demonstrated application needs; additional language bindings remain out of scope.
+The [ordinary ubx-monitor application slice](docs/engineering/ubx-monitor-application-2026-09.md) passed on Windows: current packed packages, complete application startup/typechecking, sustained synthetic NAV-SAT/NAV-PVT input, visible Plot/Table/Map/Canvas behavior and interaction, pause/resume, disconnect/reconnect and cleanup. The existing CNO panel is retained. Review the milestone against the acceptance criteria below before expanding into durable replay and comprehensive automation (Stages 5–6). General shell and rich-text work remain driven by demonstrated application needs; additional language bindings remain out of scope.
+
+The bounded [ubx-monitor UI update pacing slice](docs/engineering/ubx-monitor-streaming-2026-09.md) is complete: persisted 10/20/60 display rates, source-owned bounded histories, live rate-change and cleanup gates, final patch reproduction and three quiet-window paired comparisons. At 120 Hz/type, 20-Hz pacing reduced native snapshot work by 53–55% and instrumented process CPU by 25–30%, with higher observed latency. [Full paired results](docs/engineering/ubx-monitor-pacing-cost-2026-09.md) preserve coverage and evidence limits; broader framework performance targets remain open. [goal.txt](goal.txt) records the bounded task.
 
 ---
 
@@ -57,9 +59,9 @@ The panels that make the app visually compelling and demonstrate XFrames' render
 - [x] Signal strength color coding on markers (dot radius scales with CNO)
 - [x] Used-in-fix vs tracked distinction (filled vs hollow markers)
 
-### Signal Strength — Color Coding (in progress)
+### Signal Strength — Color Coding (implemented; bounded Windows application validation passed)
 
-PlotBar multi-series support is implemented in XFrames (mirroring PlotLine's existing `series` architecture). The remaining work is the ubx-monitor panel rewrite.
+PlotBar multi-series support is implemented in XFrames (mirroring PlotLine's existing `series` architecture). The ubx-monitor panel from revision `571f556` now passes the bounded complete-application Windows scenario using current local XFrames packages.
 
 #### PlotBar Multi-Series (XFrames, done)
 
@@ -74,7 +76,7 @@ PlotBar uses a `PlotBarSeries` struct and `std::vector<PlotBarSeries> m_series` 
 
 #### CNO Quality Color Coding (ubx-monitor)
 
-- [ ] Rewrite `SignalStrengthPanel.tsx` — split satellites into 4 quality-level series by CNO threshold: Weak (<20 dBHz), Moderate (20–30), Good (30–40), Excellent (>40). Each satellite appears in exactly one series. Use `PlotBar` with `series` prop, `showLegend=true`. Call `setSeriesData()` on each NAV-SAT update.
+- [x] Implement `SignalStrengthPanel.tsx` with four quality-level series: Weak (<20 dBHz), Moderate (20–<30), Good (30–<40), Excellent (>=40). Each tracked satellite with positive CNO appears in exactly one series. Use `PlotBar` with `series`, a visible legend and `setSeriesData()` on satellite/sort changes. The panel at ubx-monitor `571f556` passed prior isolated parser/panel validation and the bounded current-package Windows full-App scenario, including native sort interaction.
 
 ### Signal Strength — Multi-Signal (blocked)
 
@@ -95,9 +97,9 @@ Once fixed:
 
 ### Streaming Architecture
 
-- [ ] Measure and improve the data pipeline: serial port → native parser → JS → XFrames render loop, using the Phase 12 baseline and instrumentation
-- [ ] Configurable update rates (throttle UI updates independently of message rate)
-- [ ] Validate ubx-monitor against repeatable telemetry input and the Phase 12 benchmark harness; distinguish measured data-to-frame latency from presentation timing where available
+- [ ] Measure and improve the complete data pipeline: serial port → parser → JS → XFrames render loop — the [bounded application comparison](docs/engineering/ubx-monitor-pacing-cost-2026-09.md) is complete; physical serial, uninstrumented costs and broader framework targets remain open
+- [x] Configurable update rates: persisted 10/20/60 UI publications per second, default 20, with source-owned bounded histories and native rate-change/lifetime checks — [implementation and evidence](docs/engineering/ubx-monitor-streaming-2026-09.md)
+- [ ] Complete broader Phase 12 performance qualification for ubx-monitor — repeatable full-App correctness and three matched quiet-window cost pairs passed; framework latency targets, hardware/backend coverage and equivalent external-app comparisons remain open
 
 ---
 
@@ -125,7 +127,7 @@ WASM build migrated to emsdk 5.0.2 + Dawn WebGPU. Three canvas widget engines �
 
 ## Phase 11 — Performance Optimization (mechanical optimizations done)
 
-Viewport culling, periodic idle waiting (`glfwWaitEventsTimeout`), scroll extent fixes, and the mechanical optimizations below are implemented. Desktop still wakes at least every `1 / 30` second, and Wasm still requests a 30 Hz loop. Phase 12 replaces these policies and measures their effect. Further style/layout representation changes remain deferred until profiling justifies them.
+Viewport culling, the historical periodic idle wait (`glfwWaitEventsTimeout`), scroll extent fixes, and the mechanical optimizations below were implemented in this phase. Phase 12 Stage 4 has since replaced the fixed desktop/browser 30 Hz policies with invalidation/deadline scheduling and recorded their measured effect. Further style/layout representation changes remain deferred until profiling justifies them.
 
 ### Stage 1 — Render Thread Unblocking & Hot Path Deduplication (done)
 
@@ -172,7 +174,7 @@ These checks cover embedding compatibility, initialization, and screenshot captu
 
 ---
 
-## Phase 12 — Fabric Runtime Hardening (Stage 1 cleanup implemented; Stage 0 coverage incomplete)
+## Phase 12 — Fabric Runtime Hardening (Stages 1–4 implemented; milestone qualification incomplete)
 
 Detailed design: [Fabric-Compatible Runtime Hardening](docs/architecture/fabric-runtime-hardening.md).
 
@@ -192,7 +194,7 @@ Establish reproducible current behavior and measurements before changing runtime
 - [x] Record three-repeat production Windows Node/OpenGL and browser SwiftShader/WebGPU baselines at 20/60/120 Hz, including startup, idle behavior, available memory/CPU, frame counts, and p50/p95/p99/maximum observations
 - [x] Record build/hardware/adapter/assets/workload metadata, explicit unavailable metrics, and proposed update-rate/latency targets
 - [ ] Extend benchmark coverage to map pan/zoom/tile completion/overlays and telemetry canvas rendering
-- [ ] Add hardware WebGPU and ubx-monitor application baselines; compare equivalent Electron/GPUIX implementations before claiming an end-to-end advantage
+- [ ] Extend baselines to hardware WebGPU and equivalent Electron/GPUIX implementations before claiming an end-to-end advantage — the bounded Windows ubx-monitor application and [pacing cost comparison](docs/engineering/ubx-monitor-pacing-cost-2026-09.md) are complete
 
 ### Stage 1 — Explicit Cross-Runtime Cleanup
 
@@ -232,16 +234,18 @@ schema-v2 replacement of the earlier alpha API, 343 native tests on Windows/Linu
 same-ID move cycles per real runtime. Each ordinary cycle abandons prospective
 work; all ten lifetime counters return to baseline. The structural workload
 separately verifies 200 publications/calls and 40 bailouts from 240 React updates
-per repetition. Desktop publication wakes GLFW once; Wasm retains its existing
-frame loop. This does not deliver Stage 4 invalidation scheduling or a presented
-frame acknowledgment. The local acceptance audit and three-repetition regular/
-100,000-row production comparisons are complete, with measured regressions and
-remaining timing limits recorded explicitly. These uncommitted changes have not
-run on hosted CI; the last Stage 2 hosted Wasm fixture failed.
+per repetition. At Stage 3, desktop publication woke GLFW once and Wasm retained
+its existing frame loop; Stage 4 replaced that scheduling policy. Publication
+acknowledgment is not a presented-frame acknowledgment. The local acceptance
+audit and three-repetition regular/100,000-row production comparisons are
+complete, with measured regressions and
+remaining timing limits recorded explicitly. Stage 3 was committed as `2cbb373`;
+its [hosted run](https://github.com/xframes-project/xframes/actions/runs/34245396897)
+failed the Wasm runtime fixture after successful native builds and tests.
 
 ### Stage 4 — Invalidation-Driven Rendering and Instrumentation
 
-MVP complete under the revised delivery scope. See the
+MVP delivered in commit `1de105f` under the revised delivery scope. See the
 [completion boundary and deferred qualification](docs/engineering/fabric-invalidation-2026-09.md#mvp-completion-boundary).
 This closes the scheduler MVP; it does not close the broader milestone below.
 
@@ -260,9 +264,51 @@ pass 378 native tests on Windows/Linux and both complete 1,000-cycle runtime
 lifetime/resource/move fixtures. Correlation ends at backend submission; physical
 serial arrival and presentation remain unavailable. Current-source production
 observations are recorded with shared-host limitations and an extended Node
-post-measurement editor-focus failure. Linux application execution remains
-unverified after its build was stopped at the user's wrap-up instruction; current
-working-tree changes have no hosted CI result. The milestone remains open.
+post-measurement editor-focus failure. The focused CI stabilization in `fa12b22`
+fixes missing X11 prerequisites, a repeated-motion wait in the Linux input fixture
+and Chromium's SwiftShader canvas graphics setup. Its complete
+[application run](https://github.com/xframes-project/xframes/actions/runs/34623926577)
+passed JavaScript, both 378-test native suites, Windows/Node/Wasm builds, both
+1,000-cycle runtime workloads, separate inactivity/activity gates, all required
+App smokes, the browser wrapper and 65-result Node/Wasm parity. Linux application
+execution is now verified. This closes the focused CI pass; consistently green
+CI over subsequent changes and the broader milestone remain open.
+
+### Ordinary ubx-monitor Application Qualification (bounded Windows slice complete)
+
+The [application record](docs/engineering/ubx-monitor-application-2026-09.md)
+retains the reproducible setup/patch and 11 September results. The complete App
+passed typechecking, ordinary development startup and one production Node/OpenGL
+session: 1,200 NAV-SAT and 1,200 NAV-PVT messages over 60.016 seconds at 19.995 Hz
+per type, populated Plot/Table/Map/Canvas captures, native sort/map zoom,
+pause/resume, disconnect/reconnect, zero frames during ten settled disconnected
+seconds, and ordinary disposal plus late-input/resource and native-shutdown
+cleanup. Focused integration/ownership/tab/color fixes passed 380 Windows native
+tests, affected package/Fabric/lifecycle checks, rebuilt Node/Wasm short suites
+and 65-result parity. The original external checkout remains unchanged.
+Shared-host timings are informational; synthetic transport/local tiles do not
+qualify physical serial or public services. The separate pacing slice below adds
+UI rates and a bounded quiet comparison; broader hardware, framework performance
+and subsequent hosted CI remain follow-ups.
+
+### ubx-monitor UI Update Pacing (bounded slice complete)
+
+The [streaming record](docs/engineering/ubx-monitor-streaming-2026-09.md) delivers
+persisted 10/20/60 UI rates (default 20), bounded shared publication cadence and
+source-sample histories independent of React effects. It continues from XFrames
+`54bc382` / application `e7de9e2`, with the delivered diagnostics and patch in
+XFrames `880506e` and the isolated app in `817f931`. The original checkout is
+preserved. Final 20-Hz and high-input native rate-transition gates pass,
+including Position/Console exact tails, reset, pause/reconnect and disposal.
+Native rendering, input and resource wakes keep their scheduler contract.
+
+Three quiet-window pairs at 120 Hz/type passed with identical retained histories
+using a retention-correct unpaced control: the qualified baseline already skipped
+retained samples. Snapshot work fell 53–55%, measured process CPU 25–30%, and
+frames only 1–2%; observed latency increased. The [cost report](docs/engineering/ubx-monitor-pacing-cost-2026-09.md)
+includes every pair, source identities, coalescing, CPU/RSS, stage costs and
+latency coverage. Framework p95/p99 targets remain open, as do broader milestone
+criteria. Existing 1,000-cycle/extended gates and Stage 5–6 deferral remain intact.
 
 ### Milestone Review Gate — After Stages 0–4
 
@@ -273,7 +319,7 @@ working-tree changes have no hosted CI result. The milestone remains open.
 - [ ] Every accepted transaction can be correlated with a frame containing its revision, including transactions coalesced into the same frame
 - [ ] VS2022, Linux, and Wasm application-code CI is consistently green
 - [ ] Reproducible benchmarks meet the declared streaming targets and report remaining bottlenecks and measurement limitations
-- [ ] ubx-monitor validates sustained real application use and demonstrates the delivery value of XFrames' Plot, Table, Map, and Canvas capabilities
+- [x] ubx-monitor validates sustained real application use and demonstrates the delivery value of XFrames' Plot, Table, Map, and Canvas capabilities — bounded Windows Node/OpenGL scenario with synthetic transport and local tiles; see the [application evidence and limits](docs/engineering/ubx-monitor-application-2026-09.md)
 
 Review these results against the [strategic continuation gates](docs/strategy/gpuix-comparison-2026-08.md#reassessment-gates). If core correctness or performance targets remain unmet, prioritize the measured gaps and reassess scope before expanding the framework. Comparative workloads must reflect equivalent implemented functionality; use an application-composed timeline or grid where a GPUIX comparison is appropriate.
 

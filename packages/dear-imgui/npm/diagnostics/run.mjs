@@ -50,6 +50,8 @@ if (resourceServer) options.resourceFixture = { baseUrl: resourceServer.baseUrl,
 try {
 if (command === "bridge") {
     for (const mode of ["development", "production"]) await invoke("diagnostics/bridge-lifecycle.tsx", mode);
+} else if (command === "styles-node") {
+    for (const mode of ["development", "production"]) await invoke("diagnostics/style-patching.tsx", mode);
 } else if (command === "node") {
     await invoke("diagnostics/node-runner.ts", extra.includes("--baseline") ? "production" : process.env.NODE_ENV ?? "development");
 } else if (command === "wasm") {

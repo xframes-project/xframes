@@ -43,6 +43,7 @@ XFrames is actively maintained. The current focus is technical visualization and
 
 - [Project roadmap](ROADMAP.md)
 - [Engineering and strategy documentation](docs/README.md)
+- [ubx-monitor application pacing and validation](docs/engineering/ubx-monitor-streaming-2026-09.md) — persisted display rates, source-owned telemetry histories and a bounded Windows streaming-cost comparison
 - [XFrames and GPUIX assessment](docs/strategy/gpuix-comparison-2026-08.md)
 - [Fabric-compatible runtime hardening design](docs/architecture/fabric-runtime-hardening.md)
 

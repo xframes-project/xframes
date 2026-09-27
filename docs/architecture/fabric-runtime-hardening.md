@@ -1,7 +1,7 @@
 # Fabric-Compatible Runtime Hardening
 
-- Status: target architecture with implemented Stage 3 publication and Stage 4 scheduling boundaries below; current acceptance evidence is tracked separately
-- Last updated: 8 September 2026
+- Status: target architecture with implemented Stage 3 publication and committed Stage 4 scheduler MVP; broader runtime qualification remains open
+- Last updated: 11 September 2026
 - Related decision: [XFrames and GPUIX assessment](../strategy/gpuix-comparison-2026-08.md)
 
 ## Purpose
@@ -60,7 +60,10 @@ schema sketches below are not the accepted publication wire spelling.
 ### Implemented Stage 4 scheduling boundary
 
 The [invalidation implementation record](../engineering/fabric-invalidation-2026-09.md)
-supersedes the scheduler sketches below. Both backends use one shared
+describes the MVP committed in `1de105f` and supersedes the scheduler sketches
+below. Its local acceptance and the successful hosted CI stabilization in
+`fa12b22` are recorded separately from the broader milestone qualification.
+Both backends use one shared
 `FrameScheduler`: a monotonic generation, one constructing ticket and one latest
 submitted ticket. Successful publication advances revision and generation under
 the tree visibility locks. Imperative/resource/input work advances generation

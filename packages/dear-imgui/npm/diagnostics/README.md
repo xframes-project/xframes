@@ -1,5 +1,31 @@
 # Fabric lifecycle and streaming diagnostics
 
+## Native style patch regression
+
+From `packages/dear-imgui/npm`, rebuild the addon with
+`cmake --build node/build --config Release`, then run `npm run test:styles:node`.
+The command rebuilds common and uses the real React/Fabric bridge and
+`node/build/Release/xframes.node` in both development and production. It opens a
+native window, moves the pointer to an unused area once, and closes the window
+afterward. Windows uses the existing PID-scoped helper; Linux needs the X11 tools
+described below (run through `diagnostics/x11-run.sh`).
+
+The test asserts that fresh, equivalent React style objects produce text-only
+and label-only native patches, then checks submitted heading/button heights and
+actual teal button pixels in native screenshots. It also replaces each style
+family independently, clears state families, clears/restores base styling, and
+replaces base styling with `{}`. JSON evidence includes wire publications,
+measured bounds, pixel counts and the loaded addon's SHA-256. Output defaults to
+`build/diagnostics/styles-node`; override it with `XFRAMES_DIAGNOSTICS_DIR`.
+
+Native `StyledWidget*PatchTest` cases in `cpp/tests/styled_widget_test.cpp` check
+all four families' fonts, colors, ImGui variables and layout/effect definitions.
+Patch semantics are shared by widgets and elements: omitted families are kept,
+objects replace the entire addressed family (including `{}`), and `null` removes
+that family. Clearing a state family restores base layout when appropriate;
+clearing base leaves the other families available. Creation still extracts a
+complete initial definition.
+
 The shared React PlotBar/Table fixture runs through Fabric and both real native
 bindings. Runs require all ten lifetime defect gates, prospective Fabric
 publication, final-tree wire checks and native visibility tests. See the
@@ -96,7 +122,11 @@ machine. Timing is informational, not a universal CI threshold.
 For browser runs set `XFRAMES_BROWSER` to an installed Edge/Chrome executable
 when discovery is insufficient. The default is a headless SwiftShader WebGPU
 adapter. `XFRAMES_WEBGPU_ADAPTER=default` selects the normal adapter. Report these
-as separate environments. The harness requires port 3011 to be free so it can
+as separate environments. On Linux the SwiftShader harness explicitly selects
+Vulkan and ANGLE SwiftShader as well as the WebGPU adapter. Selecting only the
+WebGPU adapter can fail Chromium's canvas shared-image creation and lose the
+device before the initial frame. The normal-adapter and Windows flags are unchanged.
+The harness requires port 3011 to be free so it can
 build its own fixture with the selected options. Graphics initialization failure
 is a failed integration run, never a rendering pass.
 
@@ -216,7 +246,7 @@ and verify Yoga ownership in newer frames. --stress runs 1,000 ordinary cycles a
 
 `getCommitState` exposes always-current sequence/revision with diagnostics off.
 
-The Stage 4 working tree replaces numeric `frame` with decimal-string `frameId`,
+Stage 4 (`1de105f`) replaces numeric `frame` with decimal-string `frameId`,
 `nativeRevision` and `coveredGeneration`. The always-readable `scheduler` reports
 the live invalidation generation, completed coverage, submitted/constructed frame
 counts, wake/opportunity counts and fixed activity/deadline reasons. Queries do
@@ -295,8 +325,11 @@ which environments actually ran; workflow configuration is not hosted-run proof.
 
 The complete fixture drives real text, held-key repeat, wheel zoom, minimize,
 restore, exposure and idle close through a PID-scoped Windows helper or an owned
-X11 display/window manager. Linux requires `xvfb`, `xdotool`, `openbox` and
-`wmctrl`; run `bash diagnostics/x11-run.sh npm run diagnostics:node`. Browser
+X11 display/window manager. Linux requires `xvfb`, `xauth`, `xdotool`, `openbox`,
+`wmctrl` and `xprop` (Ubuntu package `x11-utils`); run
+`bash diagnostics/x11-run.sh npm run diagnostics:node`. The wrapper checks these
+commands before launching Xvfb/Openbox and prints the Ubuntu install command if
+one is missing. `xauth` is used internally by `xvfb-run`. Browser
 input/window state uses Chromium CDP. Native registrations, RAF/deadline handles,
 visibility listeners and pending screenshots must return to zero on terminal
 cleanup. A bounded DOM audit independently verifies native browser listeners.
@@ -337,6 +370,171 @@ and snapshot collection and ends after backend submission; it excludes preceding
 preparation/construction and is not GPU execution or presentation.
 
 ## Isolated ubx-monitor telemetry
+
+This existing command mounts the actual signal panel through a custom diagnostic
+host. It validates the parser/subscription/CNO path; it does not launch the
+ordinary complete App. The [completed application slice](../../../../docs/engineering/ubx-monitor-application-2026-09.md)
+below uses the public Node render/disposal path and includes Table, Map, Canvas
+and connection lifecycle in one production Windows session.
+
+## Ordinary complete ubx-monitor application
+
+The complete application integration is retained in `ubx-application.patch`,
+targeting application revision `571f5569bb923c3d4a8f37db8f8ada555323667a`.
+Build current-source Release Node native artifacts first, as described above.
+From the npm workspace:
+
+```powershell
+node diagnostics/ubx-application-setup.mjs --source=C:/dev/ubx-monitor --output=C:/path/to/new/isolated/output
+$env:NODE_ENV='production'
+$env:TSX_TSCONFIG_PATH='diagnostics/tsconfig.json'
+$env:XFRAMES_UBX_APP_DIR='C:/path/to/new/isolated/output/app'
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario
+```
+
+Announce desktop runs: this Windows fixture moves the real mouse and acquires
+focus for about three minutes. It waits for hover before clicking, verifies the
+selected tab and retries missed targets. It uses the actual `src/index.tsx`,
+public Node render function, returned disposer, App and callbacks. Only physical
+serial transport and map resources are substituted. Receiver packets contain
+valid checksums; delivery timers run independently of observation and input.
+The local resource server uses the deterministic PNG in `resource-server.mjs`.
+
+Omit `--scenario` and use `NODE_ENV=development` for the shorter whole-App
+startup/panel/disposal probe. That probe is not sustained acceptance. Setup runs
+the complete application `typecheck` and `test:serial` scripts and records package,
+source, dirty-diff and asset identities. It leaves the original checkout intact.
+The [application record](../../../../docs/engineering/ubx-monitor-application-2026-09.md)
+records the completed Windows slice, failed exploratory probes and remaining
+milestone limits. For ordinary development startup, run `npm start` from the
+prepared application directory with `NODE_ENV=development` and no diagnostic
+`TSX_TSCONFIG_PATH` override; close the native window normally.
+
+### Application pacing and paired costs
+
+The completed [streaming slice](../../../../docs/engineering/ubx-monitor-streaming-2026-09.md)
+implements persisted 10/20/60 display rates, exact source-owned histories and
+production interaction/lifetime checks. [All three quiet-window cost pairs](../../../../docs/engineering/ubx-monitor-pacing-cost-2026-09.md)
+report fewer snapshots and lower measured CPU with higher observed latency;
+broader framework performance targets remain open. The preceding qualified app is
+committed as `e7de9e2` on `qualification/current-xframes-application`. Setup now
+supports `--base=qualified`, checking out that exact revision without reapplying
+the migration, and an optional `--patch=absolute/path/to/ubx-pacing.patch` for
+the incremental candidate. `--packages=directory` reuses the two existing local
+tarballs, recording their hashes and verifying the installed native binary matches
+the current Release target; omit it to build/pack the JavaScript packages.
+The default `--base=migration` preserves the old reproduction command.
+Keep historical acceptance artifacts separate from new measurements. Announce desktop runs,
+retry verified input misses, and arrange quiet measurement periods as needed.
+
+XFrames `880506ed5190f5375273d0dd77da903b2edcd8fa` contains the pacing harness,
+incremental patch and reports. The app implementation is also committed as
+`817f9316e0c14d9bdf8a17c4d8d962d31de4851f` on the **isolated local**
+`qualification/ui-pacing` branch. That app commit is not added to the original
+`C:/dev/ubx-monitor` checkout by this workflow. The setup below requires its
+qualified base `e7de9e2` to be available in `--source` and reproduces the app from
+the committed patch; it does not require access to the isolated branch.
+
+```powershell
+node diagnostics/ubx-application-setup.mjs --base=qualified --source=C:/dev/ubx-monitor --output=C:/path/to/fresh/pacing-reproduction --packages=C:/dev/xframes/packages/dear-imgui/npm/build/diagnostics/ubx-application/packages --patch=C:/dev/xframes/packages/dear-imgui/npm/diagnostics/ubx-pacing.patch
+```
+
+`--packages` above points to the retained local qualification cache, which is
+ignored by Git. If it is unavailable, omit that option after building the current
+Release Node native target; setup will build/pack common and Node itself. Native
+binary presence and installed/current-target hash equality are still required.
+New builds may have different hashes and must retain their own provenance.
+
+Setup executes `typecheck`, `test:serial` and, when present, `test:pacing` (including
+real-parser retention and restart/persistence regressions). Final reproduction
+`build/diagnostics/ubx-pacing-reproduction-final` passed these checks and ordinary
+development `npm start`. The incremental patch SHA-256 is
+`2a2dc7b044427497e4063d2a2339e373450332445d3bf46e901d70018453e8b0`.
+It applies to `e7de9e2`, not the original main; setup refuses an existing app
+output and records original-file preservation and package/native identities.
+The quoted patch digest describes the retained measurement artifact. Git's
+Windows line-ending conversion can change a checked-out patch's byte hash;
+setup records the actual file hash. The final audit verified the app's source
+equivalence after CRLF normalization, including 12 source files and package.json.
+
+From the npm workspace, set the prepared app and choose a **new evidence
+directory for each run**. Announce every desktop run: full functional scenarios
+use mouse/focus for about three minutes; fixed-view comparisons take about
+90 seconds each, with input only before/after the measured interval.
+
+```powershell
+$env:NODE_ENV='production'
+$env:TSX_TSCONFIG_PATH='diagnostics/tsconfig.json'
+$env:XFRAMES_UBX_APP_DIR='C:/path/to/fresh/pacing-reproduction/app'
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/20hz-evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=20 --ui-hz=20 --check-histories
+
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/rate-transition-evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=120 --ui-hz=20 --rate-changes --check-histories
+```
+
+The rate-transition mode selects 20 → 10 → 60 → 20 through ordinary connected
+UI input while receiver delivery continues. It verifies config/cadence agreement,
+unchanged serial settings/writes and submitted source samples. Both full modes
+exercise populated panels, sort, map zoom, Sky resize, Position Reset, Console,
+pause/resume, reconnect, ten disconnected seconds without frames, held resources,
+public disposal and verified native terminal shutdown. `--receiver-hz=20|120`
+and `--ui-hz=10|20|60` default to 20. `--check-histories` enables exact ordered
+widget API-call tails plus native submitted bounds/final-state checks. It is not
+a complete native-buffer readback. Source packets use a monotonic clock and
+bounded debt batches independent of frame waits; unmet delivery rates are
+explicitly reported even when functional assertions pass.
+
+For the bounded comparison, first prepare a second `--base=qualified` app **without
+the pacing patch** and run `--comparison=qualified` at 120/20. Its retained
+history characterization established source-tail loss, so use the patched app's
+diagnostic-only `--comparison=unpaced` control for equivalent paired costs:
+
+```powershell
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/unpaced-evidence'
+# Describe actual host conditions; claim quiet only after user confirmation.
+$env:XFRAMES_UBX_HOST_CONDITIONS='shared-host; quiet window not confirmed'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=120 --ui-hz=20 --comparison=unpaced
+
+$env:XFRAMES_DIAGNOSTICS_DIR='C:/path/to/new/paced-evidence'
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-application.ts --scenario --receiver-hz=120 --ui-hz=20 --comparison=paced
+```
+
+Run three pairs sequentially in U/P, P/U, U/P order, using identical host/resource/
+observer conditions. Signals stays visible and all App owners remain mounted;
+no screenshots, desktop helpers, builds or other tests run during measurement.
+Comparison mode performs a shorter public/native teardown after measuring;
+the full functional gates separately cover reset/reconnect and late resources.
+Do not combine comparison mode with rate transitions. Unpaced mode is selected
+before mount and never persisted as a product setting.
+
+Each run records source/build/observer hashes and diffs, source delivery, receipts,
+publication preparation/React enqueue, observed submitted samples, CPU/RSS,
+native API counts, exact retained histories, final screenshot and terminal
+ownership. CPU/native counters stop at source completion; trailing delivery has
+separate endpoints. Stage/observation coverage and instrumentation costs are
+explicit, and GPU completion/presentation is unavailable.
+
+The executed six-run dataset lives at
+`build/diagnostics/ubx-pacing/quiet-pair-{1,2,3}-{unpaced,paced}`. After all desktop
+runs stop, recompute its checked summary with the commands below. These raw
+JSON/log/capture directories are local ignored evidence, not files provided by
+a Git clone. The offline script requires all six directories with their recorded
+files; use the harness to produce a fresh dataset when the retained one is absent.
+
+```powershell
+node diagnostics/ubx-comparison-report.mjs
+# Optional first argument overrides the evidence root, preserving that naming.
+node --import ./common/node_modules/tsx/dist/loader.mjs diagnostics/ubx-source.test.ts
+```
+
+The offline report validates matched identities, all packets/rates, exact retention
+and trailing samples, then writes `quiet-comparison-summary.json`. It does not
+launch or repeat measurements. Retain failed/interrupted runs and diagnostic
+reasons for any repeat; the six quiet-window runs did not require repeats.
+
+### Legacy panel-only command
 
 Read the external checkout's `AGENTS.md`; clone it into an ignored validation
 directory and install locally packed current-source `@xframes/common` and

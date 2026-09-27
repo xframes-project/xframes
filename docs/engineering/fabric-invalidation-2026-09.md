@@ -1,29 +1,32 @@
 # Fabric Stage 4 invalidation scheduling
 
-Status: Stage 4 MVP complete under the user's revised MVP scope, 8 September 2026.
+Status: Stage 4 MVP delivered in commit `1de105f1d8479337e78a083b8c6645416c301c23`
+(8 September 2026). Focused CI stabilization completed on 11 September 2026 in
+`fa12b2255fd1fed5a366c137f4003323c69475ee`; all five jobs in
+[application run 34623926577](https://github.com/xframes-project/xframes/actions/runs/34623926577)
+passed, including the required Linux Node/Wasm runtime, inactivity/activity,
+App smoke and parity gates. See the [stabilization evidence](#focused-ci-stabilization-11-september-2026).
 The shared scheduler, both backend loops, producer ownership and correlation are
-implemented. Windows/Linux native suites pass 378 tests; both real backends pass
-the complete 1,000-cycle lifetime/resource/move fixture and 65-result parity.
-Production observations are recorded below. At the user's request to wrap up,
-the unfinished Linux Node application build was stopped after 51/234 build steps.
-Its cached work remains available; Linux application execution is unverified.
-The subsequent request to finish an MVP authorized the final diagnostic
-typecheck, evidence review and documentation closure; no native rebuild resumed.
-This working tree has no current-source hosted run. The Stages 0–4 milestone
-remains open independently of Stage 4 core delivery. Earlier checkpoints below
-record their source/evidence boundaries and do not override later results.
+implemented. Local Windows/Linux native suites pass 378 tests; local Windows
+Node/browser runs pass the complete 1,000-cycle lifetime/resource/move fixture
+and 65-result parity.
+The focused pass also completed Linux application execution and verified both
+1,000-cycle runtime workloads on hosted Linux. Production observations and the
+original failed hosted run remain recorded below.
+The Stages 0–4 milestone remains open independently of Stage 4 core delivery.
+Earlier checkpoints below record their source/evidence boundaries and do not
+override later results.
 
 ## MVP completion boundary
 
-The user's later instruction, “wrap up the goal, go MVP,” supersedes the broader
-acceptance bar for this delivery. The MVP includes the shared scheduler, both
+Delivery uses an MVP acceptance bar. The MVP includes the shared scheduler, both
 native backend integrations, publication/imperative/input/resource wake paths,
 finite deadlines and Canvas activity control, truthful submitted-frame
 correlation, lifetime cleanup, deterministic tests and demonstrated ordinary
 Windows Node/browser application use. These features remain fully implemented;
 the revised scope defers additional qualification rather than removing behavior.
 
-Final closure re-read the current evidence: 378 passing native tests on each of
+The original MVP closure reviewed 378 passing native tests on each of
 Windows and Linux; both complete 1,000-cycle runtime stress reports; 65 shared
 parity results; required package/Fabric/lifecycle gates; Node development and
 production App smokes; full-App browser production and wrapper gates; and actual
@@ -34,13 +37,14 @@ options parse, required jobs remain present, and no continue-on-error was added.
 The final working-tree whitespace check passes. No generated renderer snapshots
 or authoritative npm lockfile changes were introduced.
 
-Deferred from this MVP: Linux Node application execution, a current-source
-hosted CI run, reliable desktop input qualification across foreground conditions,
+Linux Node application execution and passing hosted runtime gates were deferred
+at MVP closure and are now verified by the focused CI pass below. Remaining
+qualification includes reliable desktop input across foreground conditions,
 controlled performance targets, mixed-DPI/hardware WebGPU/physical serial and
 presentation evidence. The extended Node post-measurement focus failure remains
 recorded as a failure. Existing timing observations remain provisional. These are
 follow-up qualification items, and the broader Stages 0–4 milestone remains open.
-The implementation and documentation are local, uncommitted changes.
+The implementation and original acceptance record are committed in `1de105f`.
 
 Performance interpretation was clarified during this validation: this is a shared
 host with variable background load and foreground-window conditions. Requested
@@ -123,30 +127,30 @@ without consuming deadlines until renderable again.
 ## Producer inventory
 
 This inventory comes from the current native/binding/widget source, not an
-assumption that publication already wakes every producer. The implementation
-boundaries below were established during the earlier core checkpoint; the
-executing gate mapping following the table records their current verification.
+assumption that publication already wakes every producer. The table describes
+the delivered implementation; the following gate mapping records verification
+and its remaining platform limits.
 
-| Producer/consumer and source | Reason and lifetime | Work/visibility and required gate |
+| Producer/consumer and source | Reason and lifetime | Implemented work/visibility boundary |
 | --- | --- | --- |
-| `XFrames::ApplyCommitOperations`, real structural subject | publication; runtime | Generation now advances with revision under both tree locks; rejected/abandoned work must not invalidate. Real publication/capture race and ordinary wrapper coverage required. |
-| `QueueElementInternalOp` and actual per-widget handlers | imperative; verified native subject lifetime | All visible Plot/Table/control/Map/Canvas commands share the handler boundary. Generation now advances after handling under the element lock. Inventory of queued work remains necessary: acknowledgment is not upload completion. |
-| `AppendTextToClippedMultiLineTextRenderer` | imperative; live target | Append now invalidates under the element lock and notifies after release. Settled clipped-text wake gate required. |
-| GLFW cursor/enter/buttons/scroll/keys/char/focus | input; renderer/window | Preserve ImGui backend callback chaining, then invalidate. Real native input from inactivity, dispatch, key repeat, drag and return-to-idle gates required. |
-| Refresh/exposure, resize, framebuffer/content scale, iconify/restore/close; binding `resizeWindow` | window; renderer | Marshal desktop window work to render thread; zero-sized/hidden surfaces retain pending generations. Test restore and idle close without a polling fallback. |
-| `SetDebug`, `ShowDebugWindow`, `PatchStyle`, initial font/style setup | diagnostics/style; runtime | Debug focus is queued to the render thread; style patches stage and publish under visibility locks. Initial fonts are renderer-owned. Remaining actual style/font/input gates are open. |
+| `XFrames::ApplyCommitOperations`, real structural subject | publication; runtime | Generation advances with revision under both tree locks; rejected/abandoned work does not create successful-publication invalidation. |
+| `QueueElementInternalOp` and actual per-widget handlers | imperative; verified native subject lifetime | Visible Plot/Table/control/Map/Canvas commands share the handler boundary. Generation advances after handling under the element lock; asynchronous upload completion has its own resource invalidation. |
+| `AppendTextToClippedMultiLineTextRenderer` | imperative; live target | Append invalidates under the element lock and notifies after release. |
+| GLFW cursor/enter/buttons/scroll/keys/char/focus | input; renderer/window | Chained callbacks preserve ImGui handling and invalidate the scheduler. |
+| Refresh/exposure, resize, framebuffer/content scale, iconify/restore/close; binding `resizeWindow` | window; renderer | Desktop window work is marshalled to the render thread; zero-sized/hidden surfaces retain pending generations. |
+| `SetDebug`, `ShowDebugWindow`, `PatchStyle`, initial font/style setup | diagnostics/style; runtime | Debug focus is queued to the render thread; style patches stage and publish under visibility locks. Initial fonts are renderer-owned. |
 | `RequestScreenshot` / backend capture | screenshot; renderer request | At most 32 requests; each carries its target generation. Requests complete after a covering submission or fail explicitly while unavailable/terminal/stopped. Node unavailable and populated capture gates passed at the loop checkpoint. |
-| desktop `Image::RequestImage` / `PrepareFrame` | resource; Image lifetime | Widget-owned pending load replaces global ID queue/map. All jobs, including failures and clipped Images, drain before NewFrame. Native tests passed; current real file/upload gates pending. |
-| Wasm `Image::RequestImage` completion | resource; Image lifetime | Owned cancellable fetch publishes into a weak mailbox before Resource invalidation/notification. Decode failure clears the job; replacement/removal expires owned work. Controlled browser gates pending. |
-| `MapView::FetchMissingTiles`, `CompleteTile`, `PrepareFrame` | resource; Map lifetime | Four bounded runtime workers or owned browser fetches publish bytes under a mailbox lock. Preparation drains all completed jobs, including clipped Maps. Native capture/lifetime tests passed; actual HTTP/upload gates pending. |
-| Map prefetch, cache stats/progress | resource/map; Map lifetime | Shared cache/stats ownership; cumulative progress queues outside-tree delivery with a late Node JS-thread lifetime check. Both backends now pump bounded owned prefetch work. Native stale-event test passed; actual callback gate pending. |
-| Map zoom debounce / fetch in `Render` | map deadline; Map lifetime | A visible Map owns the nearest 150-ms zoom deadline; preparation clears clipped activity. Failed tile attempts settle without retries until another view request. Actual zoom input gate pending. |
-| QuickJS/Lua/Janet script/data operations and pending script/texture queues | imperative/resource; each Canvas lifetime | `CanvasResources` owns cancellable script/texture mailboxes and render-thread uploads. Reload/unload supersede pending work and retire replaced GPU handles. Native engine resource tests passed; current actual completion gates pending. |
-| Canvas per-frame script execution | canvas activity; Canvas lifetime | Default continuous execution preserves animation. `setContinuous(false)` permits settling; `redraw()` requests one explicit frame. Clipped or cleared scripts have no active owner. All three engines passed the prior real loop checkpoint; resource checkpoint rebuild pending. |
-| ImGui input trickling, cursor blink, repeat, tooltip stationary/hover delays, navigation/drag/scroll and layout settling | bounded runtime owners/deadlines | Derive activity from actual pending work and timers, not all focused/hovered widgets. Define idle DeltaTime policy and verify first visible layout without rescue input. |
-| `SetDiagnosticsEnabled` / `GetDiagnosticsFrame`, state/liveness/query getters | diagnostics; runtime | Off→on requests one frame; reads/off stay pure. New scalar scheduler telemetry remains enabled independently. Migrate all newer-frame assumptions to revision/generation/sample coverage. |
+| desktop `Image::RequestImage` / `PrepareFrame` | resource; Image lifetime | Widget-owned pending load replaces global ID queue/map. All jobs, including failures and clipped Images, drain before NewFrame. |
+| Wasm `Image::RequestImage` completion | resource; Image lifetime | Owned cancellable fetch publishes into a weak mailbox before Resource invalidation/notification. Decode failure clears the job; replacement/removal expires owned work. |
+| `MapView::FetchMissingTiles`, `CompleteTile`, `PrepareFrame` | resource; Map lifetime | Four bounded runtime workers or owned browser fetches publish bytes under a mailbox lock. Preparation drains all completed jobs, including clipped Maps. |
+| Map prefetch, cache stats/progress | resource/map; Map lifetime | Shared cache/stats ownership; cumulative progress queues outside-tree delivery with a late Node JS-thread lifetime check. Both backends pump bounded owned prefetch work. |
+| Map zoom debounce / fetch in `Render` | map deadline; Map lifetime | A visible Map owns the nearest 150-ms zoom deadline; preparation clears clipped activity. Failed tile attempts settle without retries until another view request. |
+| QuickJS/Lua/Janet script/data operations and pending script/texture queues | imperative/resource; each Canvas lifetime | `CanvasResources` owns cancellable script/texture mailboxes and render-thread uploads. Reload/unload supersede pending work and retire replaced GPU handles. |
+| Canvas per-frame script execution | canvas activity; Canvas lifetime | Default continuous execution preserves animation. `setContinuous(false)` permits settling; `redraw()` requests one explicit frame. Clipped or cleared scripts have no active owner. |
+| ImGui input trickling, cursor blink, repeat, tooltip stationary/hover delays, navigation/drag/scroll and layout settling | bounded runtime owners/deadlines | Activity reflects actual pending work and timers. DeltaTime after unbounded idle/suspension is capped at 100 ms; active/deadline intervals retain monotonic elapsed time. |
+| `SetDiagnosticsEnabled` / `GetDiagnosticsFrame`, state/liveness/query getters | diagnostics; runtime | Off→on requests one frame; reads/off stay pure. Scalar scheduler telemetry remains enabled independently. Fixture waits use revision/generation/sample coverage. |
 
-Current gate mapping supersedes “pending/required” checkpoint notes in that table:
+Verification of these boundaries:
 
 | Boundary | Executing verification |
 | --- | --- |
@@ -165,7 +169,12 @@ GLFW callbacks are installed before ImGui installs its chaining callbacks. The
 vendored ImGui Emscripten resize callback remains installed. This slice does not
 claim physical DPI/display or presentation measurements unavailable on this host.
 
-## Current verification and pre-change control
+## Historical verification and pre-change control
+
+The following checkpoints describe intermediate sources and runs from 8 September
+2026. Their pending work and build status apply to those checkpoints. The
+[MVP completion boundary](#mvp-completion-boundary) and
+[current acceptance audit](#current-acceptance-audit) describe delivered status.
 
 Before changing native sources, rebuilt the Stage 3 Release Node addon using
 VS2022/MSVC 14.44, then ran a separate production control with:
@@ -233,7 +242,7 @@ An isolated harness with matching React/current-source XFrames, synthetic NAV-SA
 input, sustained/idle/resume and listener cleanup remains to be executed. This
 source inspection is not application or physical receiver validation.
 
-## Backend integration checkpoint
+## Historical backend integration checkpoint
 
 The desktop loop now waits indefinitely while clean and inactive, or until a real
 owned deadline. Dirty/active frames use the existing vsync swap cadence. GLFW
@@ -417,7 +426,7 @@ unconditional second ImPlot destruction in fixture teardown; teardown now checks
 whether the tested cleanup already released that context. Actual backend teardown
 verification remains pending.
 
-## Input, platform lifetime and resource-stress checkpoints
+## Historical input, platform lifetime and resource-stress checkpoints
 
 The actual input fixture now drives native window events on Node and Chromium
 CDP events on Wasm. Both pass text application callbacks, cursor blink deadlines,
@@ -596,6 +605,9 @@ at `constructedAtMs`, after construction. The fixture label is corrected to
 
 ## Current acceptance audit
 
+This table records the original MVP acceptance evidence. Its Linux application
+and hosted CI limits are superseded by the focused stabilization results below.
+
 | Requirement group | Result and evidence |
 | --- | --- |
 | Shared model, coherent capture, sleep/completion races, rejected work, terminal states, counters and bounded ownership | Implemented in shared `frame_scheduler` and real-subject visibility boundaries. Controlled-clock/latch tests execute in both 378-test native suites. Ordering is independent of optional snapshots. |
@@ -628,13 +640,128 @@ must not be silently relabeled as complete runtime passes.
 
 ### Hosted and milestone limits
 
-The latest inspected hosted run is [Stage 3 run 34245396897](https://github.com/xframes-project/xframes/actions/runs/34245396897),
-head `2cbb37387aeab3e425867ae756f59c5e9a80dc29`, completed **failure**. JS,
-Linux/Windows native compilation/tests and optimized Wasm compilation succeeded;
-the browser fixture failed with DeviceLost/SharedImageBackingFactory diagnostics
-for a 900×700 surface, skipping full-App browser/parity jobs. Current local
-SwiftShader success and an updated workflow do not establish hosted coverage of
-this uncommitted source. No broad skip or continue-on-error was added.
+The starting hosted evidence reviewed on 11 September 2026 was
+[Stage 4 run 34275033947](https://github.com/xframes-project/xframes/actions/runs/34275033947),
+head `1de105f1d8479337e78a083b8c6645416c301c23`, completed **failure**.
+
+| Hosted job | Result |
+| --- | --- |
+| JavaScript | Passed Fabric verification, common build, diagnostic types and lifecycle checks. |
+| Windows native | Passed native tests, Node addon compilation and package build. |
+| Linux native/Node | Native tests, addon compilation and package build passed. The runtime fixture failed before launch because `xprop` was missing; its X11 window-manager readiness check timed out. Inactivity/activity and full-App smokes were skipped. |
+| Wasm/WebGPU | Optimized native build, package build and diagnostic types passed. The runtime fixture failed at the initial empty-frame observation with `terminal renderer backendFailed`; inactivity/activity and full-App smoke gates were skipped. Its cause was diagnosed during the focused pass below. |
+| Node/Wasm parity | Skipped because prerequisite runtime jobs failed. |
+
+The earlier [Stage 3 run 34245396897](https://github.com/xframes-project/xframes/actions/runs/34245396897)
+also failed its browser gate. These runs remain failed historical evidence. The
+focused pass below fixes the fixture prerequisites and graphics setup and
+establishes successful hosted runtime coverage on its final code revision.
+
+### Focused CI stabilization, 11 September 2026
+
+The fresh artifact review of run `34275033947` located the first browser failure
+in `wasm/browser.log`: Chromium could not find a `SharedImageBackingFactory` for
+the WebGPU canvas swapchain, then failed to create that shared image. The device
+lost message in `page.log` (`A valid external Instance reference no longer
+exists.`) and the scheduler's terminal `backendFailed` followed that failure.
+Adapter/device creation and the native ready callback had already succeeded.
+
+A small, plain JavaScript WebGPU canvas reproduction in Ubuntu 24.04 Docker,
+Chrome `153.0.8010.36`, reproduced the same shared-image error without XFrames or
+Wasm. Selecting Vulkan SwiftShader and ANGLE SwiftShader together fixed canvas
+submission and a captured red square. Vulkan-only and ANGLE-only attempts failed.
+The passing configuration also worked without Xvfb, `--enable-gpu` or a GPU
+blocklist override. The browser harness therefore adds only
+`--enable-features=Vulkan`, `--use-vulkan=swiftshader`, `--use-angle=swiftshader`
+and `--enable-unsafe-swiftshader` for its Linux SwiftShader mode. This is a fixture
+graphics-setup correction; no renderer fallback, recovery, polling, retry or
+submitted-frame semantics changed. Original stderr/page/result artifacts remain
+preserved by the existing harness and workflow.
+
+Linux startup now explicitly installs `x11-utils` and `xauth`. The owned X11
+wrapper checks all seven required commands before starting either process and
+prints an actionable Ubuntu install command. A deliberately missing `xprop`
+failed immediately, and the real Xvfb/Openbox readiness path passed.
+
+Once Linux Node could run, its input gate exposed another fixture defect:
+Ubuntu's `xdotool 3.20160805.1` hangs on repeated window-relative
+`mousemove --sync` at the same position. A separate owned-X11 reproduction
+timed out that command after two seconds and completed the identical move
+without `--sync`. The input helper retains ordered motion/click requests on one
+X connection, its command watchdog, and all native event/focus/frame assertions;
+it removes only that tool's motion wait. No artificial extra motion is injected.
+
+Local evidence under `npm/build/diagnostics/`: `ci-probe-*` records the browser
+comparison and screenshots; `ci-xdotool-probe.log` records the repeated-motion
+reproduction; `ci-linux-build.log` records completion of the cached current-source
+Linux addon/package build. `ci-wasm-linux-current/result.json` passes the full
+short fixture with three lifecycle/resource/move cycles, nine production streams,
+all producer/input/visibility/publication/shutdown gates and the real wrapper.
+Its populated screenshot was inspected. It reused the existing optimized
+current-source Wasm artifact. The root-only local container uses a temporary
+Chrome `--no-sandbox` wrapper; hosted execution uses Chrome directly.
+
+`ci-node-input-current/result.json` also passes the complete short production
+fixture after the input-helper fix: three lifecycle/resource/move cycles, nine
+streams, all 11 resource gates, input, visibility and terminal shutdown. The
+browser report contains 13 resource gates and passes its wrapper lifecycle.
+Both report zero continuing idle frames. The existing parity command passes
+65 shared binding results against these two reports. Diagnostic typechecking,
+browser-script syntax, shell syntax and whitespace checks pass.
+
+The initial local browser attempt timed out while gathering Git metadata across
+the Windows-mounted submodules. An affected Node metadata scan was stopped.
+Those are failed/aborted local setup attempts, not runtime passes; configuring
+the reproduction container's Git to omit unchanged submodule scans allowed the
+current runs to start. The first executing Node run remains failed at the
+repeated-motion command (`ci-node-linux-current`).
+
+The four-file code patch is committed as
+`fa12b2255fd1fed5a366c137f4003323c69475ee` on
+`codex/stage4-ci-stabilization`. Its
+[application run 34623926577](https://github.com/xframes-project/xframes/actions/runs/34623926577)
+completed **success** on 11 September 2026. All five jobs and every required
+runtime gate executed and passed on that revision:
+
+| Hosted job/gate | Executed result |
+| --- | --- |
+| JavaScript | Fabric verification, common build, diagnostic types and all 21 development + 21 production lifecycle scenarios passed, covering all ten XF-LIFE defect IDs. |
+| Windows native/addon/package | All 378 native tests passed with zero failures, disabled tests or errors. VS2022 addon compilation and Node package build passed. |
+| Linux native/addon/package | All 378 native tests passed with zero failures, disabled tests or errors. GCC addon compilation and Node package build passed. |
+| Linux Node/Mesa runtime | Scheduling, all 11 resource gates, real input, visibility, Fabric publication, lifetime/moves, diagnostics-disabled behavior and terminal cleanup passed. |
+| Wasm/Chromium runtime | Optimized Docker/Emscripten 5.0.2 build (`XFRAMES_FAST_BUILD=OFF`), package build and types passed. Chromium 152 with SwiftShader passed scheduling, all 13 resource gates, input, visibility, publication, lifetime/moves, the ordinary wrapper and terminal DOM-listener cleanup. |
+| Separate Node and Wasm inactivity/activity | Both passed: zero constructed/submitted idle frames over 10,002.64 ms and 10,001.83 ms respectively. Each also executed two 10-second continuous-Canvas intervals, with diagnostics off and on, then returned to inactivity. |
+| Full-App smokes | Linux Node development, Linux Node production and browser production all passed. Their populated screenshots were inspected, as were both runtime fixture screenshots. |
+| Node/Wasm parity | Executed against this run's native-Linux and Wasm artifacts; all 65 shared results, populated widget/hierarchy/Yoga state and final native destruction state matched. |
+
+Both primary runtime reports contain **1,000 ordinary lifecycle cycles, 1,000
+abandoned candidates, 1,000 resource/activity removal cycles, 1,000 original
+same-ID moves and 1,000 resource/activity moves**. All ten lifetime deltas are
+zero. Each report accounts for nine production streams. The separate activity
+reports submitted 3,330/3,298 Node frames and 438/431 browser frames with expensive
+diagnostics off/on. These shared-host software-rendering observations are
+informational; no throughput or presentation qualification is inferred.
+
+No required gate failed or was skipped. Existing platform conditions skipped the
+Linux-specific setup/tests/addon/rendering steps in the Windows job and the
+Windows-specific unit/addon steps in the Linux job. The optional extended steps
+were skipped because this was a normal push run; the manual extended mode and
+the mandatory 1,000-cycle workloads are preserved.
+
+The runtime reports identify source SHA `fa12b2255fd1fed5a366c137f4003323c69475ee`.
+The Node reports retain their post-build `sourceDirty: true` metadata; the
+existing native CMake build regenerates and copies the tracked Janet core image.
+Wasm records `sourceDirty: false`. Checkout logs and fresh addon/Wasm build steps
+establish the revision provenance; dependency caches do not supply application
+binaries. No implementation changes followed the validated code commit.
+
+Authoritative artifacts on the run are `javascript-lifecycle`,
+`native-windows-2022`, `native-ubuntu-24.04` and `wasm-webgpu`, plus the parity job
+log. Downloaded evidence is under `npm/build/diagnostics/ci-34623926577/`:
+`run.json`, `run.log`, native XML, the four runtime `result.json` reports and
+screenshots. `audit.json` records the requirement checks against those artifacts,
+including matching source revisions, actual step outcomes, stress counts,
+inactivity/activity intervals and parity. This completes the focused CI pass.
 
 The Stages 0–4 milestone remains open for controlled performance qualification,
 consistently green hosted CI and broader hardware/application evidence. The CNO
@@ -643,3 +770,24 @@ or physical byte-to-pixel latency. Mixed-DPI hardware transitions, every native
 drag/navigation gesture, hardware WebGPU and presentation are not independently
 measured here. Resolve these evidence gaps before expanding into Stage 5 replay
 or Stage 6 general automation.
+
+## Completed bounded application qualification slice
+
+The [ordinary ubx-monitor application record](ubx-monitor-application-2026-09.md)
+extends the isolated CNO evidence to the complete App through its public Node
+render/disposal entry. It covers current-package integration and whole-project
+typechecking, sustained synthetic NAV-SAT/NAV-PVT input, visible
+Plot/Table/Map/Canvas interaction, connection lifecycle, disconnected inactivity
+and cleanup. The bounded Windows Node/OpenGL slice passed on 11 September 2026
+with synthetic receiver bytes, deterministic local tiles and preserved original
+application settings. The record retains the reproducible patch/setup and results.
+Controlled performance, broader hardware evidence and sustained CI history remain
+separate milestone gaps; the completed CI stabilization is not being reopened.
+
+The subsequent [UI pacing slice](ubx-monitor-streaming-2026-09.md), committed in
+XFrames `880506e` with isolated app `817f931`, adds persisted 10/20/60 display
+rates and source-owned histories. Final production rate-change/cleanup checks
+and [three quiet-window cost pairs](ubx-monitor-pacing-cost-2026-09.md) passed.
+The comparison reports lower snapshot work and measured CPU with higher observed
+latency. It changes no shared runtime or native scheduler behavior and does not
+close the separate framework latency, hardware or ongoing CI criteria above.
