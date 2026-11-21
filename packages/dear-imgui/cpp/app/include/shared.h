@@ -32,6 +32,7 @@ using OnClickCallback = void (*)(int id);
 using OnTableSortCallback = void (*)(int id, int columnIndex, int sortDirection);
 using OnTableFilterCallback = void (*)(int id, int columnIndex, const std::string& filterText);
 using OnTableRowClickCallback = void (*)(int id, int rowIndex);
+using OnTableRangeCallback = void (*)(int id, int firstRow, int lastRow);
 using OnTableItemActionCallback = void (*)(int id, int rowIndex, const std::string& actionId);
 using OnPrefetchProgressCallback = void (*)(int id, int completed, int total);
 using OnScriptErrorCallback = void (*)(int id, const std::string& errorMessage);

@@ -65,6 +65,7 @@
 #include "widget/widget.h"
 #include "widget/styled_widget.h"
 #include "widget/table.h"
+#include "widget/virtual_table.h"
 #include "widget/tabs.h"
 #include "widget/text.h"
 #include "widget/text_wrap.h"
@@ -242,6 +243,7 @@ json XFrames::BuildDiagnosticsStateUnlocked() {
         if (auto* map = dynamic_cast<MapView*>(element.get())) record["state"] = map->GetDiagnosticsState();
         if (auto* text = dynamic_cast<ClippedMultiLineTextRenderer*>(element.get()))
             record["state"] = {{"byteCount", text->m_textBuffer.size()}, {"lineCount", text->m_lineOffsets.Size}};
+        if (auto* table = dynamic_cast<VirtualTable*>(element.get())) record["state"] = table->GetDiagnosticsState();
         if (auto* table = dynamic_cast<Table*>(element.get())) {
             record["state"] = {{"rowCount", table->m_data.size()}, {"columnCount", table->m_columns.size()},
                 {"filterDirty", table->m_filterDirty}, {"filteredCount", table->m_filteredIndices.size()},
@@ -335,6 +337,7 @@ void XFrames::SetUpElementCreatorFunctions() {
     m_element_init_fn["tree-node"] = &makeWidget<TreeNode>;
 
     m_element_init_fn["di-table"] = &makeWidget<Table>;
+    m_element_init_fn["virtual-table"] = &makeWidget<VirtualTable>;
     m_element_init_fn["clipped-multi-line-text-renderer"] = &makeWidget<ClippedMultiLineTextRenderer>;
 
     m_element_init_fn["di-image"] = &makeWidget<Image>;

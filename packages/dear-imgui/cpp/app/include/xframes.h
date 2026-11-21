@@ -135,6 +135,7 @@ class XFrames {
         OnTableSortCallback m_onTableSort = nullptr;
         OnTableFilterCallback m_onTableFilter = nullptr;
         OnTableRowClickCallback m_onTableRowClick = nullptr;
+        OnTableRangeCallback m_onTableRange = nullptr; // virtual-table visible rows; optional
         OnTableItemActionCallback m_onTableItemAction = nullptr;
         OnPrefetchProgressCallback m_onPrefetchProgress = nullptr;
         std::function<void(xframes::FrameScheduler::Source, int, int, int)> m_onGuardedPrefetchProgress;
@@ -164,6 +165,8 @@ class XFrames {
         void ShowDebugWindow();
 
         void SetUpSubjects();
+
+        void SetTableRangeHandler(OnTableRangeCallback onTableRangeFn) { m_onTableRange = onTableRangeFn; }
 
         void SetEventHandlers(
             OnInitCallback onInitFn,

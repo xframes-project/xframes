@@ -119,7 +119,7 @@ CommitBatch ParseCommit(json wire) {
 bool IsCommitElementType(const std::string& type) {
     static const std::unordered_set<std::string> types = {
         "node", "group", "child", "di-window", "separator", "collapsing-header", "tab-bar", "tab-item", "tree-node",
-        "di-table", "clipped-multi-line-text-renderer", "di-image", "map-view", "di-js-canvas", "di-lua-canvas",
+        "di-table", "virtual-table", "clipped-multi-line-text-renderer", "di-image", "map-view", "di-js-canvas", "di-lua-canvas",
         "di-janet-canvas", "plot-bar", "plot-heatmap", "plot-histogram", "plot-line", "plot-pie-chart", "plot-scatter",
         "plot-candlestick", "item-tooltip", "color-indicator", "combo", "slider", "input-text", "multi-slider",
         "checkbox", "color-picker", "di-button", "progress-bar", "separator-text", "bullet-text", "unformatted-text",
@@ -130,7 +130,7 @@ bool IsCommitElementType(const std::string& type) {
 bool IsMeasuredElementType(const std::string& type) {
     static const std::unordered_set<std::string> types = {"di-button", "checkbox", "color-picker",
         "combo", "input-text", "multi-slider", "slider", "separator-text", "bullet-text", "unformatted-text",
-        "disabled-text", "di-table", "di-image", "clipped-multi-line-text-renderer", "separator", "progress-bar"};
+        "disabled-text", "di-table", "virtual-table", "di-image", "clipped-multi-line-text-renderer", "separator", "progress-bar"};
     return types.contains(type);
 }
 

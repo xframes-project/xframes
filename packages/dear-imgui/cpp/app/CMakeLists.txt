@@ -149,6 +149,7 @@ set(XFRAMES_SRC
         ${XFRAMES_BASE_PATH}/src/widget/color_indicator.cpp
         ${XFRAMES_BASE_PATH}/src/widget/slider.cpp
         ${XFRAMES_BASE_PATH}/src/widget/table.cpp
+        ${XFRAMES_BASE_PATH}/src/widget/virtual_table.cpp
         ${XFRAMES_BASE_PATH}/src/widget/tabs.cpp
         ${XFRAMES_BASE_PATH}/src/widget/text.cpp
         ${XFRAMES_BASE_PATH}/src/widget/text_wrap.cpp

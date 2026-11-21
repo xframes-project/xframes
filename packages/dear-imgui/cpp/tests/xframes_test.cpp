@@ -218,7 +218,10 @@ TEST_F(XFramesTest, PublicationValidatesEntireCandidateBeforeApplyingAPrefix) {
         {Patch(999, json::object()), "missing_target"}, {Patch(1, {{"id", "public"}}), "immutable_identity"},
         {Patch(1, {{"type", "node"}}), "immutable_identity"}, {Patch(1, {{"root", true}}), "immutable_identity"},
         {Patch(1, {{"style", {{"border", {{"thickness", "bad"}}}}}}), "invalid_props"},
-        {Create(3, "di-table", {{"columns", json::array({{{"heading", "missing fieldId"}}})}}), "invalid_props"}
+        {Create(3, "di-table", {{"columns", json::array({{{"heading", "missing fieldId"}}})}}), "invalid_props"},
+        {Create(3, "virtual-table", {{"rowCount", 10}}), "invalid_props"},
+        {Create(3, "virtual-table", {{"columns", json::array({{{"heading", "A"}}})}, {"rowCount", -1}}), "invalid_props"},
+        {Create(3, "virtual-table", {{"columns", json::array({{{"heading", "A"}}})}, {"rows", json::array({json::array({1})})}}), "invalid_props"}
     };
     for (const auto& [operation, code] : invalid)
         Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2), Patch(1, {{"style", {{"width", 123}}}}), operation}), code, 2);

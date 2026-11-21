@@ -182,6 +182,7 @@ add_executable(Google_Tests_run
         ../app/src/widget/color_indicator.cpp
         ../app/src/widget/slider.cpp
         ../app/src/widget/table.cpp
+        ../app/src/widget/virtual_table.cpp
         ../app/src/widget/tabs.cpp
         ../app/src/widget/text.cpp
         ../app/src/widget/text_wrap.cpp

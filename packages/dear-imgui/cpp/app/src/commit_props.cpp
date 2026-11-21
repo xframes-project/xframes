@@ -162,6 +162,21 @@ void ValidateCommitProps(const std::string& type, const nlohmann::json& props, b
             }
         }
     }
+    if (type == "virtual-table") {
+        if (create || (props.contains("columns") && !props["columns"].is_null())) {
+            Check(props.contains("columns") && props["columns"].is_array() && !props["columns"].empty(), "columns");
+            for (const auto& column : props["columns"]) { Check(column.is_object(), "column"); String(column, "heading", true); }
+        }
+        GuardedInt(props, "rowCount", 0); GuardedInt(props, "windowStart", 0);
+        GuardedInt(props, "scrollToRow", 0); GuardedInt(props, "selectedRow", -1);
+        if (props.contains("rows") && !props["rows"].is_null()) {
+            Check(props["rows"].is_array(), "rows");
+            for (const auto& row : props["rows"]) {
+                Check(row.is_array(), "rows (arrays of strings)");
+                for (const auto& cell : row) Check(cell.is_string(), "rows (arrays of strings)");
+            }
+        }
+    }
     GuardedInt(props, "clipRows", 0); GuardedInt(props, "numberOfLines", 1); GuardedInt(props, "initialSelectedIndex", -1);
     GuardedInt(props, "minZoom", 0, 22); GuardedInt(props, "maxZoom", 0, 22);
     if (type == "multi-slider") {
