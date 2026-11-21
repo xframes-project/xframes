@@ -69,12 +69,17 @@ class XFrames {
         json m_lastCommitDiagnostics;
         xframes::CommitResult DispatchCommit(xframes::CommitBatch batch);
         xframes::CommitResult ApplyCommitOperations(xframes::CommitBatch& batch);
+        void ApplyCompleteChildLists(xframes::PublicationPlan& plan, std::vector<int>& destroyedIds);
+        void ApplyChangedChildLists(const xframes::ChangedPublicationPlan& plan, std::vector<int>& destroyedIds);
 
         std::unordered_map<std::string, std::function<std::unique_ptr<Element>(const json&, std::optional<WidgetStyle>, XFrames*)>> m_element_init_fn;
 
         std::unordered_map<int, std::unique_ptr<Element>> m_elements;
         std::mutex m_elements_mutex;
         std::unordered_map<int, std::vector<int>> m_hierarchy;
+        // The parent of every publication-owned node (0 for roots); kept with m_hierarchy
+        // by publication so a changed-list commit can validate without copying the tree.
+        std::unordered_map<int, int> m_parentOf;
         std::mutex m_hierarchy_mutex;
 
         bool m_debug;

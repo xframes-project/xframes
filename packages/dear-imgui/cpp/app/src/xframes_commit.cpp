@@ -66,6 +66,7 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
         const std::lock_guard<std::mutex> elementsLock(m_elements_mutex);
         lockedAt = diagnostics ? DiagnosticsNowMs() : 0;
         PublicationPlan plan;
+        ChangedPublicationPlan changed;
         try {
             if (m_surfaceQuarantined)
                 throw CommitError("surface_quarantined", "Publication failed; recreate the native runtime");
@@ -73,14 +74,25 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                 throw CommitError("counter_overflow", "Native sequence/revision exhausted; create a new runtime");
             if (!m_frameScheduler.CanInvalidate())
                 throw CommitError("counter_overflow", "Rendering ordering is unavailable; create a new runtime");
-            ValidationTree tree;
-            tree.children = m_hierarchy;
-            for (const auto& [id, element] : m_elements)
-                tree.nodes.emplace(id, ValidationNode{element->m_type, element->m_isRoot,
-                    YGNodeHasMeasureFunc(element->m_layoutNode->m_node)});
-            plan = ValidatePublication(batch, std::move(tree), m_publicationOwnedIds, m_nativeRevision);
-            // Reserve acknowledgment storage before touching resources/live state.
-            result.destroyedIds.reserve(plan.destroyedIds.size());
+            if (batch.changedChildLists) {
+                const AppliedSurface surface{m_hierarchy, m_parentOf, [this](int id) -> std::optional<ValidationNode> {
+                    const auto it = m_elements.find(id);
+                    if (it == m_elements.end()) return std::nullopt;
+                    return ValidationNode{it->second->m_type, it->second->m_isRoot,
+                        YGNodeHasMeasureFunc(it->second->m_layoutNode->m_node)};
+                }};
+                changed = ValidateChangedPublication(batch, surface, m_publicationOwnedIds, m_nativeRevision);
+                result.destroyedIds.reserve(changed.destroyedIds.size());
+            } else {
+                ValidationTree tree;
+                tree.children = m_hierarchy;
+                for (const auto& [id, element] : m_elements)
+                    tree.nodes.emplace(id, ValidationNode{element->m_type, element->m_isRoot,
+                        YGNodeHasMeasureFunc(element->m_layoutNode->m_node)});
+                plan = ValidatePublication(batch, std::move(tree), m_publicationOwnedIds, m_nativeRevision);
+                // Reserve acknowledgment storage before touching resources/live state.
+                result.destroyedIds.reserve(plan.destroyedIds.size());
+            }
         } catch (const CommitError& error) {
             result.error = error;
         }
@@ -105,35 +117,8 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                     }
                 }
                 operationIndex.reset();
-                // Only parents whose child list changed are re-linked. Re-linking an
-                // unchanged parent marks its Yoga subtree dirty and makes the next
-                // frame lay it out again. A child that moves leaves a parent whose
-                // list changes too, or one that is destroyed; both are disconnected
-                // before any candidate child is attached. Moving out of a removed
-                // ancestor retains the exact Element, Yoga node, internal subject and
-                // populated data.
-                std::unordered_set<int> relink;
-                for (const auto& [parent, children] : plan.children) {
-                    if (parent == 0) continue;
-                    const auto previous = m_hierarchy.find(parent);
-                    if (!m_publicationOwnedIds.contains(parent) || previous == m_hierarchy.end() || previous->second != children)
-                        relink.insert(parent);
-                }
-                for (int id : m_publicationOwnedIds)
-                    if (relink.contains(id) || !plan.ownedIds.contains(id))
-                        YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
-                for (const auto& [parent, children] : plan.children) {
-                    m_hierarchy[parent] = children;
-                    if (parent == 0 || !relink.contains(parent)) continue;
-                    auto* element = m_elements.at(parent).get();
-                    for (size_t index = 0; index < children.size(); ++index)
-                        element->m_layoutNode->InsertChild(m_elements.at(children[index])->m_layoutNode.get(), index);
-                    element->m_maxBottomDirty = true;
-                }
-                // The plan is old-tree postorder filtered by final reachability;
-                // destruction never recursively follows the newly published tree.
-                for (int id : plan.destroyedIds) DestroyElementUnlocked(id, &result.destroyedIds);
-                m_publicationOwnedIds.swap(plan.ownedIds);
+                if (batch.changedChildLists) ApplyChangedChildLists(changed, result.destroyedIds);
+                else ApplyCompleteChildLists(plan, result.destroyedIds);
                 // Revision and generation become visible with exactly this tree.
                 // Capture never reads a later publication's generation after drawing.
                 if (!m_frameScheduler.Invalidate(FrameReason::Publication))
@@ -167,11 +152,83 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
     return result;
 }
 
+// Only parents whose child list changed are re-linked. Re-linking an unchanged
+// parent marks its Yoga subtree dirty and makes the next frame lay it out again.
+// A child that moves leaves a parent whose list changes too, or one that is
+// destroyed; both are disconnected before any candidate child is attached. Moving
+// out of a removed ancestor retains the exact Element, Yoga node, internal subject
+// and populated data.
+void XFrames::ApplyCompleteChildLists(PublicationPlan& plan, std::vector<int>& destroyedIds) {
+    std::unordered_set<int> relink;
+    for (const auto& [parent, children] : plan.children) {
+        if (parent == 0) continue;
+        const auto previous = m_hierarchy.find(parent);
+        if (!m_publicationOwnedIds.contains(parent) || previous == m_hierarchy.end() || previous->second != children)
+            relink.insert(parent);
+    }
+    for (int id : m_publicationOwnedIds)
+        if (relink.contains(id) || !plan.ownedIds.contains(id))
+            YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
+    for (const auto& [parent, children] : plan.children) {
+        m_hierarchy[parent] = children;
+        if (parent == 0 || !relink.contains(parent)) continue;
+        auto* element = m_elements.at(parent).get();
+        for (size_t index = 0; index < children.size(); ++index)
+            element->m_layoutNode->InsertChild(m_elements.at(children[index])->m_layoutNode.get(), index);
+        element->m_maxBottomDirty = true;
+    }
+    // The plan is old-tree postorder filtered by final reachability;
+    // destruction never recursively follows the newly published tree.
+    for (int id : plan.destroyedIds) DestroyElementUnlocked(id, &destroyedIds);
+    m_publicationOwnedIds.swap(plan.ownedIds);
+    m_parentOf.clear();
+    for (const auto& [parent, children] : plan.children)
+        for (int child : children) m_parentOf[child] = parent;
+}
+
+// The same re-linking rule over the assigned lists only. Every other list, and its
+// Yoga links, stays as it is: no work is done for unchanged parts of the tree.
+void XFrames::ApplyChangedChildLists(const ChangedPublicationPlan& plan, std::vector<int>& destroyedIds) {
+    std::unordered_set<int> relink;
+    for (const auto& [parent, children] : plan.assigned) {
+        if (parent == 0) continue;
+        const auto previous = m_hierarchy.find(parent);
+        if (!m_publicationOwnedIds.contains(parent) || previous == m_hierarchy.end() || previous->second != children)
+            relink.insert(parent);
+    }
+    for (int id : relink) YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
+    for (int id : plan.destroyedIds) YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
+    // Parent links: drop the ones the assigned lists held, then record the new ones.
+    for (const auto& [parent, children] : plan.assigned) {
+        const auto previous = m_hierarchy.find(parent);
+        if (previous == m_hierarchy.end()) continue;
+        for (int child : previous->second)
+            if (const auto link = m_parentOf.find(child); link != m_parentOf.end() && link->second == parent)
+                m_parentOf.erase(link);
+    }
+    for (const auto& [parent, children] : plan.assigned) {
+        for (int child : children) m_parentOf[child] = parent;
+        m_hierarchy[parent] = children;
+        if (parent == 0 || !relink.contains(parent)) continue;
+        auto* element = m_elements.at(parent).get();
+        for (size_t index = 0; index < children.size(); ++index)
+            element->m_layoutNode->InsertChild(m_elements.at(children[index])->m_layoutNode.get(), index);
+        element->m_maxBottomDirty = true;
+    }
+    for (int id : plan.created) m_publicationOwnedIds.insert(id);
+    for (int id : plan.destroyedIds) {
+        m_parentOf.erase(id);
+        m_publicationOwnedIds.erase(id);
+        DestroyElementUnlocked(id, &destroyedIds);
+    }
+}
+
 json XFrames::GetCommitState() {
     const std::lock_guard<std::mutex> lock(m_commitMutex);
     json state = {{"schemaVersion", 2}, {"surfaceId", 0}, {"initialized", !m_runtimeDisposed}, {"nativeSequence", std::to_string(m_nativeSequence)},
         {"nativeRevision", std::to_string(m_nativeRevision)},
-        {"surfaceStatus", m_runtimeDisposed ? "disposed" : m_surfaceQuarantined ? "quarantined" : "healthy"}, {"managedCount", m_publicationOwnedIds.size()}};
+        {"surfaceStatus", m_runtimeDisposed ? "disposed" : m_surfaceQuarantined ? "quarantined" : "healthy"}, {"managedCount", m_publicationOwnedIds.size()},
+        {"commitFeatures", json::array({"changedChildLists"})}};
     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) state["lastTransaction"] = m_lastCommitDiagnostics;
     return state;
 }

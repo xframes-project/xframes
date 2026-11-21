@@ -127,6 +127,7 @@ void XFrames::Dispose() {
     m_publicationOwnedIds.clear();
     m_hierarchy.clear();
     m_hierarchy.emplace(0, std::vector<int>{});
+    m_parentOf.clear();
     m_diagnosticsLastInternalOpMs.clear();
     m_floatFormatChars.clear();
     m_pendingFrame.reset();

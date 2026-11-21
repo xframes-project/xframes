@@ -10,8 +10,15 @@ export interface NativeCommit {
     surfaceId: 0;
     /** Must match the current successful native revision. */
     baseRevision: NativeCounter;
-    /** Complete virtual-root list; every reachable node also needs a child assignment. */
+    /** Complete virtual-root list. */
     rootChildren: number[];
+    /**
+     * "complete" (the default): every reachable node needs a child assignment.
+     * "changed": an omitted assignment keeps the node's previous list, and a created
+     * node without one has no children. Advertised as "changedChildLists" in the
+     * commit state's commitFeatures.
+     */
+    childLists?: "complete" | "changed";
     /** Optional opaque correlation, at most 128 UTF-8 bytes; never controls ordering. */
     correlationId?: string;
     operations: NativeCommitOperation[];
@@ -53,6 +60,8 @@ export interface NativeCommitState {
     managedCount: number;
     nativeSequence: NativeCounter;
     nativeRevision: NativeCounter;
+    /** Optional commit forms this surface accepts, such as "changedChildLists". */
+    commitFeatures?: string[];
     lastTransaction?: null | {
         nativeSequence?: NativeCounter | null;
         nativeRevision?: NativeCounter;

@@ -60,7 +60,7 @@ CommitBatch ParseCommit(json wire) {
     Require(wire.is_object() && wire.contains("schemaVersion"), "missing_field", "schemaVersion");
     Require(wire["schemaVersion"].is_number_integer() && wire["schemaVersion"] == 2,
         "unsupported_version", "Only schemaVersion 2 is supported; the alpha v1 structural API was removed");
-    Fields(wire, {"schemaVersion", "surfaceId", "baseRevision", "rootChildren", "operations"}, {"correlationId"});
+    Fields(wire, {"schemaVersion", "surfaceId", "baseRevision", "rootChildren", "operations"}, {"correlationId", "childLists"});
     Require(wire["surfaceId"].is_number_integer() && wire["surfaceId"] == 0,
         "unsupported_surface", "Only surfaceId 0 is supported");
     Require(wire["operations"].is_array(), "invalid_field", "operations must be an array");
@@ -80,6 +80,12 @@ CommitBatch ParseCommit(json wire) {
         Require(wire["correlationId"].is_string() && wire["correlationId"].get_ref<const std::string&>().size() <= 128,
             "invalid_field", "correlationId must be a string of at most 128 UTF-8 bytes");
         batch.correlationId = wire["correlationId"].get<std::string>();
+    }
+    if (wire.contains("childLists")) {
+        const auto& mode = wire["childLists"];
+        Require(mode.is_string() && (mode == "complete" || mode == "changed"),
+            "invalid_field", "childLists must be \"complete\" or \"changed\"");
+        batch.changedChildLists = mode == "changed";
     }
     for (auto& def : wire["operations"]) {
         try {
@@ -235,6 +241,167 @@ PublicationPlan ValidatePublication(CommitBatch& batch, ValidationTree tree,
             for (auto it = children.rbegin(); it != children.rend(); ++it) deletion.emplace_back(*it, false);
         }
     }
+    return plan;
+}
+
+ChangedPublicationPlan ValidateChangedPublication(CommitBatch& batch, const AppliedSurface& surface,
+    const std::unordered_set<int>& managedIds, uint64_t nativeRevision) {
+    Require(batch.baseRevision == nativeRevision, "stale_revision", "baseRevision does not match the current structural revision");
+    if (const auto roots = surface.children.find(0); roots != surface.children.end())
+        for (int root : roots->second)
+            Require(managedIds.contains(root), "ownership_conflict", "Container has an unowned root");
+    ChangedPublicationPlan plan;
+    std::unordered_map<int, ValidationNode> created;
+    const auto node = [&](int id) -> std::optional<ValidationNode> {
+        if (const auto it = created.find(id); it != created.end()) return it->second;
+        return surface.node(id);
+    };
+    for (size_t index = 0; index < batch.operations.size(); ++index) {
+        const auto& op = batch.operations[index];
+        if (op.op != CommitOp::Create) continue;
+        try {
+            Require(!node(op.id), "duplicate_id", "Create target already exists; a publication cannot recreate an old lifetime");
+            Require(IsCommitElementType(op.elementType), "invalid_element_type", "Unsupported elementType");
+            ValidateCommitProps(op.elementType, op.props, true);
+            created.emplace(op.id, ValidationNode{op.elementType, op.props.value("root", false), IsMeasuredElementType(op.elementType)});
+            plan.created.push_back(op.id);
+        } catch (CommitError& error) { error.operationIndex = index; throw; }
+    }
+    // The final lists that differ from the applied surface's: container 0's always.
+    std::unordered_map<int, const std::vector<int>*> assigned{{0, &batch.rootChildren}};
+    std::unordered_map<int, size_t> assignments;
+    std::vector<int> parents{0};
+    for (size_t index = 0; index < batch.operations.size(); ++index) {
+        auto& op = batch.operations[index];
+        if (op.op == CommitOp::Create) continue;
+        try {
+            const auto target = node(op.id);
+            Require(target.has_value(), "missing_target", "Publication target does not exist");
+            Require(managedIds.contains(op.id) || created.contains(op.id), "ownership_conflict", "Publication target is not owned by this surface");
+            if (op.op == CommitOp::Patch) {
+                op.elementType = target->type;
+                ValidateCommitProps(op.elementType, op.props, false);
+            } else {
+                Require(op.op == CommitOp::SetChildren, "unsupported_operation", "Publication requires child lists");
+                Require(assignments.emplace(op.id, index).second, "duplicate_assignment", "A publication assigns each parent's children exactly once");
+                assigned.emplace(op.id, &op.children);
+                parents.push_back(op.id);
+            }
+        } catch (CommitError& error) { error.operationIndex = index; throw; }
+    }
+    std::unordered_map<int, int> owners;
+    for (int parent : parents) {
+        const auto& children = *assigned.at(parent);
+        try {
+            Require(parent == 0 || children.empty() || !node(parent)->measured,
+                "invalid_relationship", "A measured Yoga leaf cannot own children");
+            std::unordered_set<int> unique;
+            for (int child : children) {
+                Require(unique.insert(child).second, "duplicate_child", "A child list cannot contain duplicate IDs");
+                Require(child != parent, "cycle", "A node cannot contain itself");
+                const auto childNode = node(child);
+                Require(childNode.has_value(), "missing_target", "Child does not exist in the complete candidate");
+                Require(managedIds.contains(child) || created.contains(child), "ownership_conflict", "Child is not owned by this surface");
+                Require(parent == 0 || !childNode->root, "invalid_relationship", "Root nodes can only attach to container 0");
+                Require(owners.emplace(child, parent).second, "multiple_parents", "Final child has multiple owners");
+            }
+        } catch (CommitError& error) {
+            if (parent != 0) error.operationIndex = assignments.at(parent);
+            throw;
+        }
+    }
+    // A node's final parent: the assigned list that names it; otherwise its applied parent,
+    // when that parent's list is kept; a created node otherwise has none.
+    const auto finalParent = [&](int id) -> std::optional<int> {
+        if (const auto it = owners.find(id); it != owners.end()) return it->second;
+        if (created.contains(id)) return std::nullopt;
+        const auto it = surface.parentOf.find(id);
+        if (it == surface.parentOf.end() || assigned.contains(it->second)) return std::nullopt;
+        return it->second;
+    };
+    // Final reachability by following final parents to container 0, memoised. Any cycle
+    // passes through an assigned list, so walking up from every assigned parent finds it.
+    std::unordered_map<int, bool> reachable{{0, true}};
+    const auto reaches = [&](int id) {
+        std::vector<int> path;
+        std::unordered_set<int> onPath;
+        int current = id;
+        bool result = false;
+        while (true) {
+            if (const auto known = reachable.find(current); known != reachable.end()) { result = known->second; break; }
+            Require(onPath.insert(current).second, "cycle", "Final ownership contains a cycle");
+            path.push_back(current);
+            const auto parent = finalParent(current);
+            if (!parent) break;
+            current = *parent;
+        }
+        for (int at : path) reachable[at] = result;
+        return result;
+    };
+    for (int parent : parents) reaches(parent);
+    // A kept list still names its children: a child assigned elsewhere while its applied
+    // parent keeps its list and survives would have two parents. If that parent leaves,
+    // the child moves out of a removed ancestor, which is allowed.
+    for (int parent : parents) {
+        for (int child : *assigned.at(parent)) {
+            if (created.contains(child)) continue;
+            const auto previous = surface.parentOf.find(child);
+            if (previous == surface.parentOf.end() || previous->second == parent || assigned.contains(previous->second)) continue;
+            if (reaches(previous->second))
+                throw CommitError("multiple_parents", "Final child has multiple owners",
+                    parent == 0 ? std::nullopt : std::optional<size_t>(assignments.at(parent)));
+        }
+    }
+    for (size_t index = 0; index < batch.operations.size(); ++index)
+        if (!reaches(batch.operations[index].id))
+            throw CommitError("unreachable_operation", "Operations may target only final reachable nodes", index);
+    // Applied nodes that leave: the applied children of assigned parents that are no longer
+    // reachable, and everything finally below them.
+    std::unordered_set<int> leaving;
+    std::vector<int> leavingOrder, pending;
+    for (int parent : parents) {
+        if (created.contains(parent)) continue;
+        const auto previous = surface.children.find(parent);
+        if (previous == surface.children.end()) continue;
+        for (int child : previous->second)
+            if (managedIds.contains(child) && !reaches(child)) pending.push_back(child);
+    }
+    while (!pending.empty()) {
+        const int id = pending.back(); pending.pop_back();
+        if (!leaving.insert(id).second) continue;
+        leavingOrder.push_back(id);
+        const auto kept = surface.children.find(id);
+        if (kept == surface.children.end()) continue;
+        for (int child : kept->second)
+            if (const auto parent = finalParent(child); parent && *parent == id) pending.push_back(child);
+    }
+    // Descendant-first in the previous tree: each leaving node whose applied parent stays is
+    // emitted in previous-tree postorder restricted to leaving nodes, deeper ones first.
+    std::vector<std::pair<size_t, int>> tops;
+    for (int id : leavingOrder) {
+        const auto parent = surface.parentOf.find(id);
+        const int above = parent == surface.parentOf.end() ? 0 : parent->second;
+        if (above != 0 && leaving.contains(above)) continue;
+        size_t depth = 0;
+        for (int at = above; at != 0; ++depth) {
+            const auto next = surface.parentOf.find(at);
+            at = next == surface.parentOf.end() ? 0 : next->second;
+        }
+        tops.emplace_back(depth, id);
+    }
+    std::stable_sort(tops.begin(), tops.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+    for (const auto& [depth, top] : tops) {
+        std::vector<std::pair<int, bool>> stack{{top, false}};
+        while (!stack.empty()) {
+            const auto [id, visited] = stack.back(); stack.pop_back();
+            if (visited) { plan.destroyedIds.push_back(id); continue; }
+            stack.emplace_back(id, true);
+            if (const auto children = surface.children.find(id); children != surface.children.end())
+                for (auto it = children->second.rbegin(); it != children->second.rend(); ++it)
+                    if (leaving.contains(*it)) stack.emplace_back(*it, false);
+        }
+    }
+    for (int parent : parents) plan.assigned.emplace_back(parent, *assigned.at(parent));
     return plan;
 }
 
