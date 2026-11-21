@@ -162,6 +162,25 @@ TEST_F(XFramesTest, PublicationReorderAndInsertionKeepHierarchyAndYogaConsistent
     EXPECT_EQ(Node(state, 1)["yogaChildren"], json::array({3, 4, 2}));
     EXPECT_EQ(Node(state, 4)["yogaParent"], 1);
 }
+// Re-linking a parent marks its Yoga subtree dirty, so the next frame lays it out
+// again. A publication re-links only parents whose child list changed: a sibling
+// subtree that did not change keeps its layout.
+TEST_F(XFramesTest, PublicationRelinksOnlyParentsWhoseChildrenChanged) {
+    Publish({{0, {1}}, {1, {2, 3}}, {2, {4}}, {3, {5}}, {4, {}}, {5, {}}},
+        {Create(1), Create(2), Create(3), Create(4), Create(5)});
+    const auto yoga = [&](int id) { return ElementAt(id)->m_layoutNode->m_node; };
+    YGNodeCalculateLayout(yoga(1), 100, 100, YGDirectionLTR);
+    ASSERT_FALSE(YGNodeIsDirty(yoga(3)));
+    EXPECT_EQ(Publish({{0, {1}}, {1, {2, 3}}, {2, {6}}, {3, {5}}, {6, {}}, {5, {}}}, {Create(6)}).destroyedIds,
+        (std::vector<int>{4}));
+    EXPECT_TRUE(YGNodeIsDirty(yoga(2)));
+    EXPECT_FALSE(YGNodeIsDirty(yoga(3)));
+    EXPECT_FALSE(YGNodeIsDirty(yoga(5)));
+    const auto state = xf->GetDiagnosticsState();
+    EXPECT_EQ(Node(state, 2)["yogaChildren"], json::array({6}));
+    EXPECT_EQ(Node(state, 3)["yogaChildren"], json::array({5}));
+    EXPECT_EQ(Node(state, 1)["yogaChildren"], json::array({2, 3}));
+}
 TEST_F(XFramesTest, PublicationIdenticalAndEmptyTreesAdvanceExactlyOnce) {
     EXPECT_EQ(Publish().nativeRevision, 1);
     EXPECT_EQ(Publish({{0, {1}}, {1, {}}}, {Create(1)}).nativeRevision, 2);

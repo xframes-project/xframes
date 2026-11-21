@@ -105,14 +105,26 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                     }
                 }
                 operationIndex.reset();
-                // Disconnect every previous Yoga owner before attaching any
-                // candidate child. Moving out of a removed ancestor retains the
-                // exact Element, Yoga node, internal subject and populated data.
+                // Only parents whose child list changed are re-linked. Re-linking an
+                // unchanged parent marks its Yoga subtree dirty and makes the next
+                // frame lay it out again. A child that moves leaves a parent whose
+                // list changes too, or one that is destroyed; both are disconnected
+                // before any candidate child is attached. Moving out of a removed
+                // ancestor retains the exact Element, Yoga node, internal subject and
+                // populated data.
+                std::unordered_set<int> relink;
+                for (const auto& [parent, children] : plan.children) {
+                    if (parent == 0) continue;
+                    const auto previous = m_hierarchy.find(parent);
+                    if (!m_publicationOwnedIds.contains(parent) || previous == m_hierarchy.end() || previous->second != children)
+                        relink.insert(parent);
+                }
                 for (int id : m_publicationOwnedIds)
-                    YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
+                    if (relink.contains(id) || !plan.ownedIds.contains(id))
+                        YGNodeRemoveAllChildren(m_elements.at(id)->m_layoutNode->m_node);
                 for (const auto& [parent, children] : plan.children) {
                     m_hierarchy[parent] = children;
-                    if (parent == 0) continue;
+                    if (parent == 0 || !relink.contains(parent)) continue;
                     auto* element = m_elements.at(parent).get();
                     for (size_t index = 0; index < children.size(); ++index)
                         element->m_layoutNode->InsertChild(m_elements.at(children[index])->m_layoutNode.get(), index);
