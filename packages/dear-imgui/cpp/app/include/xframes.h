@@ -60,6 +60,7 @@ class XFrames {
         std::mutex m_commitMutex;
         uint64_t m_nativeSequence = 0;
         uint64_t m_nativeRevision = 0;
+        std::atomic<uint64_t> m_visibleRevision{0};
         std::unordered_set<int> m_publicationOwnedIds;
         std::atomic<bool> m_surfaceQuarantined{false};
         std::atomic<bool> m_runtimeDisposed{false};
@@ -197,6 +198,10 @@ class XFrames {
         // Synchronous structural API. uint64 counters use decimal strings on the wire.
         xframes::CommitResult ApplyCommit(std::string_view serializedCommit);
         json GetCommitState();
+        // The native revision of the tree that frames show: stored where the revision
+        // advances, under the visibility locks. An event raised while a frame is built
+        // belongs to this tree. Safe to read from any thread.
+        uint64_t VisibleRevision() const { return m_visibleRevision.load(std::memory_order_acquire); }
 
 
 

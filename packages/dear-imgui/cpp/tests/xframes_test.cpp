@@ -85,7 +85,9 @@ protected:
         };
     }
     void Internal(int id, const json& operation) { auto payload = operation.dump(); xf->QueueElementInternalOp(id, payload); }
-    void SetCounters(uint64_t sequence, uint64_t revision) { xf->m_nativeSequence = sequence; xf->m_nativeRevision = revision; }
+    void SetCounters(uint64_t sequence, uint64_t revision) {
+        xf->m_nativeSequence = sequence; xf->m_nativeRevision = revision; xf->m_visibleRevision = revision;
+    }
     bool LastRequestExpired() {
         bool expired = false;
         auto subscription = rpp::composite_disposable_wrapper::make();
@@ -315,6 +317,19 @@ TEST_F(XFramesTest, PublicationCompetingWritersCannotOverwriteAStaleTree) {
     const auto& rejected = first.status == "rejected" ? first : second;
     ASSERT_TRUE(rejected.error); EXPECT_EQ(rejected.error->code, "stale_revision");
     EXPECT_EQ(xf->GetCommitState()["nativeRevision"], "2");
+}
+
+// Events are stamped with the visible revision: the tree every frame drawn since
+// the last applied publication shows. It moves only when a publication applies.
+TEST_F(XFramesTest, VisibleRevisionFollowsAppliedPublicationsOnly) {
+    EXPECT_EQ(xf->VisibleRevision(), 0u);
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    EXPECT_EQ(xf->VisibleRevision(), 1u);
+    Reject(Wire({{0, {1}}, {1, {}}}, {Create(1)}), "duplicate_id", 0);
+    EXPECT_EQ(xf->VisibleRevision(), 1u);
+    Publish();
+    EXPECT_EQ(xf->VisibleRevision(), 2u);
+    EXPECT_EQ(std::to_string(xf->VisibleRevision()), xf->GetCommitState()["nativeRevision"].get<std::string>());
 }
 
 // "childLists": "changed" carries only the child lists that changed. An omitted

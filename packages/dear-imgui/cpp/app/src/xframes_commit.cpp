@@ -124,6 +124,7 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                 if (!m_frameScheduler.Invalidate(FrameReason::Publication))
                     throw std::overflow_error("Invalidation generation exhausted during publication");
                 result.nativeRevision = ++m_nativeRevision;
+                m_visibleRevision.store(m_nativeRevision, std::memory_order_release);
                 result.status = "applied";
             } catch (const std::exception& error) {
                 // Quarantine is established under the visibility locks even if
