@@ -8,8 +8,9 @@ TextWrap::TextWrap(XFrames* view, const int id, const float& width, std::optiona
 
 void TextWrap::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushTextWrapPos(m_width);
-    
+    view->PushLayoutOrigin();
     Widget::HandleChildren(view, viewport);
+    view->PopLayoutOrigin();
 
     ImGui::PopTextWrapPos();
 };

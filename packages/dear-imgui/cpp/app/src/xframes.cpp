@@ -391,6 +391,20 @@ void XFrames::RenderElementById(const int id, const std::optional<ImRect>& viewp
     }
 };
 
+void XFrames::PushLayoutOrigin() { m_layoutOrigins.emplace_back(ImGui::GetCurrentWindowRead(), ImGui::GetCursorPos()); }
+
+void XFrames::PopLayoutOrigin() { m_layoutOrigins.pop_back(); }
+
+// An origin applies only in the window it was pushed in: a node or child inside a group opens a
+// window of its own, whose children start again from its top-left corner.
+ImVec2 XFrames::LayoutPosition(const float left, const float top) const {
+    if (!m_layoutOrigins.empty() && m_layoutOrigins.back().first == ImGui::GetCurrentWindowRead()) {
+        const auto& origin = m_layoutOrigins.back().second;
+        return ImVec2(origin.x + left, origin.y + top);
+    }
+    return ImVec2(left, top);
+}
+
 void XFrames::RenderElements(const int id, const std::optional<ImRect>& viewport) {
     auto it = m_elements.find(id);
     if (it != m_elements.end()) {
@@ -659,6 +673,7 @@ bool XFrames::Render(int window_width, int window_height) {
 
     ImGui::Begin(m_windowId, nullptr, m_window_flags);
 
+    m_layoutOrigins.clear();
     if (!m_surfaceQuarantined) RenderElements();
 
     // *** DEBUG ***

@@ -21,7 +21,7 @@ void CollapsingHeader::Render(XFrames* view, const std::optional<ImRect>& viewpo
         const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);
         const float height = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
-        ImGui::SetCursorPos(ImVec2(left, top + m_view->GetFrameHeightWithSpacing(this))); // account for header
+        ImGui::SetCursorPos(view->LayoutPosition(left, top + m_view->GetFrameHeightWithSpacing(this))); // account for header
 
         ImGui::BeginChild("##", ImVec2(width, height), ImGuiChildFlags_None);
 

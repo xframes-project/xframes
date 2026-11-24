@@ -22,7 +22,7 @@ void TabBar::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);
     const float height = YGNodeLayoutGetHeight(m_layoutNode->m_node);
 
-    ImGui::SetCursorPos(ImVec2(left, top));
+    ImGui::SetCursorPos(view->LayoutPosition(left, top));
 
     ImGui::BeginChild("##", ImVec2(width, height), ImGuiChildFlags_None);
 

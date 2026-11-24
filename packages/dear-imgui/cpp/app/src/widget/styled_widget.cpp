@@ -397,7 +397,7 @@ void StyledWidget::PreRender(XFrames* view) {
     // an item and trigger ImGui's SetCursorPos boundary assertion.
     if (m_type != "tab-item" && !YGFloatIsUndefined(left)) {
         // printf("%d %s %f %f\n", m_id, m_type.c_str(), left, top);
-        ImGui::SetCursorPos(ImVec2(left, top));
+        ImGui::SetCursorPos(view->LayoutPosition(left, top));
     }
 
     if (HasCustomWidth()) {

@@ -132,6 +132,14 @@ class XFrames {
         void InvalidateMaxBottomCaches();
 
     public:
+        // Yoga positions are relative to the parent element; ImGui cursor positions to the current
+        // window. A container that draws its children in place, without a window of its own
+        // (group, text-wrap), pushes its position so that its children are placed from it.
+        std::vector<std::pair<ImGuiWindow*, ImVec2>> m_layoutOrigins;
+        void PushLayoutOrigin();
+        void PopLayoutOrigin();
+        ImVec2 LayoutPosition(float left, float top) const;
+
         xframes::FrameScheduler m_frameScheduler;
         ImGuiRenderer* m_renderer = nullptr;
 

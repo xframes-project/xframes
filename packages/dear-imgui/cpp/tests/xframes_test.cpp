@@ -625,6 +625,72 @@ TEST_F(XFramesQueueTest, InactiveTabHeadersDoNotExtendParentCursorWithoutAnItem)
     }
 }
 
+namespace { int g_lastClick = 0; }
+// A group or text-wrap opens no ImGui window, but its children's Yoga positions are
+// relative to it: they must be placed from the container's position, not from the
+// enclosing window's origin. A button below a text, inside one, is where Yoga says.
+TEST_F(XFramesQueueTest, InPlaceContainersPlaceChildrenFromTheirOwnPosition) {
+    xf->m_onClick = [](int id) { g_lastClick = id; };
+    // A node opens its own window and is the control: it places its children correctly already.
+    for (const char* container : {"node", "group", "text-wrap"}) {
+        SCOPED_TRACE(container);
+        g_lastClick = 0;
+        Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {4}}, {4, {}}}, {
+            Create(2, "unformatted-text", {{"text", "Above"}}),
+            Create(3, container, std::string(container) == "text-wrap" ? json{{"width", 400}} : json::object()),
+            Create(4, "di-button", {{"label", "Inside"}})});
+        const auto frame = [&] { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); };
+        for (int i = 0; i < 3; ++i) frame();
+        ASSERT_GT(YGNodeLayoutGetTop(ElementAt(3)->m_layoutNode->m_node), 0.f) << "the container is below the text";
+        ImVec2 at(0, 0);
+        for (int id : {1, 3, 4}) {
+            at.x += YGNodeLayoutGetLeft(ElementAt(id)->m_layoutNode->m_node);
+            at.y += YGNodeLayoutGetTop(ElementAt(id)->m_layoutNode->m_node);
+        }
+        const auto* button = ElementAt(4)->m_layoutNode->m_node;
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent(at.x + YGNodeLayoutGetWidth(button) / 2, at.y + YGNodeLayoutGetHeight(button) / 2);
+        frame();
+        io.AddMouseButtonEvent(0, true); frame();
+        io.AddMouseButtonEvent(0, false); frame();
+        EXPECT_EQ(g_lastClick, 4);
+        Publish({{0, {1}}, {1, {}}});
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX); frame();
+    }
+}
+
+// Origins compose: a group inside a group adds both positions. A node inside a group opens a
+// window of its own, so its children start again from that window's corner.
+TEST_F(XFramesQueueTest, NestedContainersComposeLayoutOrigins) {
+    xf->m_onClick = [](int id) { g_lastClick = id; };
+    for (const char* inner : {"group", "node"}) {
+        SCOPED_TRACE(inner);
+        g_lastClick = 0;
+        Publish({{0, {1}}, {1, {2, 3}}, {2, {}}, {3, {5, 6}}, {5, {}}, {6, {4}}, {4, {}}}, {
+            Create(2, "unformatted-text", {{"text", "Above"}}), Create(3, "group"),
+            Create(5, "unformatted-text", {{"text", "Also above"}}), Create(6, inner),
+            Create(4, "di-button", {{"label", "Inside"}})});
+        const auto frame = [&] { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); };
+        for (int i = 0; i < 3; ++i) frame();
+        ASSERT_GT(YGNodeLayoutGetTop(ElementAt(6)->m_layoutNode->m_node), 0.f) << "the inner container is below the inner text";
+        ImVec2 at(0, 0);
+        for (int id : {1, 3, 6, 4}) {
+            at.x += YGNodeLayoutGetLeft(ElementAt(id)->m_layoutNode->m_node);
+            at.y += YGNodeLayoutGetTop(ElementAt(id)->m_layoutNode->m_node);
+        }
+        const auto* button = ElementAt(4)->m_layoutNode->m_node;
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent(at.x + YGNodeLayoutGetWidth(button) / 2, at.y + YGNodeLayoutGetHeight(button) / 2);
+        frame();
+        io.AddMouseButtonEvent(0, true); frame();
+        io.AddMouseButtonEvent(0, false); frame();
+        EXPECT_EQ(g_lastClick, 4);
+        EXPECT_TRUE(xf->m_layoutOrigins.empty());
+        Publish({{0, {1}}, {1, {}}});
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX); frame();
+    }
+}
+
 TEST_F(XFramesQueueTest, ApplicationDiagnosticsReportRetainedHistoryAndMapOverlays) {
     Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
         Create(2, "plot-line", {{"dataPointsLimit", 2}}),

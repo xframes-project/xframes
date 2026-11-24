@@ -7,6 +7,8 @@ Group::Group(XFrames* view, const int id, std::optional<WidgetStyle>& style) : S
 
 void Group::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::BeginGroup();
+    view->PushLayoutOrigin();
     Widget::HandleChildren(view, viewport);
+    view->PopLayoutOrigin();
     ImGui::EndGroup();
 };
