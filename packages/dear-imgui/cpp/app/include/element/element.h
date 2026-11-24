@@ -123,6 +123,18 @@ class Element {
 
         virtual void HandleInternalOp(const json& opDef);
 
+        // Controlled properties: values the application owns while the user may edit them,
+        // such as an input's text. A commit carrying eventsApplied stores them here and
+        // XFrames shows them with ApplyControlled only while the element has no edit the
+        // application has not seen. Most elements have none.
+        virtual const std::vector<std::string>& ControlledProps() const {
+            static const std::vector<std::string> none;
+            return none;
+        }
+        // Shows committed controlled values; a value equal to the one shown changes nothing.
+        virtual void ApplyControlled(const json& values) {}
+        json m_committedControlled = json::object();
+
         virtual float GetLayoutLeftFromParentNode(YGNodeRef node, float left);
 
         virtual float GetLayoutTopFromParentNode(YGNodeRef node, float top);

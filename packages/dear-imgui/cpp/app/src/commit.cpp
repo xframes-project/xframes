@@ -21,6 +21,17 @@ void Fields(const json& value, std::initializer_list<const char*> required,
                 std::any_of(optional.begin(), optional.end(), matches), "unknown_field", "Unknown envelope or operation field");
     }
 }
+// A uint64 counter on the wire: a canonical decimal string.
+uint64_t ParseCounter(const json& field, const char* invalid, const char* overflow) {
+    Require(field.is_string(), "invalid_field", invalid);
+    const auto& value = field.get_ref<const std::string&>();
+    Require(!value.empty() && (value == "0" || value.front() != '0') &&
+        value.find_first_not_of("0123456789") == std::string::npos, "invalid_field", invalid);
+    uint64_t result = 0;
+    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
+    Require(parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size(), "invalid_field", overflow);
+    return result;
+}
 }
 
 json CommitResult::ToJson() const {
@@ -60,19 +71,15 @@ CommitBatch ParseCommit(json wire) {
     Require(wire.is_object() && wire.contains("schemaVersion"), "missing_field", "schemaVersion");
     Require(wire["schemaVersion"].is_number_integer() && wire["schemaVersion"] == 2,
         "unsupported_version", "Only schemaVersion 2 is supported; the alpha v1 structural API was removed");
-    Fields(wire, {"schemaVersion", "surfaceId", "baseRevision", "rootChildren", "operations"}, {"correlationId", "childLists"});
+    Fields(wire, {"schemaVersion", "surfaceId", "baseRevision", "rootChildren", "operations"},
+        {"correlationId", "childLists", "eventsApplied"});
     Require(wire["surfaceId"].is_number_integer() && wire["surfaceId"] == 0,
         "unsupported_surface", "Only surfaceId 0 is supported");
     Require(wire["operations"].is_array(), "invalid_field", "operations must be an array");
     CommitBatch batch;
     {
-        Require(wire["baseRevision"].is_string(), "invalid_field", "baseRevision must be a canonical uint64 decimal string");
-        const auto& value = wire["baseRevision"].get_ref<const std::string&>();
-        Require(!value.empty() && (value == "0" || value.front() != '0') &&
-            value.find_first_not_of("0123456789") == std::string::npos,
-            "invalid_field", "baseRevision must be a canonical uint64 decimal string");
-        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), batch.baseRevision);
-        Require(parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size(), "invalid_field", "baseRevision exceeds uint64");
+        batch.baseRevision = ParseCounter(wire["baseRevision"], "baseRevision must be a canonical uint64 decimal string",
+            "baseRevision exceeds uint64");
         Require(wire["rootChildren"].is_array(), "invalid_field", "rootChildren must be an array");
         for (const auto& id : wire["rootChildren"]) batch.rootChildren.push_back(ParseNativeId(id));
     }
@@ -87,6 +94,9 @@ CommitBatch ParseCommit(json wire) {
             "invalid_field", "childLists must be \"complete\" or \"changed\"");
         batch.changedChildLists = mode == "changed";
     }
+    if (wire.contains("eventsApplied"))
+        batch.eventsApplied = ParseCounter(wire["eventsApplied"], "eventsApplied must be a canonical uint64 decimal string",
+            "eventsApplied exceeds uint64");
     for (auto& def : wire["operations"]) {
         try {
             Require(def.is_object() && def.contains("op"), "missing_field", "Operation requires op");

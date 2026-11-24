@@ -20,6 +20,7 @@
 #include "widget/lua_canvas.h"
 #include "widget/janet_canvas.h"
 #include "widget/map_view.h"
+#include "widget/input_text.h"
 
 using json = nlohmann::json;
 namespace {
@@ -330,6 +331,68 @@ TEST_F(XFramesTest, VisibleRevisionFollowsAppliedPublicationsOnly) {
     Publish();
     EXPECT_EQ(xf->VisibleRevision(), 2u);
     EXPECT_EQ(std::to_string(xf->VisibleRevision()), xf->GetCommitState()["nativeRevision"].get<std::string>());
+}
+
+// Controlled values: a commit's eventsApplied names the last widget event the
+// application had applied. An element edited after it keeps what the user typed;
+// any other shows the committed value, even when the commit does not patch it.
+namespace {
+json Applied(json wire, uint64_t events) { wire["eventsApplied"] = std::to_string(events); return wire; }
+}
+TEST_F(XFramesTest, ControlledValuesAreAdvertisedAndEventsAreNumbered) {
+    const auto features = xf->GetCommitState()["commitFeatures"];
+    EXPECT_NE(std::find(features.begin(), features.end(), "controlledValues"), features.end());
+    EXPECT_EQ(xf->LastEventSequence(), 0u);
+    EXPECT_EQ(xf->NoteWidgetEvent(0), 1u);
+    EXPECT_EQ(xf->NoteWidgetEvent(7), 2u);
+    EXPECT_EQ(xf->LastEventSequence(), 2u);
+    auto leadingZero = Wire(); leadingZero["eventsApplied"] = "01";
+    Reject(leadingZero, "invalid_field");
+    auto number = Wire(); number["eventsApplied"] = 3;
+    Reject(number, "invalid_field");
+}
+TEST_F(XFramesTest, ControlledValueIsShownWithoutUnacknowledgedEdits) {
+    const auto text = [&] { return static_cast<InputText*>(ElementAt(1))->m_value; };
+    auto created = xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}, {Create(1, "input-text", {{"value", "a"}})}), 0).dump());
+    ASSERT_EQ(created.status, "applied") << created.ToJson();
+    EXPECT_EQ(text(), "a");
+    // Nobody edited it: a patch is shown at once.
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}, {Patch(1, {{"value", "x"}})}), 0).dump()).status, "applied");
+    EXPECT_EQ(text(), "x");
+    EXPECT_EQ(ElementAt(1)->m_committedControlled, (json{{"value", "x"}}));
+}
+TEST_F(XFramesTest, EditAfterEventsAppliedKeepsTheUsersValueUntilAcknowledged) {
+    const auto input = [&] { return static_cast<InputText*>(ElementAt(1)); };
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}, {Create(1, "input-text", {{"value", ""}})}), 0).dump()).status, "applied");
+    // The user types "a" (event 1), then "ab" (event 2). A commit built after event 1 crosses event 2.
+    input()->SetValue("a"); const auto first = xf->NoteWidgetEvent(1);
+    input()->SetValue("ab"); const auto second = xf->NoteWidgetEvent(1);
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}, {Patch(1, {{"value", "a"}})}), first).dump()).status, "applied");
+    EXPECT_EQ(input()->m_value, "ab");
+    EXPECT_EQ(input()->m_committedControlled["value"], "a");
+    // The model rejected "ab" and kept "a": a commit acknowledging event 2, with no patch, restores it.
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}), second).dump()).status, "applied");
+    EXPECT_EQ(input()->m_value, "a");
+    EXPECT_TRUE(input()->m_reloadEditBuffer);
+    // Settled: with no new edit, a commit that does not touch it leaves it alone.
+    input()->m_value = "untouched";
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}), second).dump()).status, "applied");
+    EXPECT_EQ(input()->m_value, "untouched");
+}
+TEST_F(XFramesTest, ControlledValuesWithoutEventsAppliedAreIgnoredAsBefore) {
+    Publish({{0, {1}}, {1, {}}}, {Create(1, "input-text", {{"value", "a"}})});
+    EXPECT_EQ(static_cast<InputText*>(ElementAt(1))->m_value, "");
+    Publish({{0, {1}}, {1, {}}}, {Patch(1, {{"value", "b"}})});
+    EXPECT_EQ(static_cast<InputText*>(ElementAt(1))->m_value, "");
+    EXPECT_TRUE(ElementAt(1)->m_committedControlled.empty());
+}
+TEST_F(XFramesTest, DestroyingAnElementForgetsItsUnacknowledgedEdit) {
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}, {Create(1, "input-text", {{"value", "a"}})}), 0).dump()).status, "applied");
+    xf->NoteWidgetEvent(1);
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire(), 0).dump()).status, "applied");
+    // The ID comes back for a new input: the old edit does not hold its value back.
+    ASSERT_EQ(xf->ApplyCommit(Applied(Wire({{0, {1}}, {1, {}}}, {Create(1, "input-text", {{"value", "new"}})}), 0).dump()).status, "applied");
+    EXPECT_EQ(static_cast<InputText*>(ElementAt(1))->m_value, "new");
 }
 
 // "childLists": "changed" carries only the child lists that changed. An omitted

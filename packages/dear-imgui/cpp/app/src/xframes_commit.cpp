@@ -101,6 +101,19 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
             result.nativeSequence = ++m_nativeSequence;
             std::optional<size_t> operationIndex;
             try {
+                // With eventsApplied, controlled props are stored, not patched; the sync below
+                // decides whether each element shows them.
+                std::unordered_set<int> controlled;
+                const auto takeControlled = [&](int id, json& props) {
+                    if (!batch.eventsApplied) return;
+                    auto& element = *m_elements.at(id);
+                    for (const auto& name : element.ControlledProps()) {
+                        if (!props.contains(name)) continue;
+                        element.m_committedControlled[name] = props[name];
+                        props.erase(name);
+                        controlled.insert(id);
+                    }
+                };
                 // All creates precede patches, so forward references in the
                 // complete candidate have one unambiguous meaning.
                 for (auto kind : {CommitOp::Create, CommitOp::Patch}) {
@@ -113,12 +126,17 @@ CommitResult XFrames::ApplyCommitOperations(CommitBatch& batch) {
                         if (kind == CommitOp::Create) {
                             def["type"] = op.elementType;
                             CreateElementUnlocked(def);
-                        } else PatchElementUnlocked(def);
+                            takeControlled(op.id, def);
+                        } else {
+                            takeControlled(op.id, def);
+                            PatchElementUnlocked(def);
+                        }
                     }
                 }
                 operationIndex.reset();
                 if (batch.changedChildLists) ApplyChangedChildLists(changed, result.destroyedIds);
                 else ApplyCompleteChildLists(plan, result.destroyedIds);
+                if (batch.eventsApplied) SyncControlledUnlocked(*batch.eventsApplied, controlled);
                 // Revision and generation become visible with exactly this tree.
                 // Capture never reads a later publication's generation after drawing.
                 if (!m_frameScheduler.Invalidate(FrameReason::Publication))
@@ -224,12 +242,43 @@ void XFrames::ApplyChangedChildLists(const ChangedPublicationPlan& plan, std::ve
     }
 }
 
+// The controlled-values rule. An element edited after eventsApplied keeps what the user
+// typed: the application has not seen that edit, and its event will reach it. Any other
+// element that was patched, created or edited shows its committed controlled values, even
+// when this commit does not carry them, so a rejected or transformed edit is undone.
+void XFrames::SyncControlledUnlocked(uint64_t eventsApplied, const std::unordered_set<int>& touched) {
+    const std::lock_guard<std::mutex> lock(m_eventMutex);
+    std::unordered_set<int> candidates(touched);
+    for (const auto& [id, sequence] : m_unsyncedEdits) candidates.insert(id);
+    for (int id : candidates) {
+        if (const auto edit = m_unsyncedEdits.find(id); edit != m_unsyncedEdits.end()) {
+            if (edit->second > eventsApplied) continue;
+            m_unsyncedEdits.erase(edit);
+        }
+        const auto element = m_elements.find(id);
+        if (element == m_elements.end() || element->second->ControlledProps().empty()) continue;
+        element->second->ApplyControlled(element->second->m_committedControlled);
+    }
+}
+
+uint64_t XFrames::NoteWidgetEvent(int id) {
+    const std::lock_guard<std::mutex> lock(m_eventMutex);
+    const auto sequence = ++m_eventSequence;
+    if (id != 0) m_unsyncedEdits[id] = sequence;
+    return sequence;
+}
+
+uint64_t XFrames::LastEventSequence() {
+    const std::lock_guard<std::mutex> lock(m_eventMutex);
+    return m_eventSequence;
+}
+
 json XFrames::GetCommitState() {
     const std::lock_guard<std::mutex> lock(m_commitMutex);
     json state = {{"schemaVersion", 2}, {"surfaceId", 0}, {"initialized", !m_runtimeDisposed}, {"nativeSequence", std::to_string(m_nativeSequence)},
         {"nativeRevision", std::to_string(m_nativeRevision)},
         {"surfaceStatus", m_runtimeDisposed ? "disposed" : m_surfaceQuarantined ? "quarantined" : "healthy"}, {"managedCount", m_publicationOwnedIds.size()},
-        {"commitFeatures", json::array({"changedChildLists"})}};
+        {"commitFeatures", json::array({"changedChildLists", "controlledValues"})}};
     if (m_diagnosticsEnabled.load(std::memory_order_relaxed)) state["lastTransaction"] = m_lastCommitDiagnostics;
     return state;
 }

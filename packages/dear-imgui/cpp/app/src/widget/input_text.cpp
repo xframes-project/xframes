@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <string>
 #include <nlohmann/json.hpp>
 
@@ -7,6 +8,12 @@
 
 void InputText::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
+    if (m_reloadEditBuffer) {
+        // The input's ImGui ID is that of its empty label inside this ID scope. The state
+        // exists only while the input is being edited.
+        if (auto* state = ImGui::GetInputTextState(ImGui::GetID(""))) state->ReloadUserBufAndMoveToEnd();
+        m_reloadEditBuffer = false;
+    }
     if (m_multiline) {
         ImVec2 size(YGNodeLayoutGetWidth(m_layoutNode->m_node), YGNodeLayoutGetHeight(m_layoutNode->m_node));
         ImGui::InputTextMultiline("", &m_value, size, m_inputTextFlags, InputTextCb, (void*)this);

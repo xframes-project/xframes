@@ -81,6 +81,23 @@ class InputText final : public StyledWidget {
             m_value = value;
         }
 
+        // Set when a controlled value replaced the text: if the user is editing, ImGui's own
+        // edit buffer is reloaded on the next frame so it does not write the old text back.
+        bool m_reloadEditBuffer = false;
+
+        const std::vector<std::string>& ControlledProps() const override {
+            static const std::vector<std::string> props = {"value"};
+            return props;
+        }
+
+        void ApplyControlled(const json& values) override {
+            if (!values.contains("value") || !values["value"].is_string()) return;
+            const auto& value = values["value"].get_ref<const std::string&>();
+            if (value == m_value) return;
+            m_value = value;
+            m_reloadEditBuffer = true;
+        }
+
         void Init(const json& elementDef) override {
             Element::Init(elementDef);
 

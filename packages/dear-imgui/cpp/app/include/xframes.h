@@ -72,6 +72,14 @@ class XFrames {
         xframes::CommitResult ApplyCommitOperations(xframes::CommitBatch& batch);
         void ApplyCompleteChildLists(xframes::PublicationPlan& plan, std::vector<int>& destroyedIds);
         void ApplyChangedChildLists(const xframes::ChangedPublicationPlan& plan, std::vector<int>& destroyedIds);
+        // Widget events numbered by NoteWidgetEvent. m_unsyncedEdits holds, per element, the
+        // last event no commit has acknowledged yet. Taken last: after the tree locks, and
+        // after an embedder's own event lock.
+        std::mutex m_eventMutex;
+        uint64_t m_eventSequence = 0;
+        std::unordered_map<int, uint64_t> m_unsyncedEdits;
+        // Shows committed controlled values where the element has no unacknowledged edit.
+        void SyncControlledUnlocked(uint64_t eventsApplied, const std::unordered_set<int>& touched);
 
         std::unordered_map<std::string, std::function<std::unique_ptr<Element>(const json&, std::optional<WidgetStyle>, XFrames*)>> m_element_init_fn;
 
@@ -202,6 +210,11 @@ class XFrames {
         // advances, under the visibility locks. An event raised while a frame is built
         // belongs to this tree. Safe to read from any thread.
         uint64_t VisibleRevision() const { return m_visibleRevision.load(std::memory_order_acquire); }
+        // Numbers a widget event raised on element `id` (0 for none) and returns its sequence.
+        // An embedder that publishes with eventsApplied calls it for every widget event, in
+        // the order it queues them. Safe from any thread, including inside event callbacks.
+        uint64_t NoteWidgetEvent(int id);
+        uint64_t LastEventSequence();
 
 
 

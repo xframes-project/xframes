@@ -30,6 +30,10 @@ struct CommitBatch {
     // "childLists": "changed": an omitted child list is the previous one, and a created
     // node without an assignment has none. The default, "complete", needs every list.
     bool changedChildLists = false;
+    // "eventsApplied": the last widget event (XFrames::NoteWidgetEvent) applied to the
+    // state this tree was built from. With it, controlled properties are shown only on
+    // elements that were not edited after that event; absent, they are ignored as before.
+    std::optional<uint64_t> eventsApplied;
 };
 
 struct CommitError : std::runtime_error {

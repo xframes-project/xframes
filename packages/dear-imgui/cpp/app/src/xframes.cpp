@@ -245,6 +245,7 @@ json XFrames::BuildDiagnosticsStateUnlocked() {
         if (auto* text = dynamic_cast<ClippedMultiLineTextRenderer*>(element.get()))
             record["state"] = {{"byteCount", text->m_textBuffer.size()}, {"lineCount", text->m_lineOffsets.Size}};
         if (auto* table = dynamic_cast<VirtualTable*>(element.get())) record["state"] = table->GetDiagnosticsState();
+        if (auto* input = dynamic_cast<InputText*>(element.get())) record["state"] = {{"value", input->m_value}};
         if (auto* table = dynamic_cast<Table*>(element.get())) {
             record["state"] = {{"rowCount", table->m_data.size()}, {"columnCount", table->m_columns.size()},
                 {"filterDirty", table->m_filterDirty}, {"filteredCount", table->m_filteredIndices.size()},
@@ -859,6 +860,11 @@ void XFrames::DestroyElementUnlocked(const int id, std::vector<int>* destroyedId
     // Clean up per-widget reactive subject
     m_elementInternalOpsSubject.erase(id);
     m_diagnosticsLastInternalOpMs.erase(id);
+    {
+        // An edit of a destroyed element cannot hold back an element that reuses its ID.
+        const std::lock_guard<std::mutex> lock(m_eventMutex);
+        m_unsyncedEdits.erase(id);
+    }
 
     // Erase from element registry — triggers unique_ptr destructor chain:
     // LayoutNode::~LayoutNode frees YGNode,
