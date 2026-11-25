@@ -37,7 +37,6 @@ class TabItem final : public StyledWidget {
 public:
     std::string m_label;
     bool m_closeable = false;
-    bool m_open = true;
 
     static std::unique_ptr<TabItem> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
         auto id = widgetDef["id"].template get<int>();

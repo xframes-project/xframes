@@ -63,10 +63,13 @@ bool TabItem::HasCustomHeight() {
 void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     ImGui::PushID(m_id);
 
-    const bool wasOpen = m_open;
-    bool* pOpen = m_closeable ? &m_open : nullptr;
+    // Pressing the close button only reports it: the tab is open again next frame and stays,
+    // in its place and still selected, until the view removes it.
+    bool open = true;
+    bool* pOpen = m_closeable ? &open : nullptr;
+    const ImGuiTabItemFlags flags = m_closeable ? ImGuiTabItemFlags_NoAssumedClosure : ImGuiTabItemFlags_None;
 
-    if (ImGui::BeginTabItem(m_label.c_str(), pOpen)) {
+    if (ImGui::BeginTabItem(m_label.c_str(), pOpen, flags)) {
         m_layoutNode->SetDisplay(YGDisplayFlex);
 
         const float width = YGNodeLayoutGetWidth(m_layoutNode->m_node);
@@ -85,7 +88,7 @@ void TabItem::Render(XFrames* view, const std::optional<ImRect>& viewport) {
         m_layoutNode->SetDisplay(YGDisplayNone);
     }
 
-    if (m_closeable && wasOpen && !m_open) {
+    if (!open) {
         view->m_onBooleanValueChange(m_id, false);
     }
 

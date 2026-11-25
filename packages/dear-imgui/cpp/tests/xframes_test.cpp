@@ -692,6 +692,59 @@ TEST_F(XFramesQueueTest, NestedContainersComposeLayoutOrigins) {
 }
 
 namespace {
+std::vector<std::pair<int, bool>> g_booleanChanges;
+// The centre of the close button of the `index`th tab of the only tab bar, where ImGui draws it.
+ImVec2 TabCloseButtonCentre(int index) {
+    ImGuiContext& g = *ImGui::GetCurrentContext();
+    const ImGuiTabBar* bar = g.TabBars.GetByIndex(0);
+    const ImGuiTabItem& tab = bar->Tabs[index];
+    const float right = bar->BarRect.Min.x + tab.Offset - bar->ScrollingAnim + tab.Width;
+    return ImVec2(right - g.Style.FramePadding.x - g.FontSize / 2, bar->BarRect.Min.y + g.Style.FramePadding.y + g.FontSize / 2);
+}
+}
+
+// Closing a tab only reports it: the tab stays where it was, selected and showing its children,
+// until the view drops it, as an input shows the model's value.
+TEST_F(XFramesQueueTest, ClosedTabStaysUntilTheViewDropsIt) {
+    g_booleanChanges.clear();
+    xf->m_onBooleanValueChange = [](int id, bool value) { g_booleanChanges.emplace_back(id, value); };
+    const json fill = {{"flex", 1}, {"width", "100%"}};
+    Publish({{0, {1}}, {1, {2}}, {2, {3, 4}}, {3, {5}}, {4, {6}}, {5, {}}, {6, {}}}, {
+        Create(2, "tab-bar", {{"style", fill}}),
+        Create(3, "tab-item", {{"label", "One"}, {"closeable", true}, {"style", fill}}),
+        Create(4, "tab-item", {{"label", "Two"}, {"closeable", true}, {"style", fill}}),
+        Create(5, "unformatted-text", {{"text", "first"}}), Create(6, "unformatted-text", {{"text", "second"}})});
+    const auto frame = [&] { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); };
+    const auto shown = [&](int id) { return YGNodeStyleGetDisplay(ElementAt(id)->m_layoutNode->m_node) != YGDisplayNone; };
+    for (int i = 0; i < 3; ++i) frame();
+    ASSERT_TRUE(shown(3)) << "the first tab starts selected";
+    ASSERT_FALSE(shown(4));
+    const ImGuiTabBar* bar = ImGui::GetCurrentContext()->TabBars.GetByIndex(0);
+    ASSERT_EQ(bar->Tabs.Size, 2);
+    const ImGuiID first = bar->Tabs[0].ID;
+
+    auto& io = ImGui::GetIO();
+    const auto close = TabCloseButtonCentre(0);
+    io.AddMousePosEvent(close.x, close.y); frame();
+    io.AddMouseButtonEvent(0, true); frame();
+    io.AddMouseButtonEvent(0, false); frame();
+    io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+    for (int i = 0; i < 3; ++i) frame();
+    EXPECT_EQ(g_booleanChanges, (std::vector<std::pair<int, bool>>{{3, false}})) << "a close is reported once";
+    EXPECT_TRUE(shown(3)) << "the closed tab is still selected and shows its children";
+    EXPECT_FALSE(shown(4));
+    ASSERT_EQ(bar->Tabs.Size, 2);
+    EXPECT_EQ(bar->Tabs[0].ID, first) << "the closed tab keeps its place";
+    EXPECT_EQ(bar->SelectedTabId, first);
+
+    // The view drops the tab: the other tab is selected.
+    Publish({{0, {1}}, {1, {2}}, {2, {4}}, {4, {6}}, {6, {}}});
+    for (int i = 0; i < 3; ++i) frame();
+    EXPECT_TRUE(shown(4));
+    EXPECT_EQ(g_booleanChanges.size(), 1u);
+}
+
+namespace {
 // The size ImGui itself gives a bullet text, drawn in a frame of its own with the same frame padding.
 ImVec2 DrawnBulletTextSize(const std::string& text, std::optional<ImVec2> framePadding) {
     ImGui::NewFrame();
