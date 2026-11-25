@@ -21,6 +21,7 @@
 #include "widget/janet_canvas.h"
 #include "widget/map_view.h"
 #include "widget/input_text.h"
+#include "widget/tree_node.h"
 
 using json = nlohmann::json;
 namespace {
@@ -742,6 +743,133 @@ TEST_F(XFramesQueueTest, ClosedTabStaysUntilTheViewDropsIt) {
     for (int i = 0; i < 3; ++i) frame();
     EXPECT_TRUE(shown(4));
     EXPECT_EQ(g_booleanChanges.size(), 1u);
+}
+
+namespace {
+XFrames* g_clickedView = nullptr;
+std::vector<uint64_t> g_clickSequences;
+// As the C library queues a click: the event is numbered for the element it names.
+void NoteClick(int id) { g_clickSequences.push_back(g_clickedView->NoteWidgetEvent(id)); }
+}
+
+class TreeNodeFrameTest : public XFramesQueueTest {
+protected:
+    // The tree node is 2, the only child of the root; its child is the text 3.
+    void Commit(std::initializer_list<json> operations, std::optional<uint64_t> events) {
+        auto wire = Wire({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, operations);
+        if (events) wire = Applied(wire, *events);
+        const auto result = xf->ApplyCommit(wire.dump());
+        ASSERT_EQ(result.status, "applied") << result.ToJson();
+    }
+    void CreateNode(json props, std::optional<uint64_t> events) {
+        Commit({Create(2, "tree-node", props), Create(3, "unformatted-text", {{"text", "child"}})}, events);
+    }
+    TreeNode* Node() { return static_cast<TreeNode*>(ElementAt(2)); }
+    void Frames(int count = 3) {
+        for (int i = 0; i < count; ++i) { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); }
+    }
+    bool ChildShown() { return YGNodeStyleGetDisplay(ElementAt(3)->m_layoutNode->m_node) != YGDisplayNone; }
+    // Presses and releases the mouse on the node's header line, where ImGui draws it.
+    void ClickHeader() {
+        ImVec2 at(0, 0);
+        for (int id : {1, 2}) {
+            at.x += YGNodeLayoutGetLeft(ElementAt(id)->m_layoutNode->m_node);
+            at.y += YGNodeLayoutGetTop(ElementAt(id)->m_layoutNode->m_node);
+        }
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent(at.x + 40, at.y + ImGui::GetFontSize() / 2); Frames(1);
+        io.AddMouseButtonEvent(0, true); Frames(1);
+        io.AddMouseButtonEvent(0, false); Frames(1);
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX); Frames();
+    }
+    void SetUp() override {
+        XFramesQueueTest::SetUp();
+        g_clickedView = xf.get(); g_clickSequences.clear();
+        xf->m_onClick = NoteClick;
+    }
+};
+
+// A controlled tree node (ADR 0011 in xframes-core): a click is the user's edit. The node shows it
+// toggled, open and selected, until a commit says the application has seen the click. It then
+// shows the committed values, whether the application took the edit or not.
+TEST_F(TreeNodeFrameTest, ControlledTreeNodeShowsAClickUntilTheApplicationHasSeenIt) {
+    CreateNode({{"itemId", "a"}, {"label", "Node"}, {"selectable", true}, {"open", false}, {"selected", false}}, 0);
+    Frames();
+    EXPECT_FALSE(ChildShown()) << "a closed node hides its child";
+    ClickHeader();
+    ASSERT_EQ(g_clickSequences.size(), 1u) << "the click is reported once";
+    EXPECT_EQ(Node()->m_open, true) << "the click shows the node open at once";
+    EXPECT_EQ(Node()->m_selected, true) << "and selected";
+    EXPECT_TRUE(ChildShown());
+
+    // A commit built before the application saw the click does not undo it.
+    Commit({Patch(2, {{"label", "Renamed"}, {"open", false}, {"selected", false}})}, g_clickSequences[0] - 1);
+    Frames();
+    EXPECT_EQ(Node()->m_open, true);
+    EXPECT_EQ(Node()->m_selected, true);
+    EXPECT_TRUE(ChildShown());
+
+    // The application takes the click.
+    Commit({Patch(2, {{"open", true}, {"selected", true}})}, g_clickSequences[0]);
+    Frames();
+    EXPECT_EQ(Node()->m_open, true);
+    EXPECT_TRUE(ChildShown());
+
+    // A second click, which the application rejects: shown closed until the application has
+    // seen it, then open again although the commit carries no patch.
+    ClickHeader();
+    ASSERT_EQ(g_clickSequences.size(), 2u);
+    EXPECT_EQ(Node()->m_open, false);
+    EXPECT_EQ(Node()->m_selected, false);
+    EXPECT_FALSE(ChildShown());
+    Commit({}, g_clickSequences[1]);
+    Frames();
+    EXPECT_EQ(Node()->m_open, true) << "a rejected click is undone once the application has seen it";
+    EXPECT_EQ(Node()->m_selected, true);
+    EXPECT_TRUE(ChildShown());
+
+    // With no edit pending, the application's change is shown at once.
+    Commit({Patch(2, {{"open", false}, {"selected", false}})}, g_clickSequences[1]);
+    EXPECT_EQ(Node()->m_open, false);
+    EXPECT_EQ(Node()->m_selected, false);
+}
+
+// A node that is not selectable is never shown selected, by a click or by the application.
+TEST_F(TreeNodeFrameTest, ControlledTreeNodeThatIsNotSelectableIsNeverSelected) {
+    CreateNode({{"itemId", "a"}, {"label", "Node"}, {"selectable", false}, {"open", false}, {"selected", false}}, 0);
+    Frames();
+    ClickHeader();
+    ASSERT_EQ(g_clickSequences.size(), 1u);
+    EXPECT_EQ(Node()->m_open, true);
+    EXPECT_NE(Node()->m_selected, std::optional<bool>(true));
+    Commit({Patch(2, {{"selected", true}})}, g_clickSequences[0]);
+    EXPECT_NE(Node()->m_selected, std::optional<bool>(true));
+}
+
+// A patch of leaf turns an open node into a leaf, which shows nothing below it, and back.
+TEST_F(TreeNodeFrameTest, PatchingLeafTurnsANodeIntoALeafAndBack) {
+    CreateNode({{"itemId", "a"}, {"label", "Node"}, {"selectable", false}, {"open", true}, {"selected", false}, {"leaf", false}}, 0);
+    Frames();
+    EXPECT_TRUE(ChildShown());
+    Commit({Patch(2, {{"leaf", true}})}, 0);
+    Frames();
+    EXPECT_TRUE(Node()->m_leaf);
+    EXPECT_FALSE(ChildShown()) << "a leaf shows nothing below it";
+    Commit({Patch(2, {{"leaf", false}})}, 0);
+    Frames();
+    EXPECT_TRUE(ChildShown());
+}
+
+// Without eventsApplied, open and selected props hold as before: a click only reports.
+TEST_F(TreeNodeFrameTest, TreeNodePropsWithoutEventsAppliedHoldAsBefore) {
+    CreateNode({{"itemId", "a"}, {"label", "Node"}, {"selectable", true}, {"open", false}, {"selected", false}}, std::nullopt);
+    Frames();
+    ClickHeader();
+    ASSERT_EQ(g_clickSequences.size(), 1u);
+    EXPECT_EQ(Node()->m_open, false);
+    EXPECT_EQ(Node()->m_selected, false);
+    EXPECT_FALSE(ChildShown());
+    EXPECT_TRUE(Node()->m_committedControlled.empty());
 }
 
 namespace {

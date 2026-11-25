@@ -45,4 +45,13 @@ public:
     bool HasInternalOps() override;
 
     void HandleInternalOp(const json& opDef) override;
+
+    // Under controlled values a click is the user's edit: it toggles what the node shows, and
+    // the committed values return once the application has seen the click.
+    const std::vector<std::string>& ControlledProps() const override {
+        static const std::vector<std::string> props = {"open", "selected"};
+        return props;
+    }
+
+    void ApplyControlled(const json& values) override;
 };

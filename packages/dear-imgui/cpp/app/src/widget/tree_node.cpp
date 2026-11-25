@@ -74,12 +74,21 @@ void TreeNode::Render(XFrames* view, const std::optional<ImRect>& viewport) {
     if (ImGui::IsItemClicked()) {
         view->m_onClick(m_id);
 
+        // A value set by props is the application's. Under controlled values the click is the
+        // user's edit and is shown until the application has seen it; without them the click
+        // only reports, as before.
+        const bool controlled = !m_committedControlled.empty();
+
         if (!m_open.has_value()) {
             m_localOpen.emplace(!m_localOpen.value_or(false));
+        } else if (controlled) {
+            m_open = !m_open.value();
         }
 
         if (m_selectable && !m_selected.has_value()) {
             m_localSelected.emplace(!m_localSelected.value_or(false));
+        } else if (m_selectable && controlled) {
+            m_selected = !m_selected.value();
         }
     }
 
@@ -125,6 +134,10 @@ void TreeNode::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("open") && widgetPatchDef["open"].is_boolean()) {
         SetOpen(widgetPatchDef["open"].template get<bool>());
     }
+
+    if (widgetPatchDef.contains("leaf") && widgetPatchDef["leaf"].is_boolean()) {
+        SetLeaf(widgetPatchDef["leaf"].template get<bool>());
+    }
 };
 
 void TreeNode::SetSelectable(bool selectable) {
@@ -148,6 +161,16 @@ void TreeNode::SetOpen(bool open) {
 
 void TreeNode::SetLeaf(bool leaf) {
     m_leaf = leaf;
+};
+
+void TreeNode::ApplyControlled(const json& values) {
+    if (values.contains("open") && values["open"].is_boolean()) {
+        SetOpen(values["open"].template get<bool>());
+    }
+
+    if (values.contains("selected") && values["selected"].is_boolean()) {
+        SetSelected(values["selected"].template get<bool>());
+    }
 };
 
 bool TreeNode::HasCustomWidth() {
