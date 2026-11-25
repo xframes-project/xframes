@@ -691,6 +691,46 @@ TEST_F(XFramesQueueTest, NestedContainersComposeLayoutOrigins) {
     }
 }
 
+namespace {
+// The size ImGui itself gives a bullet text, drawn in a frame of its own with the same frame padding.
+ImVec2 DrawnBulletTextSize(const std::string& text, std::optional<ImVec2> framePadding) {
+    ImGui::NewFrame();
+    ImGui::Begin("bullet-text-oracle");
+    if (framePadding) ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, *framePadding);
+    ImGui::BulletText("%s", text.c_str());
+    if (framePadding) ImGui::PopStyleVar();
+    const auto size = ImGui::GetItemRectSize();
+    ImGui::End();
+    ImGui::EndFrame();
+    return size;
+}
+}
+
+// ImGui draws a bullet text with the bullet and twice the frame padding before its text, and an
+// empty one as the bullet alone. Yoga must lay it out at that size, or in a row the next sibling
+// is drawn over it.
+TEST_F(XFramesQueueTest, BulletTextIsLaidOutAtTheSizeImGuiDrawsIt) {
+    struct Case { const char* name; std::string text; std::optional<ImVec2> framePadding; };
+    for (const auto& c : {Case{"text", "Encrypt a file", std::nullopt}, Case{"empty", "", std::nullopt},
+                          Case{"its own frame padding", "Encrypt a file", ImVec2(11, 7)}}) {
+        SCOPED_TRACE(c.name);
+        json props = {{"text", c.text}};
+        // The style parser keeps a vector style variable only as unsigned integers.
+        if (c.framePadding) props["style"] = {{"vars", {{std::to_string(ImGuiStyleVar_FramePadding),
+            json::array({unsigned(c.framePadding->x), unsigned(c.framePadding->y)})}}}};
+        Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
+            Create(2, "node", {{"style", {{"flexDirection", "row"}}}}), Create(3, "bullet-text", props)});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        const auto* laidOut = ElementAt(3)->m_layoutNode->m_node;
+        const auto drawn = DrawnBulletTextSize(c.text, c.framePadding);
+        // Yoga rounds layout to whole pixels.
+        EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), drawn.x, 1.0f);
+        EXPECT_NEAR(YGNodeLayoutGetHeight(laidOut), drawn.y, 1.0f);
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
 TEST_F(XFramesQueueTest, ApplicationDiagnosticsReportRetainedHistoryAndMapOverlays) {
     Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
         Create(2, "plot-line", {{"dataPointsLimit", 2}}),
