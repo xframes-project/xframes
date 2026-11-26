@@ -22,6 +22,7 @@
 #include "widget/map_view.h"
 #include "widget/input_text.h"
 #include "widget/tree_node.h"
+#include "widget/checkbox.h"
 #include "widget/text.h"
 
 using json = nlohmann::json;
@@ -874,6 +875,95 @@ TEST_F(TreeNodeFrameTest, TreeNodePropsWithoutEventsAppliedHoldAsBefore) {
 }
 
 namespace {
+// As the C library queues a boolean change: the event is numbered for the element it names.
+std::vector<uint64_t> g_toggleSequences;
+void NoteToggle(int id, bool) { g_toggleSequences.push_back(g_clickedView->NoteWidgetEvent(id)); }
+}
+
+class CheckboxFrameTest : public XFramesQueueTest {
+protected:
+    // The checkbox is 2, the only child of the root.
+    void Commit(std::initializer_list<json> operations, std::optional<uint64_t> events) {
+        auto wire = Wire({{0, {1}}, {1, {2}}, {2, {}}}, operations);
+        if (events) wire = Applied(wire, *events);
+        const auto result = xf->ApplyCommit(wire.dump());
+        ASSERT_EQ(result.status, "applied") << result.ToJson();
+    }
+    Checkbox* Box() { return static_cast<Checkbox*>(ElementAt(2)); }
+    void Frames(int count = 3) {
+        for (int i = 0; i < count; ++i) { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); }
+    }
+    // Presses and releases the mouse on the checkbox's square, where ImGui draws it.
+    void ClickBox() {
+        ImVec2 at(0, 0);
+        for (int id : {1, 2}) {
+            at.x += YGNodeLayoutGetLeft(ElementAt(id)->m_layoutNode->m_node);
+            at.y += YGNodeLayoutGetTop(ElementAt(id)->m_layoutNode->m_node);
+        }
+        const float half = ImGui::GetFrameHeight() / 2;
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent(at.x + half, at.y + half); Frames(1);
+        io.AddMouseButtonEvent(0, true); Frames(1);
+        io.AddMouseButtonEvent(0, false); Frames(1);
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX); Frames();
+    }
+    void SetUp() override {
+        XFramesQueueTest::SetUp();
+        g_clickedView = xf.get(); g_toggleSequences.clear();
+        xf->m_onBooleanValueChange = NoteToggle;
+    }
+};
+
+// A controlled checkbox (ADR 0011 in xframes-core): a click is the user's edit. The checkbox shows
+// it toggled until a commit says the application has seen the click, and then shows the committed
+// value, whether the application took the edit or not.
+TEST_F(CheckboxFrameTest, ControlledCheckboxShowsAClickUntilTheApplicationHasSeenIt) {
+    Commit({Create(2, "checkbox", {{"label", "Wrap"}, {"checked", false}})}, 0);
+    Frames();
+    EXPECT_FALSE(Box()->m_checked);
+    ClickBox();
+    ASSERT_EQ(g_toggleSequences.size(), 1u) << "the click is reported once";
+    EXPECT_TRUE(Box()->m_checked) << "the click shows the checkbox checked at once";
+
+    // A commit built before the application saw the click does not undo it.
+    Commit({Patch(2, {{"label", "Wrap lines"}, {"checked", false}})}, g_toggleSequences[0] - 1);
+    Frames();
+    EXPECT_TRUE(Box()->m_checked);
+    EXPECT_EQ(Box()->m_label, "Wrap lines");
+
+    // The application takes the click.
+    Commit({Patch(2, {{"checked", true}})}, g_toggleSequences[0]);
+    Frames();
+    EXPECT_TRUE(Box()->m_checked);
+
+    // A second click, which the application rejects: shown unchecked until the application has
+    // seen it, then checked again although the commit carries no patch.
+    ClickBox();
+    ASSERT_EQ(g_toggleSequences.size(), 2u);
+    EXPECT_FALSE(Box()->m_checked);
+    Commit({}, g_toggleSequences[1]);
+    Frames();
+    EXPECT_TRUE(Box()->m_checked) << "a rejected click is undone once the application has seen it";
+
+    // With no edit pending, the application's change is shown at once.
+    Commit({Patch(2, {{"checked", false}})}, g_toggleSequences[1]);
+    EXPECT_FALSE(Box()->m_checked);
+}
+
+// Without eventsApplied, checked set by props holds as a plain property: created and patched.
+TEST_F(CheckboxFrameTest, CheckboxCheckedWithoutEventsAppliedIsAProperty) {
+    Commit({Create(2, "checkbox", {{"label", "Wrap"}, {"checked", true}})}, std::nullopt);
+    EXPECT_TRUE(Box()->m_checked);
+    Commit({Patch(2, {{"checked", false}})}, std::nullopt);
+    EXPECT_FALSE(Box()->m_checked);
+    EXPECT_TRUE(Box()->m_committedControlled.empty());
+    // defaultChecked still seeds a checkbox created without checked.
+    ASSERT_EQ(xf->ApplyCommit(Wire({{0, {1}}, {1, {}}}).dump()).status, "applied");
+    Commit({Create(2, "checkbox", {{"label", "Other"}, {"defaultChecked", true}})}, std::nullopt);
+    EXPECT_TRUE(Box()->m_checked);
+}
+
+namespace {
 // What ImGui itself gives one widget, drawn in a frame of its own: the item's rectangle, and the
 // size it reserves for layout, which for a widget that draws to the edge of its window, such as a
 // separator text, is its minimum.
@@ -1093,6 +1183,46 @@ TEST_F(XFramesQueueTest, ItemTooltipShowsItsChildrenWhileThePreviousItemIsHovere
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     frames(3);
     EXPECT_EQ(tooltip(), nullptr);
+}
+
+// ImGui draws a checkbox as its square, then its label after the item inner spacing, as tall as
+// the frame. Yoga must lay it out at that size, or in a row the next sibling is drawn over its
+// label. A label shows, and is sized, only up to a "##".
+TEST_F(XFramesQueueTest, CheckboxIsLaidOutAtTheSizeImGuiDrawsIt) {
+    struct Case { const char* name; std::string label; std::optional<std::pair<ImGuiStyleVar, ImVec2>> styleVar; };
+    for (const auto& c : {Case{"label", "Wrap lines", std::nullopt}, Case{"empty", "", std::nullopt},
+                          Case{"hidden id", "Wrap##wrap", std::nullopt},
+                          Case{"its own frame padding", "Wrap lines", std::pair{ImGuiStyleVar_FramePadding, ImVec2(11, 7)}},
+                          Case{"its own inner spacing", "Wrap lines", std::pair{ImGuiStyleVar_ItemInnerSpacing, ImVec2(13, 5)}}}) {
+        SCOPED_TRACE(c.name);
+        json props = {{"label", c.label}};
+        if (c.styleVar) props["style"] = StyleWithVar(c.styleVar->first, c.styleVar->second);
+        Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
+            Create(2, "node", {{"style", {{"flexDirection", "row"}}}}), Create(3, "checkbox", props)});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        const auto* laidOut = ElementAt(3)->m_layoutNode->m_node;
+        bool checked = false;
+        // The engine pushes the checkbox's id, so an empty label is not an empty id.
+        const auto drawn = DrawnByImGui([&] { ImGui::PushID(3); ImGui::Checkbox(c.label.c_str(), &checked); ImGui::PopID(); }, c.styleVar).item;
+        // Yoga rounds layout to whole pixels.
+        EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), drawn.x, 1.0f);
+        EXPECT_NEAR(YGNodeLayoutGetHeight(laidOut), drawn.y, 1.0f);
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
+// A new label is measured again: the checkbox is laid out at the new label's width.
+TEST_F(XFramesQueueTest, CheckboxIsMeasuredAgainWhenItsLabelChanges) {
+    Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
+        Create(2, "node", {{"style", {{"flexDirection", "row"}}}}), Create(3, "checkbox", {{"label", "A"}})});
+    const auto frame = [&] { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); };
+    frame();
+    Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {Patch(3, {{"label", "A much longer label"}})});
+    frame();
+    bool checked = false;
+    const auto drawn = DrawnByImGui([&] { ImGui::Checkbox("A much longer label", &checked); }).item;
+    EXPECT_NEAR(YGNodeLayoutGetWidth(ElementAt(3)->m_layoutNode->m_node), drawn.x, 1.0f);
 }
 
 TEST_F(XFramesQueueTest, ApplicationDiagnosticsReportRetainedHistoryAndMapOverlays) {

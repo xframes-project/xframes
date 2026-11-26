@@ -19,4 +19,8 @@ void Checkbox::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("label") && widgetPatchDef["label"].is_string()) {
         m_label = widgetPatchDef["label"].template get<std::string>();
     }
+
+    if (widgetPatchDef.contains("checked") && widgetPatchDef["checked"].is_boolean()) {
+        m_checked = widgetPatchDef["checked"].template get<bool>();
+    }
 };
