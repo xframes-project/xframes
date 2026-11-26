@@ -75,12 +75,8 @@ if(WIN32)
     target_link_libraries(janet_core PRIVATE ws2_32)
 endif()
 
-# Auto-copy core image for WASM builds
-add_custom_command(TARGET janet_core POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/generated"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${JANET_IMAGE_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated/janet_core_image.c"
-    COMMENT "Copying Janet core image to app/generated/ for WASM"
-)
+# The image stays in the build directory: it names the source path it was built from, so a
+# copy into app/generated/ would change the committed one. See app/generated/README.md.
 
 file(GLOB LEPTONICA_SRC "${DEPS}/osm-static-map-generator/cpp/deps/leptonica/src/*.c")
 

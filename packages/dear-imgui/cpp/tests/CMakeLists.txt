@@ -76,12 +76,8 @@ elseif(UNIX)
     target_link_libraries(janet_core PUBLIC m)
 endif()
 
-# Auto-copy core image for WASM builds
-add_custom_command(TARGET janet_core POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/../app/generated"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${JANET_IMAGE_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/../app/generated/janet_core_image.c"
-    COMMENT "Copying Janet core image to app/generated/ for WASM"
-)
+# The image stays in the build directory: it names the source path it was built from, so a
+# copy into app/generated/ would change the committed one. See app/generated/README.md.
 
 set(CMAKE_CXX_STANDARD 23)
 
