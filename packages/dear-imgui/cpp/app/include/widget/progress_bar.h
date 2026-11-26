@@ -19,18 +19,24 @@ public:
         return std::make_unique<ProgressBar>(view, id, fraction, overlay, maybeStyle);
     }
 
+    // A bar has a natural width of ten font sizes, like a combo or a text input, so in a row it
+    // leaves room for its siblings; a width it is given exactly, as a stretched column item, it
+    // fills. Render draws it at the laid-out width and one frame tall, in the widget's own style.
     static YGSize Measure(YGNodeConstRef node, float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode) {
         YGSize size{};
         const auto context = YGNodeGetContext(node);
         if (context) {
             const auto widget = static_cast<ProgressBar*>(context);
 
-            if (widthMode == YGMeasureModeExactly || widthMode == YGMeasureModeAtMost) {
+            const float natural = widget->m_view->GetWidgetFontSize(widget) * 10.0f;
+            if (widthMode == YGMeasureModeExactly) {
                 size.width = width;
+            } else if (widthMode == YGMeasureModeAtMost) {
+                size.width = std::min(natural, width);
             } else {
-                size.width = 0;
+                size.width = natural;
             }
-            size.height = widget->m_view->GetWidgetFontSize(widget) + ImGui::GetStyle().FramePadding.y * 2.0f;
+            size.height = widget->m_view->GetFrameHeight(widget);
         }
 
         return size;

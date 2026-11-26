@@ -1341,6 +1341,47 @@ TEST_F(XFramesQueueTest, CheckboxIsMeasuredAgainWhenItsLabelChanges) {
     EXPECT_NEAR(YGNodeLayoutGetWidth(ElementAt(3)->m_layoutNode->m_node), drawn.x, 1.0f);
 }
 
+// A progress bar is drawn at the width it is laid out with, so it must be laid out with one: given
+// no width, as in a row, it is ten font sizes wide, and the next sibling starts after it. Given a
+// width, as in a column, it fills it. It is one frame tall, with its own frame padding. The oracle
+// is the engine's own bar, drawn in a frame of its own.
+TEST_F(XFramesQueueTest, ProgressBarIsLaidOutAtTheSizeItIsDrawn) {
+    struct Case { const char* name; json containerStyle; std::optional<std::pair<ImGuiStyleVar, ImVec2>> styleVar; };
+    float unstyledHeight = 0.0f;
+    for (const auto& c : {Case{"in a row", {{"flexDirection", "row"}}, std::nullopt},
+                          Case{"in a column of width 400", {{"width", 400}}, std::nullopt},
+                          Case{"its own frame padding", {{"flexDirection", "row"}}, std::pair{ImGuiStyleVar_FramePadding, ImVec2(11, 7)}}}) {
+        SCOPED_TRACE(c.name);
+        json props = {{"fraction", 0.5}};
+        if (c.styleVar) props["style"] = StyleWithVar(c.styleVar->first, c.styleVar->second);
+        Publish({{0, {1}}, {1, {2}}, {2, {3, 4}}, {3, {}}, {4, {}}}, {
+            Create(2, "node", {{"style", c.containerStyle}}), Create(3, "progress-bar", props),
+            Create(4, "unformatted-text", {{"text", "Copying"}})});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        auto* bar = ElementAt(3);
+        const auto* laidOut = bar->m_layoutNode->m_node;
+        float fontSize = 0.0f;
+        const auto drawn = DrawnByImGui([&] {
+            fontSize = ImGui::GetFontSize();
+            bar->PreRender(xf.get()); bar->Render(xf.get(), std::nullopt); bar->PostRender(xf.get());
+        }).item;
+        // Yoga rounds layout to whole pixels.
+        EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), drawn.x, 1.0f) << "drawn at the width it is laid out with";
+        EXPECT_NEAR(YGNodeLayoutGetHeight(laidOut), drawn.y, 1.0f) << "drawn at the height it is laid out with";
+        if (std::string(c.name) == "in a column of width 400") {
+            EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), 400.0f, 1.0f) << "a given width is filled";
+        } else {
+            EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), fontSize * 10, 1.0f) << "with no width given, ten font sizes";
+            EXPECT_GE(YGNodeLayoutGetLeft(ElementAt(4)->m_layoutNode->m_node),
+                      YGNodeLayoutGetLeft(laidOut) + YGNodeLayoutGetWidth(laidOut) - 0.5f) << "the next sibling starts after it";
+        }
+        if (!c.styleVar && unstyledHeight == 0.0f) unstyledHeight = YGNodeLayoutGetHeight(laidOut);
+        if (c.styleVar) EXPECT_GT(YGNodeLayoutGetHeight(laidOut), unstyledHeight + 1.0f) << "its own padding is measured";
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
 TEST_F(XFramesQueueTest, ApplicationDiagnosticsReportRetainedHistoryAndMapOverlays) {
     Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
         Create(2, "plot-line", {{"dataPointsLimit", 2}}),
