@@ -33,6 +33,9 @@ class LayoutNode {
         }
     }
 
+    // Set for a node drawn outside the flow of its siblings, such as a tooltip. A style reset keeps it.
+    bool m_outOfFlow = false;
+
     public:
         YGNodeRef m_node;
 
@@ -62,6 +65,13 @@ class LayoutNode {
         }
 
         void ResetStyle() const;
+
+        // Takes the node out of the flow of its siblings for good: they are laid out as if it were not
+        // there, and a style reset leaves it out. A style that sets positionType still applies over it.
+        void TakeOutOfFlow() {
+            m_outOfFlow = true;
+            SetPositionType(YGPositionTypeAbsolute);
+        }
 
         void SetDirection(const YGDirection direction) const {
             YGNodeStyleSetDirection(m_node, direction);

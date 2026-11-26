@@ -44,6 +44,7 @@ size_t LayoutNode::GetChildCount() const {
 // We achive this by copying the default/blank style from a globally defined blank node into the current node
 void LayoutNode::ResetStyle() const {
     YGNodeCopyStyle(m_node, blankNode);
+    if (m_outOfFlow) SetPositionType(YGPositionTypeAbsolute);
 };
 
 void LayoutNode::ApplyStyle(const json& styleDef) const {

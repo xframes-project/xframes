@@ -1025,6 +1025,76 @@ TEST_F(XFramesQueueTest, SeparatorTextIsLaidOutAtTheSizeImGuiDrawsIt) {
     }
 }
 
+// An item tooltip is drawn in a tooltip window of its own, over everything else, so it must take
+// no space where it sits among its siblings: the sibling after it is laid out as if it were not
+// there, gap included, in a column and in a row.
+TEST_F(XFramesQueueTest, ItemTooltipTakesNoSpaceAmongItsSiblings) {
+    struct Case { const char* name; json style; bool row; };
+    for (const auto& c : {Case{"column", {{"gap", {{"row", 10}}}}, false},
+                          Case{"row", {{"flexDirection", "row"}, {"gap", {{"column", 10}}}}, true}}) {
+        SCOPED_TRACE(c.name);
+        Publish({{0, {1}}, {1, {2}}, {2, {3, 4, 6}}, {3, {}}, {4, {5}}, {5, {}}, {6, {}}}, {
+            Create(2, "node", {{"style", c.style}}), Create(3, "di-button", {{"label", "Save"}}), Create(4, "item-tooltip"),
+            Create(5, "unformatted-text", {{"text", "Saves the file\nto disk"}}), Create(6, "unformatted-text", {{"text", "Next"}})});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        const auto* button = ElementAt(3)->m_layoutNode->m_node;
+        const auto* next = ElementAt(6)->m_layoutNode->m_node;
+        if (c.row) EXPECT_NEAR(YGNodeLayoutGetLeft(next), YGNodeLayoutGetLeft(button) + YGNodeLayoutGetWidth(button) + 10, 1.0f);
+        else EXPECT_NEAR(YGNodeLayoutGetTop(next), YGNodeLayoutGetTop(button) + YGNodeLayoutGetHeight(button) + 10, 1.0f);
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
+// ImGui shows an item tooltip while the item drawn before it is hovered. Its children are drawn
+// inside the tooltip window from the window's padding, as ImGui draws a tooltip's contents.
+TEST_F(XFramesQueueTest, ItemTooltipShowsItsChildrenWhileThePreviousItemIsHovered) {
+    const std::string tip = "Saves the file";
+    Publish({{0, {1}}, {1, {2}}, {2, {3, 4, 6}}, {3, {}}, {4, {5}}, {5, {}}, {6, {}}}, {
+        Create(2, "node"), Create(3, "di-button", {{"label", "Save"}}), Create(4, "item-tooltip"),
+        Create(5, "unformatted-text", {{"text", tip}}), Create(6, "di-button", {{"label", "Other"}})});
+    const auto frames = [&](int count) {
+        for (int i = 0; i < count; ++i) { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); }
+    };
+    const auto tooltip = [&]() -> ImGuiWindow* {
+        for (auto* window : ImGui::GetCurrentContext()->Windows)
+            if ((window->Flags & ImGuiWindowFlags_Tooltip) && window->Active) return window;
+        return nullptr;
+    };
+    const auto center = [&](int id) {
+        ImVec2 at(0, 0);
+        for (int each : {1, 2, id}) {
+            at.x += YGNodeLayoutGetLeft(ElementAt(each)->m_layoutNode->m_node);
+            at.y += YGNodeLayoutGetTop(ElementAt(each)->m_layoutNode->m_node);
+        }
+        const auto* node = ElementAt(id)->m_layoutNode->m_node;
+        return ImVec2(at.x + YGNodeLayoutGetWidth(node) / 2, at.y + YGNodeLayoutGetHeight(node) / 2);
+    };
+    auto& io = ImGui::GetIO();
+    frames(3);
+    EXPECT_EQ(tooltip(), nullptr) << "nothing is hovered";
+    const auto top = [&](int id) { return YGNodeLayoutGetTop(ElementAt(id)->m_layoutNode->m_node); };
+    const auto otherTop = top(6);
+    EXPECT_NEAR(otherTop, top(3) + YGNodeLayoutGetHeight(ElementAt(3)->m_layoutNode->m_node), 1.0f);
+
+    io.AddMousePosEvent(center(3).x, center(3).y);
+    frames(60);
+    const auto* shown = tooltip();
+    ASSERT_NE(shown, nullptr) << "hovering the button shows its tooltip";
+    const auto size = ImGui::CalcTextSize(tip.c_str());
+    EXPECT_NEAR(shown->DC.CursorMaxPos.x - shown->DC.CursorStartPos.x, size.x, 1.0f) << "the text starts at the window padding";
+    EXPECT_NEAR(shown->DC.CursorMaxPos.y - shown->DC.CursorStartPos.y, size.y, 1.0f);
+    EXPECT_NEAR(top(6), otherTop, 0.5f) << "a hover restyles the tooltip and it still takes no space";
+
+    io.AddMousePosEvent(center(6).x, center(6).y);
+    frames(60);
+    EXPECT_EQ(tooltip(), nullptr) << "the tooltip follows the item before it, not the one after";
+
+    io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+    frames(3);
+    EXPECT_EQ(tooltip(), nullptr);
+}
+
 TEST_F(XFramesQueueTest, ApplicationDiagnosticsReportRetainedHistoryAndMapOverlays) {
     Publish({{0, {1}}, {1, {2, 3, 4}}, {2, {}}, {3, {}}, {4, {}}}, {
         Create(2, "plot-line", {{"dataPointsLimit", 2}}),
