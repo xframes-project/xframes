@@ -22,6 +22,7 @@
 #include "widget/map_view.h"
 #include "widget/input_text.h"
 #include "widget/tree_node.h"
+#include "widget/text.h"
 
 using json = nlohmann::json;
 namespace {
@@ -873,17 +874,27 @@ TEST_F(TreeNodeFrameTest, TreeNodePropsWithoutEventsAppliedHoldAsBefore) {
 }
 
 namespace {
-// The size ImGui itself gives a bullet text, drawn in a frame of its own with the same frame padding.
-ImVec2 DrawnBulletTextSize(const std::string& text, std::optional<ImVec2> framePadding) {
+// What ImGui itself gives one widget, drawn in a frame of its own: the item's rectangle, and the
+// size it reserves for layout, which for a widget that draws to the edge of its window, such as a
+// separator text, is its minimum.
+struct Drawn { ImVec2 item; ImVec2 reserved; };
+Drawn DrawnByImGui(const std::function<void()>& draw, std::optional<std::pair<ImGuiStyleVar, ImVec2>> styleVar = std::nullopt) {
     ImGui::NewFrame();
-    ImGui::Begin("bullet-text-oracle");
-    if (framePadding) ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, *framePadding);
-    ImGui::BulletText("%s", text.c_str());
-    if (framePadding) ImGui::PopStyleVar();
-    const auto size = ImGui::GetItemRectSize();
+    ImGui::Begin("imgui-oracle");
+    if (styleVar) ImGui::PushStyleVar(styleVar->first, styleVar->second);
+    const auto* window = ImGui::GetCurrentWindow();
+    const ImVec2 start = window->DC.CursorPos;
+    draw();
+    const Drawn drawn{ImGui::GetItemRectSize(), {window->DC.CursorMaxPos.x - start.x, window->DC.CursorMaxPos.y - start.y}};
+    if (styleVar) ImGui::PopStyleVar();
     ImGui::End();
     ImGui::EndFrame();
-    return size;
+    return drawn;
+}
+
+// A style that sets one vector style variable. The style parser keeps one only as unsigned integers.
+json StyleWithVar(ImGuiStyleVar var, ImVec2 value) {
+    return {{"vars", {{std::to_string(var), json::array({unsigned(value.x), unsigned(value.y)})}}}};
 }
 }
 
@@ -896,18 +907,120 @@ TEST_F(XFramesQueueTest, BulletTextIsLaidOutAtTheSizeImGuiDrawsIt) {
                           Case{"its own frame padding", "Encrypt a file", ImVec2(11, 7)}}) {
         SCOPED_TRACE(c.name);
         json props = {{"text", c.text}};
-        // The style parser keeps a vector style variable only as unsigned integers.
-        if (c.framePadding) props["style"] = {{"vars", {{std::to_string(ImGuiStyleVar_FramePadding),
-            json::array({unsigned(c.framePadding->x), unsigned(c.framePadding->y)})}}}};
+        if (c.framePadding) props["style"] = StyleWithVar(ImGuiStyleVar_FramePadding, *c.framePadding);
         Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
             Create(2, "node", {{"style", {{"flexDirection", "row"}}}}), Create(3, "bullet-text", props)});
         xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
         ASSERT_TRUE(xf->Render(900, 700));
         const auto* laidOut = ElementAt(3)->m_layoutNode->m_node;
-        const auto drawn = DrawnBulletTextSize(c.text, c.framePadding);
+        std::optional<std::pair<ImGuiStyleVar, ImVec2>> styleVar;
+        if (c.framePadding) styleVar = {{ImGuiStyleVar_FramePadding, *c.framePadding}};
+        const auto drawn = DrawnByImGui([&] { ImGui::BulletText("%s", c.text.c_str()); }, styleVar).item;
         // Yoga rounds layout to whole pixels.
         EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), drawn.x, 1.0f);
         EXPECT_NEAR(YGNodeLayoutGetHeight(laidOut), drawn.y, 1.0f);
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
+// ImGui draws text containing line breaks one line high per line. Every text widget must be laid
+// out that tall, or in a column the next sibling is drawn over its later lines.
+TEST_F(XFramesQueueTest, MultiLineTextIsLaidOutAsTallAsImGuiDrawsIt) {
+    const std::string text = "Encrypt\na file\n\nand sign it";
+    struct Case { const char* type; std::function<void()> draw; };
+    for (const auto& c : {Case{"unformatted-text", [&] { ImGui::TextUnformatted(text.c_str()); }},
+                          Case{"disabled-text", [&] { ImGui::TextDisabled("%s", text.c_str()); }},
+                          Case{"bullet-text", [&] { ImGui::BulletText("%s", text.c_str()); }}}) {
+        SCOPED_TRACE(c.type);
+        Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
+            Create(2, "node", {{"style", {{"flexDirection", "row"}}}}), Create(3, c.type, {{"text", text}})});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        const auto* laidOut = ElementAt(3)->m_layoutNode->m_node;
+        const auto drawn = DrawnByImGui(c.draw).item;
+        ASSERT_GT(drawn.y, ImGui::GetFontSize() * 3) << "the oracle draws four lines";
+        EXPECT_NEAR(YGNodeLayoutGetWidth(laidOut), drawn.x, 1.0f);
+        EXPECT_NEAR(YGNodeLayoutGetHeight(laidOut), drawn.y, 1.0f);
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
+// Inside a text-wrap ImGui wraps text at the wrap position, which it gives as a position in the
+// enclosing window, so the width it wraps at depends on where the text is drawn. The text learns it
+// when it is drawn and is laid out again: from the next frame on it is as tall as ImGui draws it.
+TEST_F(XFramesQueueTest, WrappedTextIsLaidOutAsTallAsImGuiDrawsIt) {
+    const std::string text = "Encrypt a file with a key that only its recipient holds, then sign it";
+    const float wrapAt = 200.0f, indent = 30.0f;
+    struct Case { const char* type; std::function<void()> draw; };
+    for (const auto& c : {Case{"unformatted-text", [&] { ImGui::TextUnformatted(text.c_str()); }},
+                          Case{"disabled-text", [&] { ImGui::TextDisabled("%s", text.c_str()); }}}) {
+        SCOPED_TRACE(c.type);
+        Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {4, 5}}, {4, {}}, {5, {}}}, {
+            Create(2, "node", {{"style", {{"padding", {{"left", indent}}}}}}), Create(3, "text-wrap", {{"width", wrapAt}}),
+            Create(4, c.type, {{"text", text}}), Create(5, "unformatted-text", {{"text", "Next"}})});
+        for (int frame = 0; frame < 3; ++frame) {
+            xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+            ASSERT_TRUE(xf->Render(900, 700));
+        }
+        const auto* laidOut = ElementAt(4)->m_layoutNode->m_node;
+        // The text starts indent into the node's window, so ImGui wraps it that much short of wrapAt.
+        EXPECT_EQ(static_cast<Text*>(ElementAt(4))->m_wrapWidth, wrapAt - indent);
+        const auto drawn = DrawnByImGui([&] {
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrapAt - indent);
+            c.draw();
+            ImGui::PopTextWrapPos();
+        }).item;
+        ASSERT_GT(drawn.y, ImGui::GetFontSize() * 2) << "the oracle wraps the text";
+        // Its width is not checked: a column stretches its children across.
+        EXPECT_NEAR(YGNodeLayoutGetHeight(laidOut), drawn.y, 1.0f);
+        EXPECT_NEAR(YGNodeLayoutGetTop(ElementAt(5)->m_layoutNode->m_node), drawn.y, 1.0f) << "the next sibling is below it";
+
+        // Out of the text-wrap it is one line again.
+        Publish({{0, {1}}, {1, {2}}, {2, {4}}, {4, {}}}, {});
+        for (int frame = 0; frame < 3; ++frame) {
+            xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+            ASSERT_TRUE(xf->Render(900, 700));
+        }
+        EXPECT_NEAR(YGNodeLayoutGetHeight(ElementAt(4)->m_layoutNode->m_node), ImGui::GetFontSize(), 1.0f);
+        Publish({{0, {1}}, {1, {}}});
+    }
+}
+
+// ImGui reserves a separator text its label and the separator text padding around it, and draws
+// its line on to the edge of the window. Yoga lays it out as tall as that, at that minimum width
+// where nothing stretches it, and across the width its parent gives it where something does.
+TEST_F(XFramesQueueTest, SeparatorTextIsLaidOutAtTheSizeImGuiDrawsIt) {
+    struct Case { const char* name; std::string label; std::optional<ImVec2> padding; };
+    for (const auto& c : {Case{"label", "Settings", std::nullopt}, Case{"empty", "", std::nullopt},
+                          Case{"two lines", "Network\nsettings", std::nullopt},
+                          Case{"text after ## hidden", "Settings##network", std::nullopt},
+                          Case{"its own padding", "Settings", ImVec2(11, 7)}}) {
+        SCOPED_TRACE(c.name);
+        json props = {{"label", c.label}};
+        if (c.padding) props["style"] = StyleWithVar(ImGuiStyleVar_SeparatorTextPadding, *c.padding);
+        std::optional<std::pair<ImGuiStyleVar, ImVec2>> styleVar;
+        if (c.padding) styleVar = {{ImGuiStyleVar_SeparatorTextPadding, *c.padding}};
+        const auto drawn = DrawnByImGui([&] { ImGui::SeparatorText(c.label.c_str()); }, styleVar);
+
+        // In a row nothing stretches it across: its minimum width.
+        Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
+            Create(2, "node", {{"style", {{"flexDirection", "row"}}}}), Create(3, "separator-text", props)});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        const auto* inRow = ElementAt(3)->m_layoutNode->m_node;
+        EXPECT_NEAR(YGNodeLayoutGetWidth(inRow), drawn.reserved.x, 1.0f);
+        EXPECT_NEAR(YGNodeLayoutGetHeight(inRow), drawn.item.y, 1.0f);
+        EXPECT_NEAR(drawn.reserved.y, drawn.item.y, 1.0f) << "ImGui reserves the height it draws";
+        Publish({{0, {1}}, {1, {}}});
+
+        // In a column it is stretched across its parent.
+        Publish({{0, {1}}, {1, {2}}, {2, {3}}, {3, {}}}, {
+            Create(2, "node", {{"style", {{"width", 400}}}}), Create(3, "separator-text", props)});
+        xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative);
+        ASSERT_TRUE(xf->Render(900, 700));
+        const auto* inColumn = ElementAt(3)->m_layoutNode->m_node;
+        EXPECT_NEAR(YGNodeLayoutGetWidth(inColumn), 400.0f, 1.0f);
+        EXPECT_NEAR(YGNodeLayoutGetHeight(inColumn), drawn.item.y, 1.0f);
         Publish({{0, {1}}, {1, {}}});
     }
 }

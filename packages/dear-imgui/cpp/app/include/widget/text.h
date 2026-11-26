@@ -3,23 +3,35 @@
 class Text : public StyledWidget {
     public:
         std::string m_text;
+        // The width ImGui wrapped this text at when it was last drawn, or 0 when it did not wrap it.
+        float m_wrapWidth = 0.0f;
 
         Text(XFrames* view, int id, const std::string& text, std::optional<WidgetStyle>& style) : StyledWidget(view, id, style) {
             m_text = text;
         }
 
+        // The size ImGui draws the text at: as wide as its longest line and one line high per line,
+        // wrapped at the width it was last drawn with.
         static YGSize Measure(const YGNodeConstRef node, float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode) {
             YGSize size{};
             const auto context = YGNodeGetContext(node);
             if (context) {
                 const auto widget = static_cast<Text*>(context);
+                const float wrapWidth = widget->m_wrapWidth > 0.0f ? widget->m_wrapWidth : -1.0f;
+                const auto textSize = widget->m_view->CalcTextSize(widget, widget->m_text.c_str(), nullptr, false, wrapWidth);
 
-                size.width = widget->m_view->CalcTextSize(widget, widget->m_text.c_str()).x;
-                size.height = widget->m_view->GetWidgetFontSize(widget);
+                size.width = textSize.x;
+                size.height = textSize.y;
             }
 
             return size;
         }
+
+        // ImGui wraps text at the wrap position a text-wrap pushes, which is a position in the
+        // enclosing window, so the width it wraps at is known only where the text is drawn. Called
+        // just before drawing: when that width has changed, the text is measured again and laid out
+        // from the next frame.
+        void TrackWrapWidth(XFrames* view);
 
         void Patch(const json& widgetPatchDef, XFrames* view) override;
 
