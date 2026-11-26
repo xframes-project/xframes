@@ -178,6 +178,7 @@ void ValidateCommitProps(const std::string& type, const nlohmann::json& props, b
         }
     }
     GuardedInt(props, "clipRows", 0); GuardedInt(props, "numberOfLines", 1); GuardedInt(props, "initialSelectedIndex", -1);
+    GuardedInt(props, "selectedIndex", -1);
     GuardedInt(props, "minZoom", 0, 22); GuardedInt(props, "maxZoom", 0, 22);
     if (type == "multi-slider") {
         GuardedInt(props, "numValues", 2, 4); GuardedInt(props, "decimalDigits", 0, 9);

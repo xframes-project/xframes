@@ -23,6 +23,7 @@
 #include "widget/input_text.h"
 #include "widget/tree_node.h"
 #include "widget/checkbox.h"
+#include "widget/combo.h"
 #include "widget/text.h"
 
 using json = nlohmann::json;
@@ -961,6 +962,121 @@ TEST_F(CheckboxFrameTest, CheckboxCheckedWithoutEventsAppliedIsAProperty) {
     ASSERT_EQ(xf->ApplyCommit(Wire({{0, {1}}, {1, {}}}).dump()).status, "applied");
     Commit({Create(2, "checkbox", {{"label", "Other"}, {"defaultChecked", true}})}, std::nullopt);
     EXPECT_TRUE(Box()->m_checked);
+}
+
+namespace {
+// As the C library queues a combo change: the event is numbered for the element it names.
+std::vector<uint64_t> g_pickSequences;
+std::vector<int> g_pickedIndexes;
+void NotePick(int id, int index) { g_pickSequences.push_back(g_clickedView->NoteWidgetEvent(id)); g_pickedIndexes.push_back(index); }
+}
+
+class ComboFrameTest : public XFramesQueueTest {
+protected:
+    // The combo is 2, the only child of the root.
+    void Commit(std::initializer_list<json> operations, std::optional<uint64_t> events) {
+        auto wire = Wire({{0, {1}}, {1, {2}}, {2, {}}}, operations);
+        if (events) wire = Applied(wire, *events);
+        const auto result = xf->ApplyCommit(wire.dump());
+        ASSERT_EQ(result.status, "applied") << result.ToJson();
+    }
+    Combo* Box() { return static_cast<Combo*>(ElementAt(2)); }
+    void Frames(int count = 3) {
+        for (int i = 0; i < count; ++i) { xf->m_frameScheduler.Invalidate(xframes::FrameReason::Imperative); ASSERT_TRUE(xf->Render(900, 700)); }
+    }
+    void Click(ImVec2 at) {
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent(at.x, at.y); Frames(1);
+        io.AddMouseButtonEvent(0, true); Frames(1);
+        io.AddMouseButtonEvent(0, false); Frames(1);
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX); Frames();
+    }
+    // Opens the combo with a click on its frame, then clicks option n where ImGui draws it in the
+    // combo's popup: one line per option, the item spacing between them.
+    void Pick(int n) {
+        ImVec2 at(0, 0);
+        for (int id : {1, 2}) {
+            at.x += YGNodeLayoutGetLeft(ElementAt(id)->m_layoutNode->m_node);
+            at.y += YGNodeLayoutGetTop(ElementAt(id)->m_layoutNode->m_node);
+        }
+        Click(ImVec2(at.x + 10, at.y + ImGui::GetFrameHeight() / 2));
+        const ImGuiContext& g = *ImGui::GetCurrentContext();
+        ASSERT_FALSE(g.OpenPopupStack.empty()) << "the click opens the combo";
+        const ImGuiWindow* popup = g.OpenPopupStack.back().Window;
+        ASSERT_NE(popup, nullptr);
+        const auto start = popup->DC.CursorStartPos;
+        Click(ImVec2(start.x + 5, start.y + n * (g.FontSize + g.Style.ItemSpacing.y) + g.FontSize / 2));
+        EXPECT_TRUE(g.OpenPopupStack.empty()) << "picking an option closes the combo";
+    }
+    void SetUp() override {
+        XFramesQueueTest::SetUp();
+        g_clickedView = xf.get(); g_pickSequences.clear(); g_pickedIndexes.clear();
+        xf->m_onComboChange = NotePick;
+    }
+};
+
+// A controlled combo (ADR 0011 in xframes-core): picking an option is the user's edit. The combo
+// shows it until a commit says the application has seen the pick, and then shows the committed
+// selection, whether the application took the pick or not.
+TEST_F(ComboFrameTest, ControlledComboShowsAPickUntilTheApplicationHasSeenIt) {
+    const json options = {"Low", "Medium", "High"};
+    Commit({Create(2, "combo", {{"placeholder", "Quality"}, {"options", options}, {"selectedIndex", -1}})}, 0);
+    Frames();
+    EXPECT_EQ(Box()->m_selectedIndex, -1);
+    Pick(1);
+    ASSERT_EQ(g_pickSequences.size(), 1u) << "the pick is reported once";
+    EXPECT_EQ(g_pickedIndexes[0], 1);
+    EXPECT_EQ(Box()->m_selectedIndex, 1) << "the pick is shown at once";
+
+    // A commit built before the application saw the pick does not undo it.
+    Commit({Patch(2, {{"placeholder", "Detail"}, {"selectedIndex", -1}})}, g_pickSequences[0] - 1);
+    Frames();
+    EXPECT_EQ(Box()->m_selectedIndex, 1);
+    EXPECT_EQ(Box()->m_placeholder, "Detail");
+
+    // The application takes the pick.
+    Commit({Patch(2, {{"selectedIndex", 1}})}, g_pickSequences[0]);
+    Frames();
+    EXPECT_EQ(Box()->m_selectedIndex, 1);
+
+    // A second pick, which the application rejects: shown until the application has seen it, then
+    // the committed selection again although the commit carries no patch.
+    Pick(2);
+    ASSERT_EQ(g_pickSequences.size(), 2u);
+    EXPECT_EQ(g_pickedIndexes[1], 2);
+    EXPECT_EQ(Box()->m_selectedIndex, 2);
+    Commit({}, g_pickSequences[1]);
+    Frames();
+    EXPECT_EQ(Box()->m_selectedIndex, 1) << "a rejected pick is undone once the application has seen it";
+
+    // With no edit pending, the application's change is shown at once, back to the placeholder too.
+    Commit({Patch(2, {{"selectedIndex", 0}})}, g_pickSequences[1]);
+    EXPECT_EQ(Box()->m_selectedIndex, 0);
+    Commit({Patch(2, {{"selectedIndex", -1}})}, g_pickSequences[1]);
+    EXPECT_EQ(Box()->m_selectedIndex, -1);
+}
+
+// Without eventsApplied, selectedIndex set by props holds as a plain property: created and patched.
+TEST_F(ComboFrameTest, ComboSelectedIndexWithoutEventsAppliedIsAProperty) {
+    const json options = {"Low", "Medium", "High"};
+    Commit({Create(2, "combo", {{"options", options}, {"selectedIndex", 2}})}, std::nullopt);
+    EXPECT_EQ(Box()->m_selectedIndex, 2);
+    Commit({Patch(2, {{"selectedIndex", -1}})}, std::nullopt);
+    EXPECT_EQ(Box()->m_selectedIndex, -1);
+    EXPECT_TRUE(Box()->m_committedControlled.empty());
+    // initialSelectedIndex still seeds a combo created without selectedIndex.
+    ASSERT_EQ(xf->ApplyCommit(Wire({{0, {1}}, {1, {}}}).dump()).status, "applied");
+    Commit({Create(2, "combo", {{"options", options}, {"initialSelectedIndex", 1}})}, std::nullopt);
+    EXPECT_EQ(Box()->m_selectedIndex, 1);
+}
+
+// selectedIndex is an option's index, or -1 for none.
+TEST_F(XFramesQueueTest, ComboSelectedIndexMustBeAnIndexOrNone) {
+    for (const json bad : {json(-2), json(1.5), json("1"), json(true)}) {
+        SCOPED_TRACE(bad.dump());
+        auto wire = Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "combo", {{"options", {"a"}}, {"selectedIndex", bad}})});
+        EXPECT_EQ(xf->ApplyCommit(wire.dump()).status, "rejected");
+    }
 }
 
 namespace {

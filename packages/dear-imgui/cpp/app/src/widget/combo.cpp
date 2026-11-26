@@ -44,6 +44,10 @@ void Combo::Patch(const json& widgetPatchDef, XFrames* view) {
     if (widgetPatchDef.contains("initialSelectedIndex") && widgetPatchDef["initialSelectedIndex"].is_number()) {
         m_selectedIndex = widgetPatchDef["initialSelectedIndex"].template get<int>();
     }
+
+    if (widgetPatchDef.contains("selectedIndex") && widgetPatchDef["selectedIndex"].is_number_integer()) {
+        m_selectedIndex = widgetPatchDef["selectedIndex"].template get<int>();
+    }
 };
 
 bool Combo::HasInternalOps() {

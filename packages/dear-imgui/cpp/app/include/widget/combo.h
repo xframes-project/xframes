@@ -19,8 +19,10 @@ class Combo final : public StyledWidget {
 
         static std::unique_ptr<Combo> makeWidget(const json& widgetDef, std::optional<WidgetStyle> maybeStyle, XFrames* view) {
             const auto id = widgetDef["id"].template get<int>();
-            const auto initialSelectedIndex = widgetDef.contains("initialSelectedIndex") && widgetDef["initialSelectedIndex"].is_number()
-                ? widgetDef["initialSelectedIndex"].template get<int>()
+            // selectedIndex is the application's selection; initialSelectedIndex only seeds a combo without one.
+            const auto selectedKey = widgetDef.contains("selectedIndex") && widgetDef["selectedIndex"].is_number_integer() ? "selectedIndex" : "initialSelectedIndex";
+            const auto initialSelectedIndex = widgetDef.contains(selectedKey) && widgetDef[selectedKey].is_number()
+                ? widgetDef[selectedKey].template get<int>()
                 : -1;
             const auto placeholder = widgetDef.contains("placeholder") ? widgetDef["placeholder"].template get<std::string>() : "";
 
@@ -90,6 +92,17 @@ class Combo final : public StyledWidget {
         bool HasInternalOps() override;
 
         void HandleInternalOp(const json& opDef) override;
+
+        // Under controlled values picking an option is the user's edit: the combo shows the pick,
+        // and the committed selection returns once the application has seen it.
+        const std::vector<std::string>& ControlledProps() const override {
+            static const std::vector<std::string> props = {"selectedIndex"};
+            return props;
+        }
+
+        void ApplyControlled(const json& values) override {
+            if (values.contains("selectedIndex") && values["selectedIndex"].is_number_integer()) m_selectedIndex = values["selectedIndex"].template get<int>();
+        }
 
         void Init(const json& elementDef) override {
             Element::Init(elementDef);
