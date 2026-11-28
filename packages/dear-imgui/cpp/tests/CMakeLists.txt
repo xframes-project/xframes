@@ -208,7 +208,11 @@ add_executable(Google_Tests_run
         styled_widget_test.cpp
         element/layout_node_test.cpp
         element/element_test.cpp
-        xframes_test.cpp
+        xframes_publication_test.cpp
+        xframes_controlled_values_test.cpp
+        xframes_layout_test.cpp
+        xframes_lifetime_test.cpp
+        imgui_activity_test.cpp
         frame_scheduler_test.cpp
         screenshot_writer_test.cpp
         quickjs_test.cpp
