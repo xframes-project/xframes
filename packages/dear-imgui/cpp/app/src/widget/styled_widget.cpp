@@ -271,16 +271,17 @@ WidgetStyleParts extractStyleParts(const json& styleDef, XFrames* view) {
     if (styleDef.contains("vars") && styleDef["vars"].is_object()) {
         StyleVars styleVars;
 
+        // Commit validation accepts any finite number, and ImGui's style variables are floats.
         for (auto& [key, item] : styleDef["vars"].items()) {
             StyleVarValue value;
 
             if (item.is_array() && item.size() == 2
-                 && item[0].is_number_unsigned() && item[1].is_number_unsigned()) { // ImVec2
+                 && item[0].is_number() && item[1].is_number()) { // ImVec2
                 value = ImVec2(
                     item[0].template get<float>(),
                     item[1].template get<float>()
                 );
-            } else if (item.is_number_unsigned()) { // float
+            } else if (item.is_number()) { // float
                 value = item.template get<float>();
             }
 

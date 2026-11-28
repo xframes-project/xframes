@@ -1098,10 +1098,35 @@ Drawn DrawnByImGui(const std::function<void()>& draw, std::optional<std::pair<Im
     return drawn;
 }
 
-// A style that sets one vector style variable. The style parser keeps one only as unsigned integers.
+// A style that sets one vector style variable, sent as floats as a serializer that keeps floats does.
 json StyleWithVar(ImGuiStyleVar var, ImVec2 value) {
-    return {{"vars", {{std::to_string(var), json::array({unsigned(value.x), unsigned(value.y)})}}}};
+    return {{"vars", {{std::to_string(var), json::array({double(value.x), double(value.y)})}}}};
 }
+}
+
+// A commit's style variable may be any finite number or pair of them, and ImGui's style variables
+// are floats. The widget must keep every value the commit accepts: a fractional or negative one, and
+// a whole one that a serializer sends as a float.
+TEST_F(XFramesQueueTest, WidgetKeepsEveryStyleVarValueACommitAccepts) {
+    const auto var = [](ImGuiStyleVar key) { return std::to_string(key); };
+    const json vars = {{var(ImGuiStyleVar_Alpha), 0.5}, {var(ImGuiStyleVar_FrameRounding), -2},
+        {var(ImGuiStyleVar_FramePadding), json::array({11.0, 7.0})},
+        {var(ImGuiStyleVar_ItemSpacing), json::array({-1, 4.5})}};
+    Publish({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "unformatted-text", {{"text", "Encrypt"}, {"style", {{"vars", vars}}}})});
+    const auto* widget = dynamic_cast<StyledWidget*>(ElementAt(2));
+    ASSERT_TRUE(widget && widget->m_style && widget->m_style.value()->maybeBase);
+    const auto& parts = widget->m_style.value()->maybeBase.value();
+    ASSERT_TRUE(parts.maybeStyleVars);
+    const auto& kept = parts.maybeStyleVars.value();
+    ASSERT_EQ(kept.size(), 4);
+    EXPECT_FLOAT_EQ(std::get<float>(kept.at(ImGuiStyleVar_Alpha)), 0.5f);
+    EXPECT_FLOAT_EQ(std::get<float>(kept.at(ImGuiStyleVar_FrameRounding)), -2.0f);
+    const auto padding = std::get<ImVec2>(kept.at(ImGuiStyleVar_FramePadding));
+    EXPECT_FLOAT_EQ(padding.x, 11.0f);
+    EXPECT_FLOAT_EQ(padding.y, 7.0f);
+    const auto spacing = std::get<ImVec2>(kept.at(ImGuiStyleVar_ItemSpacing));
+    EXPECT_FLOAT_EQ(spacing.x, -1.0f);
+    EXPECT_FLOAT_EQ(spacing.y, 4.5f);
 }
 
 // ImGui draws a bullet text with the bullet and twice the frame padding before its text, and an
