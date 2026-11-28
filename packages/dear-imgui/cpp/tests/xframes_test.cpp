@@ -255,6 +255,15 @@ TEST_F(XFramesTest, PublicationValidatesEntireCandidateBeforeApplyingAPrefix) {
     for (const auto& [operation, code] : invalid)
         Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2), Patch(1, {{"style", {{"width", 123}}}}), operation}), code, 2);
 }
+// ImGui pushes a style variable only in its own shape, one float or a pair, and a widget pops as
+// many as it holds, so a value of the wrong shape would pop a variable the widget never pushed.
+TEST_F(XFramesTest, PublicationRejectsAStyleVarOfTheWrongShape) {
+    Publish({{0, {1}}, {1, {}}}, {Create(1)});
+    const auto style = [](ImGuiStyleVar var, json value) { return json{{"vars", {{std::to_string(var), value}}}}; };
+    for (const auto& family : {"style", "hoverStyle"})
+        for (const auto& value : {style(ImGuiStyleVar_FramePadding, 4), style(ImGuiStyleVar_Alpha, json::array({0.5, 0.5}))})
+            Reject(Wire({{0, {1}}, {1, {2}}, {2, {}}}, {Create(2, "node", {{family, value}})}), "invalid_props", 0);
+}
 TEST_F(XFramesTest, PublicationRequiresOneAssignmentForEveryFinalNode) {
     Reject(Wire({{0, {1}}}, {Create(1)}), "missing_children");
     Reject(Wire({{0, {1}}, {1, {}}}, {Create(1), Children(1, {})}), "duplicate_assignment", 2);

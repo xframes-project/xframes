@@ -1,6 +1,7 @@
 #include "commit.h"
 #include "ada.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include <charconv>
 #include <cmath>
 #include <limits>
@@ -83,10 +84,12 @@ void Style(const json& style) {
     if (style.contains("vars") && !style["vars"].is_null()) {
         Check(style["vars"].is_object(), "vars");
         for (auto it = style["vars"].begin(); it != style["vars"].end(); ++it) {
-            NumericKey(it.key(), ImGuiStyleVar_COUNT);
-            if (it.value().is_null()) continue;
-            Check(Number(it.value()) || (it.value().is_array() && it.value().size() == 2 &&
-                Number(it.value()[0]) && Number(it.value()[1])), "vars");
+            const auto var = NumericKey(it.key(), ImGuiStyleVar_COUNT);
+            const auto& value = it.value();
+            if (value.is_null()) continue;
+            // ImGui pushes a variable only in its own shape, and a widget pops as many as it holds.
+            if (ImGui::GetStyleVarInfo(var)->Count == 1) Check(Number(value), "vars");
+            else Check(value.is_array() && value.size() == 2 && Number(value[0]) && Number(value[1]), "vars");
         }
     }
 }
